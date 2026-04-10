@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 0.2 心态建设 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 0 · 环境与心态</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+
+            <li class="unit-title">Unit 0 正式页面</li>
+            <li><a href="./ch0.1_toolchain.html">0.1 工具链</a></li>
+            <li><a href="./ch0.2_mindset.html" class="active">0.2 心态建设</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">接受前陡后缓的学习曲线</a></li>
+            <li><a href="#kp-2">把编译器当老师</a></li>
+            <li><a href="#kp-3">预期 ownership 挫败感</a></li>
+            <li><a href="#kp-4">建立 cargo 反馈循环</a></li>
+            <li><a href="#kp-5">少用 clone，多想借用</a></li>
+            <li><a href="#summary">章节总结</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 0 · 环境与心态</span>
+            <h1>Ch 0.2 心态建设</h1>
+            <p class="chapter-description">
+                Rust 的难点不只在语法，而在它会持续逼你解释“谁拥有数据、谁只借用、什么时候释放”。
+                本章的目标不是让你少犯错，而是帮你把这些错误变成可重复利用的学习反馈循环。
+            </p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 Rust 学习曲线为什么常常是“前期陡、后期稳”</li>
+                <li>建立“编译器是老师，不是敌人”的阅读报错方式</li>
+                <li>提前预期所有权与借用阶段的正常挫败感</li>
+                <li>形成 <code>cargo check</code> / <code>cargo test</code> / <code>cargo clippy</code> 的迭代工作流</li>
+                <li>遇到 borrow checker 时优先重画数据流，而不是立刻堆 <code>clone()</code></li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>
+                建议你已经完成 Ch 0.1，对 rustup、cargo、clippy 和基本项目结构有印象。
+                本章不要求你彻底掌握 ownership；相反，它会告诉你在还没掌握时，应该如何练习和排错。
+            </p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>0.2.1 Rust 的学习曲线为什么会“前陡后缓”？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么很多语言都能先“写着跑起来”，Rust 却常常在很早阶段就要求你回答所有权、借用和生命周期问题？</p>
+            </div>
+            <p>
+                Rust 把很多原本可能在运行期暴露的问题，提前挪到了编译期。你感受到的“难”，很多时候不是语法更复杂，
+                而是语言要求你更早表达资源关系。前期会慢，是因为你在补一套别的语言经常推迟处理的工程约束。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式理解：</strong> Rust 的学习曲线通常是前期投入较大，因为编译器会尽早要求程序员明确数据所有权、可变性和作用域边界。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
+                <pre><code>fn print_name(name: &str) {
+    println!("hello, {name}");
+}
+
+fn main() {
+    let name = String::from("Ferris");
+    print_name(&name);
+    println!("still usable: {name}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>hello, Ferris
+still usable: Ferris</pre>
+                </div>
+            </div>
+            <p>这段代码说明：一旦你开始主动区分“只读借用”和“转移所有权”，Rust 反而会让后续行为更可预测。</p>
+            <div class="quick-quiz" data-answer="B" data-explanation="Rust 的前期阻力主要来自更早暴露资源与作用域规则，而不是单纯为了制造难度。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>Rust 初学阶段常见的“卡住感”最准确的来源是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0m-q1" value="A"> A. 只是因为关键字更多</label>
+                    <label><input type="radio" name="u0m-q1" value="B"> B. 编译器更早要求你说明资源关系</label>
+                    <label><input type="radio" name="u0m-q1" value="C"> C. Rust 不能写小程序</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>0.2.2 把编译器当老师：先读规则，再读情绪</h2>
+            <div class="think-box">
+                <div class="think-icon">🧭</div>
+                <p>看到一大段红字时，你是先紧张，还是先定位“谁被 move 了、谁借用冲突了、编译器建议了什么”？</p>
+            </div>
+            <p>
+                Rust 编译器最有价值的地方，是它往往不仅指出错误，还会告诉你被违反的规则和可能的修改方向。
+                真正有效的习惯不是“背所有错误码”，而是用固定顺序读：主错误句 → 标注位置 → help / note。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> 报错输出首先回答的是“哪条语言规则被破坏”，不是“你这个人不适合学 Rust”。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>borrow_error.rs</span></div>
+                <pre><code>fn main() {
+    let text = String::from("rust");
+    let moved = text;
+    println!("{}", text);
+    println!("{}", moved);
+}</code></pre>
+                <div class="code-output">
+                    <strong>你应该先读到的重点</strong>
+                    <pre>error[E0382]: borrow of moved value: `text`
+help: consider borrowing or cloning if ownership should not move
+
+重点不是 println! 坏了，
+而是 text 的所有权已经转移。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：看到 borrow checker 错误时，先问自己的 3 个问题</button>
+                <div class="collapsible-content">
+                    1）谁拥有这份数据？ 2）当前这段代码只是读取，还是需要修改？ 3）这个值之后还要不要继续使用？
+                    这三个问题通常能直接缩小修复方向。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="先找主错误句和规则，能避免被连锁报错和情绪带跑偏。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>读 Rust 报错时，最稳妥的第一步是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0m-q2" value="A"> A. 立刻复制整段红字去搜索</label>
+                    <label><input type="radio" name="u0m-q2" value="B"> B. 先怀疑 rustup 安装坏了</label>
+                    <label><input type="radio" name="u0m-q2" value="C"> C. 先定位主错误句和被违反的规则</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>0.2.3 对 ownership 挫败感要有正常预期</h2>
+            <div class="think-box">
+                <div class="think-icon">🪨</div>
+                <p>为什么你明明“知道自己想做什么”，编译器却一直说不能同时借用、不能再次使用、生命周期不够长？</p>
+            </div>
+            <p>
+                这是 Rust 初学阶段最正常的体验之一。你脑中也许已经有业务流程，但编译器还在要求你把数据流说清楚。
+                尤其进入 ownership / borrowing 阶段时，挫败感往往意味着：你的需求没错，只是表达方式还没对齐 Rust 的资源模型。
+            </p>
+            <div class="note-box warning">
+                <p><strong>重要预期：</strong> 连续几天反复遇到 move、borrow、lifetime 报错，并不代表你“学不会”；这正是 Rust 把隐性工程问题显式化的过程。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>mutable_borrow.rs</span></div>
+                <pre><code>fn main() {
+    let mut msg = String::from("hi");
+    let first = &msg;
+    let second = &mut msg;
+    println!("{first} {second}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>你该得到的直觉</strong>
+                    <pre>这里会报借用冲突。
+不是因为 String 特殊，
+而是同一时刻你要求了“只读视角”和“独占可变视角”。</pre>
+                </div>
+            </div>
+            <p>把这类报错看成“模型不一致提示”会更有效：你需要决定当前阶段到底是读，还是改，而不是要求编译器同时允许两种互斥视角。</p>
+            <div class="quick-quiz" data-answer="A" data-explanation="Borrow checker 拒绝的是互斥规则冲突，不是在否定你的业务目标。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>遇到借用冲突时，更合理的心态是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0m-q3" value="A"> A. 先重画“读/改/拥有”的关系，再改代码</label>
+                    <label><input type="radio" name="u0m-q3" value="B"> B. 立即判断 Rust 不适合该问题</label>
+                    <label><input type="radio" name="u0m-q3" value="C"> C. 先把所有变量都改成全局变量</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>0.2.4 用 cargo 建立小步快跑的反馈循环</h2>
+            <div class="think-box">
+                <div class="think-icon">🔁</div>
+                <p>如果你总是写一大坨再一次性编译，Rust 的报错会不会显得特别“难收拾”？</p>
+            </div>
+            <p>
+                很多 Rust 学习挫败来自迭代粒度太大。更实用的做法是：功能没写完前先跑 <code>cargo check</code> 看类型与借用，
+                行为有预期后跑 <code>cargo test</code>，代码能工作后再用 <code>cargo clippy</code> 清理惯用法问题。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式工作流：</strong> <code>cargo check</code> 解决“能否通过规则检查”，<code>cargo test</code> 解决“行为是否正确”，<code>cargo clippy</code> 解决“写法是否更 Rusty”。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/lib.rs</span></div>
+                <pre><code>pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::add;
+
+    #[test]
+    fn adds_numbers() {
+        assert_eq!(add(2, 3), 5);
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>建议循环</strong>
+                    <pre>cargo check   # 先看编译与借用
+cargo test    # 再看行为是否符合预期
+cargo clippy  # 最后清理惯用法与潜在坏味道</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么学习阶段也应该早点写测试？</button>
+                <div class="collapsible-content">
+                    因为 Rust 报错解决后，不代表逻辑一定正确。测试把“编译通过”和“行为正确”拆开，让你知道自己卡在哪一层。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="cargo check 更快，适合频繁查看类型和借用反馈；test 与 clippy 负责另外两层验证。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>刚改完函数签名，想尽快确认借用和类型关系有没有通过，最适合先跑什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0m-q4" value="A"> A. cargo clean</label>
+                    <label><input type="radio" name="u0m-q4" value="B"> B. cargo check</label>
+                    <label><input type="radio" name="u0m-q4" value="C"> C. 直接发布 release</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>0.2.5 少用 clone：先判断是不是只需要借用</h2>
+            <div class="think-box">
+                <div class="think-icon">🧪</div>
+                <p>编译器提示可以 <code>clone()</code> 时，你是真的需要一份独立副本，还是只是想绕过当前的所有权设计？</p>
+            </div>
+            <p>
+                <code>clone()</code> 当然合法，也经常有用；问题在于新手容易把它当“消灭报错按钮”。
+                更好的学习习惯是先问：这段代码到底要“拥有”数据，还是只要“读一下”？如果只是读，很多时候传 <code>&amp;str</code>、<code>&amp;String</code>、<code>&amp;T</code> 就够了。
+            </p>
+            <div class="note-box warning">
+                <p><strong>正式规则：</strong> 只有当你确实需要一份独立拥有的副本时再 <code>clone()</code>；如果只是读取、格式化、检查长度、做匹配，通常应优先考虑借用。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>borrow_instead_of_clone.rs</span></div>
+                <pre><code>fn print_uppercase(name: &str) {
+    println!("{}", name.to_uppercase());
+}
+
+fn main() {
+    let name = String::from("ferris");
+    print_uppercase(&name);
+    println!("original: {name}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>FERRIS
+original: ferris</pre>
+                </div>
+            </div>
+            <p>这里没有必要先写 <code>let copy = name.clone();</code>，因为函数只是读取名字并打印变换结果，没有接管 ownership。</p>
+            <div class="quick-quiz" data-answer="C" data-explanation="如果函数只读数据，优先借用能保留原值可用性，也更符合 Rust 的数据流表达。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>下面哪种情况最值得优先考虑借用而不是 clone？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0m-q5" value="A"> A. 你要把数据存进新的长期结构里独立拥有</label>
+                    <label><input type="radio" name="u0m-q5" value="B"> B. 你要把值移动到另一个线程并长期持有</label>
+                    <label><input type="radio" name="u0m-q5" value="C"> C. 你只是读取、打印或计算长度</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>Rust 的早期学习阻力，很多来自它把资源规则提前暴露，而不是因为你“不适合”。</li>
+                <li>编译器报错应该被当成规则提示：先读主错误句，再决定是改所有权、借用还是作用域。</li>
+                <li>ownership / borrowing 阶段出现挫败感很正常，关键是把它转成数据流重构问题。</li>
+                <li><code>cargo check → cargo test → cargo clippy</code> 是非常适合新手的小步反馈循环。</li>
+                <li><code>clone()</code> 是明确语义工具，不该成为逃避 borrow checker 的默认动作。</li>
+            </ul>
+        </section>
+
+        <section class="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 用你自己的话解释为什么 Rust 的“前期陡”并不等于它整体更低效，并写出一个你准备坚持的排错阅读顺序。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个最小示例，先触发一次 <code>borrow of moved value</code>，再改成借用版本，并说明你改变了哪条数据流。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 给一个你最近写过的函数做微重构：把“先 <code>clone()</code> 再传参”的写法改成借用，并说明这样是否改变了 API 语义。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 为一个小项目制定 15 分钟迭代节奏：每个时间片分别安排 <code>cargo check</code>、<code>cargo test</code>、<code>cargo clippy</code> 在什么时机执行，并解释原因。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html">The Rust Programming Language · Understanding Ownership</a></li>
+                <li><a href="https://doc.rust-lang.org/book/ch08-02-strings.html">The Rust Programming Language · Strings</a></li>
+                <li><a href="https://doc.rust-lang.org/book/ch11-00-testing.html">The Rust Programming Language · Writing Automated Tests</a></li>
+                <li><a href="https://rust-lang.github.io/rust-clippy/master/">The Clippy Book</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

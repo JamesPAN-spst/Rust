@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 4.3 异步生态 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 4 · 并发与异步</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit3_std_projects/ch3.6_project_practice.html">上一单元：实战项目</a></li>
+
+            <li class="unit-title">Unit 4 正式页面</li>
+            <li><a href="./ch4.1_threads.html">4.1 线程并发</a></li>
+            <li><a href="./ch4.2_async_programming.html">4.2 异步编程</a></li>
+            <li><a href="./ch4.3_async_ecosystem.html" class="active">4.3 异步生态</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">Tokio-like 生态分层</a></li>
+            <li><a href="#kp-2">async trait 的现实情况</a></li>
+            <li><a href="#kp-3">取消与 backpressure</a></li>
+            <li><a href="#kp-4">何时选同步，何时选异步</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 4 · 并发与异步</span>
+            <h1>Ch 4.3 异步生态</h1>
+            <p class="chapter-description">学会 async 语法只是第一步。真正做项目时，你会面对运行时、网络栈、数据库驱动、取消语义、背压控制和 API 设计取舍。本章帮助你建立生态视角，而不是只记某个库的调用方式。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 Tokio-like 异步生态通常由哪些层组成</li>
+                <li>知道 async trait 设计为何仍有现实 caveat，如何保持 API 判断力</li>
+                <li>建立对取消、超时、背压的基础直觉</li>
+                <li>能根据负载类型、库生态和维护成本判断同步或异步方案</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先完成线程并发与异步编程两章。本章默认你已经知道 Future、executor、await 的基本直觉，现在要把这些概念映射到实际生态与工程选型上。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>4.3.1 Tokio-like 异步生态通常分成哪几层？</h2>
+            <div class="think-box">
+                <div class="think-icon">🗺️</div>
+                <p>项目里说“我们用 Tokio”，到底是在说一个库、一个运行时，还是整套异步基础设施？</p>
+            </div>
+            <p>现实中的异步生态通常是分层的：最底层是 Future / Pin / Waker 这类语言与标准库抽象；再往上是 runtime / executor；再上面是网络、时间、同步原语、任务管理；最外层则是 HTTP、数据库、消息队列等应用框架和驱动。</p>
+            <div class="note-box tip">
+                <p><strong>实战直觉：</strong>Tokio 更像“运行时 + 常用基础设施平台”，而不是只提供一个 <code>.await</code> 语法糖。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>生态分层</span><span>mental_model.txt</span></div>
+                <pre><code>语言层：async / await, Future
+运行时层：executor, timer, I/O driver
+基础设施层：task spawning, async sync primitives, channels
+应用层：HTTP server, database client, gRPC, queues</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>写业务时你常直接碰到应用层；
+排查性能和阻塞问题时则会一路追到运行时层。</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="Tokio-like 生态不是单个 API，而是一整套运行时和基础设施，供上层网络与应用库构建。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>对 Tokio-like 生态最准确的理解是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-3-q1" value="A"> A. 只是把同步代码改成 async 语法的格式化工具</label>
+                    <label><input type="radio" name="u4-3-q1" value="B"> B. 是运行时和异步基础设施的组合平台</label>
+                    <label><input type="radio" name="u4-3-q1" value="C"> C. 只负责数据库连接池，和任务调度无关</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>4.3.2 async trait 为什么总让人觉得“有一点绕”？</h2>
+            <div class="think-box">
+                <div class="think-icon">🧵</div>
+                <p>既然 async fn 很自然，为什么一进 trait 设计就开始冒出 boxing、宏、对象安全这些词？</p>
+            </div>
+            <p>async fn 背后会生成一个具体但匿名的 Future 类型，而 trait 方法需要在接口层表达返回类型。现实项目里经常借助关联类型、<code>Pin&lt;Box&lt;dyn Future&lt;...&gt;&gt;&gt;</code> 或宏方案来桥接，这会带来分配、对象安全或可读性上的权衡。</p>
+            <div class="note-box warning">
+                <p><strong>设计重点：</strong>async trait 不是不能用，而是要明确自己是在追求零成本静态分发、接口稳定性，还是快速统一多实现的工程便利。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>async_trait_shape.rs</span></div>
+                <pre><code>use std::future::Future;
+use std::pin::Pin;
+
+trait Loader {
+    fn load(&self) -> Pin&lt;Box&lt;dyn Future&lt;Output = String&gt; + Send + '_&gt;&gt;;
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>这类签名能工作，但可读性和分配成本
+都值得在设计时主动权衡。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：工程里该怎么保持判断力？</button>
+                <div class="collapsible-content">先问接口是否真的需要 trait 抽象。如果只有一两个实现，直接具体类型或泛型往往更简单；只有在插件化、多后端或测试替身需求明确时，再承受 async trait 的复杂度更划算。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="难点在于 async fn 返回的是匿名 Future，而 trait 接口层必须把返回类型与分发方式表达清楚。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>async trait 设计复杂的根本原因更接近哪项？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-3-q2" value="A"> A. 因为 trait 不能包含任何方法</label>
+                    <label><input type="radio" name="u4-3-q2" value="B"> B. 因为 async 代码不能返回值</label>
+                    <label><input type="radio" name="u4-3-q2" value="C"> C. 因为接口层需要表达匿名 Future 的返回与分发方式</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>4.3.3 取消、超时与 backpressure：异步系统不是“无限接活”</h2>
+            <div class="think-box">
+                <div class="think-icon">🌊</div>
+                <p>如果请求来得比处理速度快，会发生什么？如果调用方已经不关心结果了，还要继续把任务跑完吗？</p>
+            </div>
+            <p>异步系统的难点之一是任务数量很容易暴涨，所以必须有取消、超时和背压控制。取消让不再需要的工作尽快停下；超时避免永远等待；backpressure 则是在生产速度高于消费速度时主动施加限制，而不是让队列无边界膨胀。</p>
+            <div class="note-box tip">
+                <p><strong>工程直觉：</strong>吞吐不是“接得越多越好”，而是“系统在压力上升时仍能以可控方式退化”。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>backpressure_intuition.rs</span></div>
+                <pre><code>// 伪代码：限制并发和等待时间
+// semaphore.acquire().await?;
+// timeout(Duration::from_secs(2), handle_request()).await?;
+// bounded_channel.send(job).await?;</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>限制并发、加超时、使用有界队列，
+都是常见的背压与取消策略。</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="backpressure 的重点是让上游感受到系统容量边界，避免任务无限堆积导致延迟和内存一起失控。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪项最贴近 backpressure 的目的？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-3-q3" value="A"> A. 当处理不过来时限制输入或并发，避免系统失控</label>
+                    <label><input type="radio" name="u4-3-q3" value="B"> B. 确保所有请求都无限期排队等待</label>
+                    <label><input type="radio" name="u4-3-q3" value="C"> C. 让任务自动升级成更高优先级线程</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>4.3.4 什么时候该选同步，什么时候该选异步？</h2>
+            <div class="think-box">
+                <div class="think-icon">⚖️</div>
+                <p>既然异步听起来吞吐更高，为什么很多 CLI、小工具甚至一部分后端服务仍然坚持同步写法？</p>
+            </div>
+            <p>异步最值得投入的场景，是高并发 I/O、连接数多、等待时间长、生态成熟且团队能驾驭运行时复杂度。若程序规模小、并发需求有限、依赖 mostly blocking、或主要瓶颈在 CPU，同步代码往往更简单、更直接，也更容易调试。</p>
+            <div class="note-box warning">
+                <p><strong>选型原则：</strong>先看负载模型和依赖生态，再看团队维护成本；不要因为“async 看起来先进”就无条件全盘切换。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>选型清单</span><span>sync_vs_async.txt</span></div>
+                <pre><code>偏向同步：
+- CLI、批处理、小型服务
+- CPU 密集或阻塞库很多
+- 并发规模有限，代码简单最重要
+
+偏向异步：
+- 高并发网络 I/O
+- 连接数大，等待时间长
+- 需要在少量线程上管理大量任务</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>架构选择不是站队；
+而是看工作负载和系统约束。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：一个常见误区</button>
+                <div class="collapsible-content">“性能敏感 = 一定要 async” 是误区。若瓶颈是 CPU 算法、序列化或压缩，线程、SIMD、批处理策略可能比 async 更关键。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="异步的投入要有收益前提：高并发 I/O、等待时间多、生态成熟。否则同步方案可能更省心。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪类场景通常更值得优先考虑异步方案？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-3-q4" value="A"> A. 单机 CPU 密集图像渲染，几乎没有 I/O 等待</label>
+                    <label><input type="radio" name="u4-3-q4" value="B"> B. 高并发网络服务，需要管理大量同时等待的连接</label>
+                    <label><input type="radio" name="u4-3-q4" value="C"> C. 只有几十行代码的本地脚本，且依赖都是同步库</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>Tokio-like 生态是分层的：语言抽象、运行时、基础设施和应用库共同组成项目体验。</li>
+                <li>async trait 的难点主要来自匿名 Future 的接口表达与分发权衡。</li>
+                <li>取消、超时和 backpressure 是异步系统可靠性的关键，而不是附加功能。</li>
+                <li>同步还是异步要看负载类型、依赖生态和团队维护成本，不是单纯追新。</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 用自己的话描述 Tokio-like 异步生态的至少三层组成。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 解释为什么“bounded channel”比“无限队列”更能体现 backpressure 思维。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 假设你要为一个仓储系统抽象“订单存储接口”，说明什么时候值得为它承担 async trait 的复杂度。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 为一个新的 Rust 服务写选型说明：它有大量数据库等待、少量 CPU 计算、并需支持超时与限流。说明为什么你会选 async 或同步，并列出风险。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://tokio.rs/">Tokio 官方站点</a></li>
+                <li><a href="https://rust-lang.github.io/async-book/07_workarounds/05_async_in_traits.html">Async Book · async in traits</a></li>
+                <li><a href="https://docs.rs/tokio/latest/tokio/sync/index.html">Tokio Sync 模块文档</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

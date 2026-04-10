@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 4.2 异步编程 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 4 · 并发与异步</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit3_std_projects/ch3.6_project_practice.html">上一单元：实战项目</a></li>
+
+            <li class="unit-title">Unit 4 正式页面</li>
+            <li><a href="./ch4.1_threads.html">4.1 线程并发</a></li>
+            <li><a href="./ch4.2_async_programming.html" class="active">4.2 异步编程</a></li>
+            <li><a href="./ch4.3_async_ecosystem.html">4.3 异步生态</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">async / await 的心智模型</a></li>
+            <li><a href="#kp-2">Future 为什么要被 poll</a></li>
+            <li><a href="#kp-3">executor 在做什么</a></li>
+            <li><a href="#kp-4">避免阻塞 async 任务</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 4 · 并发与异步</span>
+            <h1>Ch 4.2 异步编程</h1>
+            <p class="chapter-description">异步最容易被误解成“更快的线程”。这一章的目标不是背 API，而是建立 async/await 的工作直觉：Future 是什么、为什么需要 executor、以及为什么在 async 代码里阻塞线程会伤害整个系统。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 async/await 表达的是“可暂停的任务”，而不是自动创建线程</li>
+                <li>建立对 <code>Future</code>、poll、wake 的基础直觉</li>
+                <li>理解 executor 如何调度大量异步任务</li>
+                <li>知道为什么 async 任务里应避免阻塞调用，并能做出基本选型</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先完成线程并发章节，并熟悉函数、闭包和 Result。若还把“等待”理解成“线程空转卡住”，会很难真正理解 Future 为什么能在少量线程上承载大量 I/O 任务。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>4.2.1 async / await：把“等待中的任务”写得像顺序代码</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>网络请求的大部分时间都在等对端回应，为什么还要一直占着一个线程什么也不做？</p>
+            </div>
+            <p>async 函数会返回一个 Future。它描述的是“这项工作最终会产出一个结果”，中间遇到等待点时可以先把执行权交出去，等条件满足后再继续。因此 async/await 的核心收益是复用等待时间，而不是凭空制造更多 CPU。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong><code>async fn</code> 调用后不会立刻执行到底，而是生成一个 Future；只有被运行时驱动时，这个 Future 才会逐步推进。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>async_shape.rs</span></div>
+                <pre><code>async fn fetch_label() -&gt; String {
+    String::from("ready")
+}
+
+async fn show() {
+    let label = fetch_label().await;
+    println!("{label}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>调用 fetch_label() 得到的是 Future；
+await 代表“等它准备好后再继续”。</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="async fn 的直接返回值是 Future；真正执行需要由运行时或 executor 来推进。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>调用一个 <code>async fn</code> 时，立即拿到的通常是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-2-q1" value="A"> A. 已经完成的最终结果</label>
+                    <label><input type="radio" name="u4-2-q1" value="B"> B. 一个表示未来结果的 Future</label>
+                    <label><input type="radio" name="u4-2-q1" value="C"> C. 一个新操作系统线程</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>4.2.2 Future 为什么要被 poll？</h2>
+            <div class="think-box">
+                <div class="think-icon">🔄</div>
+                <p>如果 Future 还没准备好结果，它是怎么告诉系统“我现在先停一下，以后再叫我”的？</p>
+            </div>
+            <p>Rust 的 Future 是惰性的：它自己不会偷偷在后台跑。executor 会调用 <code>poll</code> 推进它一步；如果还没完成，Future 返回 <code>Poll::Pending</code>，并约定在条件满足时通过 waker 再次通知 executor。</p>
+            <div class="note-box warning">
+                <p><strong>心智模型：</strong>把 Future 想成一个“可恢复的状态机”。每次 poll 都是在问：“你现在能继续做一点吗？”</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>future_poll_intuition.rs</span></div>
+                <pre><code>use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+struct OneShot(bool);
+
+impl Future for OneShot {
+    type Output = &'static str;
+
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.0 {
+            Poll::Ready("done")
+        } else {
+            self.0 = true;
+            Poll::Pending
+        }
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>第一次 poll 返回 Pending；
+下一次再 poll，状态变成 Ready。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么 Future 默认设计成惰性？</button>
+                <div class="collapsible-content">因为这样调度权掌握在 executor 手里。Future 只描述任务逻辑，不强行决定在哪里、何时、以什么策略运行。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="Future 返回 Pending 代表现在还不能完成，需要由外部调度器在适当时机再次 poll。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p><code>Poll::Pending</code> 最准确的含义是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-2-q2" value="A"> A. 任务暂时不能完成，之后应被再次 poll</label>
+                    <label><input type="radio" name="u4-2-q2" value="B"> B. 任务已经失败，不能恢复</label>
+                    <label><input type="radio" name="u4-2-q2" value="C"> C. 任务已经在独立线程中自动完成</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>4.2.3 executor：谁在管理这么多 Future？</h2>
+            <div class="think-box">
+                <div class="think-icon">🧩</div>
+                <p>如果 async 任务自己不会跑，那到底是谁负责不停 poll、登记 wake、安排先后顺序？</p>
+            </div>
+            <p>这就是 executor 的职责。它维护一批待运行的任务，并在它们可继续执行时进行 poll。你可以把 executor 看成“异步任务调度器”，而运行时 runtime 则通常还会附带定时器、I/O 驱动、任务生成等更完整能力。</p>
+            <div class="note-box tip">
+                <p><strong>区分概念：</strong>Future 描述任务，executor 调度任务，runtime 往往 = executor + I/O / timer / spawning 等基础设施。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>join_style.rs</span></div>
+                <pre><code>async fn load_user() -&gt; &'static str { "user" }
+async fn load_orders() -&gt; &'static str { "orders" }
+
+async fn page() {
+    let (user, orders) = tokio::join!(load_user(), load_orders());
+    println!("{user} + {orders}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>两个任务不是各自占一个 OS 线程；
+而是由运行时交替推进，谁先可继续就先 poll 谁。</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="executor 的核心工作是调度和推进 Future，而不是为每个 async 任务都分配一个独立线程。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>executor 的核心职责是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-2-q3" value="A"> A. 把所有任务都变成同步阻塞调用</label>
+                    <label><input type="radio" name="u4-2-q3" value="B"> B. 强制每个 Future 拥有一条独立线程</label>
+                    <label><input type="radio" name="u4-2-q3" value="C"> C. 调度并推进多个 Future 的执行</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>4.2.4 为什么 async 代码里仍然要避免阻塞？</h2>
+            <div class="think-box">
+                <div class="think-icon">🚧</div>
+                <p>如果一个 async 任务里直接调用 <code>std::thread::sleep</code> 或做很重的 CPU 计算，会发生什么？</p>
+            </div>
+            <p>异步运行时通常希望少量线程能承载大量任务。如果某个任务在运行时线程上做阻塞调用，就会把这条线程卡住，连带影响同线程上的其他任务。I/O 等待应使用异步 API；重 CPU 任务则应考虑专门线程池或 <code>spawn_blocking</code> 一类机制。</p>
+            <div class="note-box warning">
+                <p><strong>判断原则：</strong>async 适合“等待很多、计算不重”的任务；若是纯 CPU 重活，线程或专门工作池往往更直接。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>avoid_blocking.rs</span></div>
+                <pre><code>async fn good_style() {
+    // 用异步 I/O 等待网络或文件事件
+    // tokio::time::sleep(...).await;
+}
+
+async fn bad_style() {
+    // 会阻塞运行时线程，拖慢同线程上的其他任务
+    std::thread::sleep(std::time::Duration::from_secs(1));
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>await 会把执行权交还给运行时；
+阻塞调用则会把运行时线程整段卡住。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：那是不是 async 里绝对不能做任何计算？</button>
+                <div class="collapsible-content">不是。短小计算完全没问题；真正要避免的是长时间占住运行时线程的阻塞 I/O 或重 CPU 工作。关键是别让大量其他任务陪它一起等待。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="阻塞调用会卡住运行时线程，影响同线程上的其他 Future，削弱 async 的吞吐优势。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么 async 任务里应尽量避免阻塞调用？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u4-2-q4" value="A"> A. 因为阻塞调用会让代码无法编译</label>
+                    <label><input type="radio" name="u4-2-q4" value="B"> B. 因为它会占住运行时线程，拖慢其他任务</label>
+                    <label><input type="radio" name="u4-2-q4" value="C"> C. 因为 Future 会自动替你开启更多线程</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li><code>async fn</code> 返回的是 Future；await 表示“等结果就绪后继续”。</li>
+                <li>Future 是惰性状态机，需要 executor 通过 poll 推进。</li>
+                <li>executor 负责调度任务，runtime 往往还整合了 I/O 和时间驱动。</li>
+                <li>async 的优势来自非阻塞等待；重 CPU 和阻塞 I/O 需要另外安排执行位置。</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 用自己的话解释：调用 <code>async fn</code> 与真正把它跑起来之间差了什么。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 比较 <code>Poll::Ready</code> 与 <code>Poll::Pending</code> 各自代表的运行状态。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 假设一个 Web 服务中的 async handler 里直接做图片压缩，说明这为什么可能拖慢整台服务。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 设计一个小型下载器架构：哪些步骤适合 async I/O，哪些步骤应该放到专门线程或阻塞任务池？</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://rust-lang.github.io/async-book/">Asynchronous Programming in Rust</a></li>
+                <li><a href="https://doc.rust-lang.org/std/future/trait.Future.html">std::future::Future 文档</a></li>
+                <li><a href="https://tokio.rs/tokio/tutorial">Tokio Tutorial</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

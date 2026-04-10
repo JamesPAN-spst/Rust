@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 0.1 工具链 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 0 · 环境与心态</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+
+            <li class="unit-title">Unit 0 正式页面</li>
+            <li><a href="./ch0.1_toolchain.html" class="active">0.1 工具链</a></li>
+            <li><a href="./ch0.2_mindset.html">0.2 心态建设</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">rustup / cargo / rustc</a></li>
+            <li><a href="#kp-2">工具链与 edition</a></li>
+            <li><a href="#kp-3">debug vs release</a></li>
+            <li><a href="#kp-4">rustfmt / clippy</a></li>
+            <li><a href="#kp-5">读懂编译错误</a></li>
+            <li><a href="#summary">章节总结</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 0 · 环境与心态</span>
+            <h1>Ch 0.1 工具链</h1>
+            <p class="chapter-description">
+                学 Rust 之前，先把“你在和谁打交道”搞清楚：安装器是谁、构建器是谁、编译器是谁、
+                为什么同一段代码在 debug 和 release 下表现不同，以及当编译器报错时应该先看哪里。
+            </p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>区分 rustup、cargo、rustc 在日常开发中的职责</li>
+                <li>理解 toolchain、channel、edition 不是同一个概念</li>
+                <li>知道何时用 debug 构建、何时切到 release 构建</li>
+                <li>能把 rustfmt、clippy、编译器错误信息纳入日常反馈循环</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>
+                本章默认你会打开终端、能运行命令，并知道“源码需要先编译再执行”。
+                还不要求你已经掌握所有权或借用；如果看到 Rust 代码片段里有陌生语法，先把重点放在工具链行为上。
+            </p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>0.1.1 rustup、cargo、rustc 分别在做什么？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>你执行 <code>cargo run</code> 时，到底是谁负责安装 Rust、谁负责组织项目、谁真正把源码编译成二进制？</p>
+            </div>
+            <p>
+                直觉上可以把它们看成三层：<strong>rustup 管“安装与切换工具链”</strong>，
+                <strong>cargo 管“项目与工作流”</strong>，<strong>rustc 管“真正的编译”</strong>。
+                日常开发多数时候直接面对 cargo，但 cargo 最终仍会调用 rustc。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> <code>rustup</code> 管理 compiler/toolchain，<code>cargo</code> 管理 package/build/test/run，<code>rustc</code> 是底层编译器。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
+                <pre><code>fn main() {
+    println!("toolchain ready");
+}</code></pre>
+                <div class="code-output">
+                    <strong>配套命令</strong>
+                    <pre>rustup show
+cargo run
+rustc --version</pre>
+                </div>
+            </div>
+            <p>上面的 Rust 代码本身很简单，但它刚好能帮你观察分工：<code>cargo run</code> 会构建并运行，<code>rustc --version</code> 只告诉你编译器版本，<code>rustup show</code> 会告诉你当前工具链来源。</p>
+            <div class="quick-quiz" data-answer="B" data-explanation="cargo 是日常项目入口；它会调用 rustc，但不会替代 rustup 的工具链管理职责。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如果你想在一个已有 Rust 项目里进行构建、运行和测试，最常用的入口命令是谁？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0-q1" value="A"> A. rustup</label>
+                    <label><input type="radio" name="u0-q1" value="B"> B. cargo</label>
+                    <label><input type="radio" name="u0-q1" value="C"> C. rustc</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>0.1.2 toolchain、channel、edition 为什么要分开理解？</h2>
+            <div class="think-box">
+                <div class="think-icon">🧭</div>
+                <p>很多初学者会把“我装的是 stable/nightly”与“这个项目是 2021 edition”混成一件事，这会直接影响排错。</p>
+            </div>
+            <p>
+                <strong>toolchain / channel</strong> 说的是你拿哪套编译器工作，常见有 stable、beta、nightly；
+                <strong>edition</strong> 说的是这个 crate 采用哪一代语言表面规则。
+                edition 会写在 <code>Cargo.toml</code>，它不是“安装了新版 Rust 就自动升级”的东西。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> toolchain 决定“用哪套编译器”，edition 决定“这个项目按哪代语言规则解释源码”。</p>
+            </div>
+            <div class="note-box tip">
+                <p><strong>项目配置：</strong> edition 通常写在 <code>Cargo.toml</code> 里，例如 <code>edition = "2021"</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
+                <pre><code>fn main() {
+    // r#async 是 raw identifier：当名字和关键字冲突时可这样书写
+    let r#async = "edition aware";
+    println!("{r#async}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>raw identifier 说明某些标识符会受 edition 规则影响；
+edition 本身仍由 Cargo.toml 声明。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么升级 rustup 后项目还可能保持旧 edition？</button>
+                <div class="collapsible-content">
+                    因为 edition 是 crate 元数据，不是安装器全局开关。你可以用新的 stable 编译器继续维护一个 edition = "2018" 的项目。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="edition 是项目级语言版本声明，通常写在 Cargo.toml；stable/nightly 属于 toolchain/channel。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>下面哪一项最准确地描述了 edition？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0-q2" value="A"> A. rustup 安装器的版本号</label>
+                    <label><input type="radio" name="u0-q2" value="B"> B. 当前 CPU 架构目标</label>
+                    <label><input type="radio" name="u0-q2" value="C"> C. crate 在 Cargo.toml 中声明的语言时代</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>0.1.3 debug 与 release 的差别，为什么不能只看一种结果？</h2>
+            <div class="think-box">
+                <div class="think-icon">⚙️</div>
+                <p>为什么 <code>cargo run</code> 很适合学习与调试，但你做性能判断时却常被提醒切到 <code>--release</code>？</p>
+            </div>
+            <p>
+                cargo 默认使用 <strong>debug profile</strong>：编译更快、保留更多调试信息、优化较少。
+                <code>cargo run --release</code> 会启用 <strong>release profile</strong>：编译更慢，但优化更强，更接近最终发布表现。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> 不带 <code>--release</code> 时 cargo 使用 debug profile；带 <code>--release</code> 时切换到 release profile。</p>
+            </div>
+            <div class="note-box warning">
+                <p><strong>常见误区：</strong> “程序能跑” 不等于 “性能结论可信”。学习阶段先在 debug 看行为，性能判断再切 release。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
+                <pre><code>fn main() {
+    println!("debug_assertions = {}", cfg!(debug_assertions));
+    debug_assert!(2 + 2 == 4);
+}</code></pre>
+                <div class="code-output">
+                    <strong>运行观察</strong>
+                    <pre>cargo run            -> debug_assertions = true
+cargo run --release  -> debug_assertions = false</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="release profile 会进行更多优化，更适合性能观察；debug profile 更适合快速迭代与调试。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如果你怀疑某段代码性能较差，最应该优先检查哪种构建结果？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0-q3" value="A"> A. <code>cargo run --release</code> 的结果</label>
+                    <label><input type="radio" name="u0-q3" value="B"> B. 只看 <code>cargo run</code> 就足够</label>
+                    <label><input type="radio" name="u0-q3" value="C"> C. 直接跳过编译器输出</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>0.1.4 rustfmt 与 clippy：它们不是语法课附属品，而是反馈工具</h2>
+            <div class="think-box">
+                <div class="think-icon">🛠️</div>
+                <p>“代码能编译” 只是底线；怎样尽早发现风格漂移和可改进写法？</p>
+            </div>
+            <p>
+                <strong>rustfmt</strong> 负责把格式统一，减少无意义差异；
+                <strong>clippy</strong> 负责给出 lint 建议，指出可读性、惯用法和潜在问题。
+                对新手来说，它们最重要的价值不是“通过检查”，而是帮助建立 Rust 社区常见写法的直觉。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式定义：</strong> rustfmt 是格式化工具，clippy 是 lint 工具；二者都不替代编译器，但都能明显提升反馈质量。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/lib.rs</span></div>
+                <pre><code>pub fn has_items(items: &[i32]) -&gt; bool {
+    if items.len() &gt; 0 {
+        true
+    } else {
+        false
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>常见反馈</strong>
+                    <pre>cargo fmt
+cargo clippy
+
+Clippy 可能提示：
+- 使用 !items.is_empty()
+- 可以直接返回布尔表达式</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：这段代码更符合 Rust 风格的写法是什么？</button>
+                <div class="collapsible-content">
+                    可以写成 <code>pub fn has_items(items: &[i32]) -&gt; bool { !items.is_empty() }</code>。逻辑更直接，也更贴近标准习惯。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="rustfmt 解决的是格式一致性；clippy 更像可读性与惯用法教练。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如果团队主要想统一缩进、换行和括号风格，应优先运行什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0-q4" value="A"> A. cargo clippy</label>
+                    <label><input type="radio" name="u0-q4" value="B"> B. cargo fmt</label>
+                    <label><input type="radio" name="u0-q4" value="C"> C. rustup show</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>0.1.5 读编译错误时，先抓“错误码、主语句、修复方向”</h2>
+            <div class="think-box">
+                <div class="think-icon">🔍</div>
+                <p>Rust 编译器输出看起来很长，初学者容易一眼只看到红字，却不知道先读哪三行。</p>
+            </div>
+            <p>
+                一个实用顺序是：先看 <strong>error code / 主错误句</strong>，再看编译器标出的 <strong>发生位置</strong>，最后看
+                <strong>help / note</strong>。Rust 的报错通常不是只告诉你“坏了”，而是尽量把语言规则翻译成修复线索。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> 排错时先定位主错误，再结合 error code 与 help；后续连锁报错通常会随着首个错误修复而减少。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
+                <pre><code>fn main() {
+    let name = String::from("Ferris");
+    let moved = name;
+    println!("{}", name);
+    println!("{}", moved);
+}</code></pre>
+                <div class="code-output">
+                    <strong>你应该读到的重点</strong>
+                    <pre>error[E0382]: borrow of moved value: `name`
+help: consider cloning the value if the performance cost is acceptable
+
+真正的问题不是 println!，而是 name 的所有权已经移动。</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>读错题技巧：</strong> 不要先搜整段报错；先回答“是谁出问题、违反了哪条规则、编译器给了什么方向”。</p>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="E0382 指向的是 moved value；修复方向通常是改借用方式、调整所有权流向，或在确有必要时 clone。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>看到 <code>error[E0382]: borrow of moved value</code> 时，最应该优先怀疑什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u0-q5" value="A"> A. 编译器安装坏了</label>
+                    <label><input type="radio" name="u0-q5" value="B"> B. rustfmt 改坏了代码</label>
+                    <label><input type="radio" name="u0-q5" value="C"> C. 某个值的所有权已经转移，后面又被继续使用</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>rustup 管工具链，cargo 管项目工作流，rustc 才是底层编译器。</li>
+                <li>stable/nightly 是 toolchain 维度，edition 是项目语言时代维度，二者不要混淆。</li>
+                <li>debug 构建适合快速学习与排错，release 构建才更适合性能观察。</li>
+                <li>rustfmt 和 clippy 应该尽早进入日常循环，不要等到“写完再补”。</li>
+                <li>阅读编译错误时优先抓主错误、定位和 help，而不是被长输出吓住。</li>
+            </ul>
+        </section>
+
+        <section class="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 用你自己的话解释 rustup、cargo、rustc 的职责差异，并写出各自最常用的一条命令。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 新建一个项目，分别运行 <code>cargo run</code> 与 <code>cargo run --release</code>，记录 <code>cfg!(debug_assertions)</code> 的差异并解释原因。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 设计一个最小示例，让 clippy 给出一条惯用法建议；然后改写代码，并说明这条建议改善了什么。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 选一条你最近遇到的 Rust 编译错误，按“错误码 → 主语句 → 规则 → 修复方案”的格式做一次排错复盘。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://www.rust-lang.org/tools/install">Rust 官方安装页：rustup 与平台安装说明</a></li>
+                <li><a href="https://doc.rust-lang.org/cargo/">The Cargo Book</a></li>
+                <li><a href="https://doc.rust-lang.org/book/appendix-04-useful-development-tools.html">The Rust Book · Useful Development Tools</a></li>
+                <li><a href="https://doc.rust-lang.org/error_codes/error-index.html">Rust Compiler Error Index</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.2 控制流 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+
+            <li class="unit-title">Unit 2 正式页面</li>
+            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
+            <li><a href="./ch2.2_control_flow.html" class="active">2.2 控制流</a></li>
+            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
+            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
+            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
+            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">if 不是语句装饰，而是表达式</a></li>
+            <li><a href="#kp-2">loop：当你需要“直到我自己决定结束”</a></li>
+            <li><a href="#kp-3">while：适合条件驱动的状态推进</a></li>
+            <li><a href="#kp-4">for：让遍历意图比索引更显眼</a></li>
+            <li><a href="#kp-5">如何在 if / loop / while / for 之间做选择？</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 2 · 基础语法</span>
+            <h1>Ch 2.2 控制流</h1>
+            <p class="chapter-description">Rust 的控制流不只是“让代码跑起来”，更是在训练你用表达式思维组织状态变化。学完这一章，你会知道 if、loop、while、for 各自解决什么问题，以及为什么 Rust 鼓励把结果从分支里直接产出。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 if 在 Rust 中既能分支也能产出值</li>
+                <li>掌握 loop、while、for 的核心适用场景与差异</li>
+                <li>学会使用 break 返回值组织循环结果</li>
+                <li>建立“优先表达式、其次状态机、最后手写索引”的控制流直觉</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先掌握变量绑定、基本类型和可变性。本章默认你已经知道布尔表达式、函数调用与最小程序结构，但还不要求掌握模式匹配细节。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>2.2.1 if 不是语句装饰，而是表达式</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么 Rust 允许把 if 直接写在 let 右边？这和“分支只是执行不同代码块”有什么本质区别？</p>
+            </div>
+            <p>Rust 把 if 设计成表达式，意味着分支不仅能控制流程，还能直接产出一个值。这样很多“先声明变量、再在不同分支里赋值”的写法可以合并成更紧凑、更不容易漏分支的表达。</p>
+            <p><strong>正式规则：</strong>if / else 表达式的所有分支必须返回兼容的类型；条件本身必须是 bool，Rust 不会把整数自动当布尔值。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>if_expression.rs</span></div>
+                <pre><code>fn main() {
+    let is_debug = true;
+    let level = if is_debug {
+        &quot;verbose&quot;
+    } else {
+        &quot;normal&quot;
+    };
+
+    println!(&quot;log level = {level}&quot;);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>log level = verbose</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>表达式心态：</strong>当两个分支都在“决定一个结果”时，优先考虑把 <code>if</code> 当作表达式，而不是先声明一个可变变量再回填。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么两个分支必须同类型？</button>
+                <div class="collapsible-content">因为 <code>let level = if ...</code> 最终要绑定成一个确定类型的值。如果一个分支返回 <code>&amp;str</code>，另一个返回整数，编译器就无法为整个表达式定型。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="if 表达式最终要产生一个统一类型的值，因此各分支必须兼容；条件也必须明确是 bool。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于 Rust 的 if，下列哪项正确？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.2_control_flow-q1" value="A"> A. 条件可以直接写 0 或 1</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q1" value="B"> B. 如果把 if 用在 let 右边，所有分支必须产出兼容类型</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q1" value="C"> C. 只有 else if 才能返回值</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>2.2.2 loop：当你需要“直到我自己决定结束”</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>如果循环次数不固定，又不想把条件写在开头，Rust 为什么单独提供 loop，而不是只靠 while？</p>
+            </div>
+            <p>loop 表示“先进入，再由内部逻辑决定何时停下”。它很适合重试、读取直到成功、状态机推进等场景，因为退出条件往往散落在循环体内部。</p>
+            <p><strong>正式规则：</strong>loop 会一直执行，直到遇到 break；break 可以携带一个值，把整个 loop 变成产出结果的表达式。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>loop_break_value.rs</span></div>
+                <pre><code>fn main() {
+    let mut attempts = 0;
+
+    let token = loop {
+        attempts += 1;
+        if attempts == 3 {
+            break format!(&quot;connected on attempt {attempts}&quot;);
+        }
+    };
+
+    println!(&quot;{token}&quot;);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>connected on attempt 3</pre>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：loop 返回值有什么意义？</button>
+                <div class="collapsible-content">它让“不断尝试直到拿到一个结果”这类逻辑更自然。你不必先声明一个外部可变变量，再在 break 前偷偷写进去。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="loop 最大的特点是退出条件由循环体内部决定，且 break 可以把结果返回给外层。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>什么时候 loop 往往比 while 更贴切？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.2_control_flow-q2" value="A"> A. 当你已经知道确切的迭代次数</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q2" value="B"> B. 当你只想遍历集合里的每个元素</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q2" value="C"> C. 当你要不断重试，直到内部某个条件满足才结束</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>2.2.3 while：适合条件驱动的状态推进</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>如果你每次迭代前都要先检查“还能不能继续”，为什么 while 比 loop + if 更清晰？</p>
+            </div>
+            <p>while 把“继续条件”放在入口，适合倒计时、轮询、缓冲区消费等场景。它的价值不是功能更强，而是让读代码的人在第一眼就知道“这个循环靠什么持续”。</p>
+            <p><strong>正式规则：</strong>while 在每次进入循环体前先判断条件；条件为 false 时立即停止，不会像 loop 那样必须依赖内部 break。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>while_countdown.rs</span></div>
+                <pre><code>fn main() {
+    let mut remaining = 3;
+
+    while remaining &gt; 0 {
+        println!(&quot;remaining = {remaining}&quot;);
+        remaining -= 1;
+    }
+
+    println!(&quot;done&quot;);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>remaining = 3
+remaining = 2
+remaining = 1
+done</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>别把 while 当万能循环：</strong>如果你的循环目标其实是遍历集合，优先考虑 <code>for</code>；如果退出逻辑散落在中途，优先考虑 <code>loop</code>。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="A" data-explanation="while 的优势是把持续条件放在入口，读者一开始就能看到“继续循环”的标准。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>下面哪种描述最符合 while？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.2_control_flow-q3" value="A"> A. 每次进入循环体前先检查条件</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q3" value="B"> B. 只能用于整数递减</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q3" value="C"> C. 比 for 更适合遍历数组</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>2.2.4 for：让遍历意图比索引更显眼</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>遍历数组时，为什么 Rust 更鼓励 for item in collection，而不是手写索引 i += 1？</p>
+            </div>
+            <p>for 把“逐个处理元素”的意图表达得非常直接，也能减少越界、索引同步和可变状态管理的负担。Rust 倾向于让你沿着迭代器思路写代码，而不是一上来就操作下标。</p>
+            <p><strong>正式规则：</strong>for 会基于 IntoIterator 逐项取值；遍历数组、切片、Vec、范围都可以通过 for 完成。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>for_iteration.rs</span></div>
+                <pre><code>fn main() {
+    let scores = [88, 92, 100];
+
+    for score in scores {
+        println!(&quot;score = {score}&quot;);
+    }
+
+    for step in 1..=3 {
+        println!(&quot;step {step}&quot;);
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>score = 88
+score = 92
+score = 100
+step 1
+step 2
+step 3</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>工程直觉：</strong>只要你不是在实现某种算法细节，看到“遍历每个元素”这类需求时，先想 <code>for</code>，再想索引。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：for 为什么更安全？</button>
+                <div class="collapsible-content">因为它把“怎么拿下一个元素”交给迭代协议处理，减少了手写 <code>i += 1</code> 和数组越界的机会。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="for 直接表达遍历意图，通常比手写索引更清晰也更安全。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>遍历集合时，Rust 更推荐 for 的主要原因是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.2_control_flow-q4" value="A"> A. for 才能打印值</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q4" value="B"> B. for 更接近迭代器模型，减少显式索引错误</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q4" value="C"> C. for 会自动并行执行</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>2.2.5 如何在 if / loop / while / for 之间做选择？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>写控制流时，真正该问的问题不是“我会不会语法”，而是“我要表达的状态变化是什么”。那该怎么选？</p>
+            </div>
+            <p>一个简单心智模型是：<strong>分支产出结果时想 if；无限重试靠 loop；入口条件明确时用 while；遍历序列时优先 for。</strong> 这能让你的代码更贴近意图，而不是只是“能跑”。</p>
+            <p>Rust 的表达式导向设计鼓励你少依赖外部可变状态，多让控制流直接返回结果。这样不仅更易读，也更容易在后续引入所有权与错误处理规则。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>choose_flow.rs</span></div>
+                <pre><code>fn main() {
+    let user_input = Some(&quot;42&quot;);
+
+    let parsed = if let Some(text) = user_input {
+        text.parse::&lt;i32&gt;().ok()
+    } else {
+        None
+    };
+
+    println!(&quot;parsed = {:?}&quot;, parsed);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>parsed = Some(42)</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>注意：</strong>本例里的 <code>if let</code> 只是预告下一章的模式匹配风格；当前你只需要记住 Rust 鼓励让控制流直接生成结果。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="C" data-explanation="控制流选择应围绕意图：分支产值、条件驱动、遍历集合、内部重试分别有更自然的写法。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪种选择最符合 Rust 的控制流直觉？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.2_control_flow-q5" value="A"> A. 所有循环都先写成 loop，再慢慢改</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q5" value="B"> B. 只要能运行，哪种控制流都一样</label>
+                    <label><input type="radio" name="ch2.2_control_flow-q5" value="C"> C. 让控制流结构尽量直接表达状态变化和结果来源</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>if 在 Rust 中是表达式，分支不仅控制流程，还可以直接产出值</li>
+                <li>loop 适合退出条件位于循环体内部的重试或状态机场景，break 可以返回值</li>
+                <li>while 适合入口条件明确的循环，读者能在第一眼看到持续条件</li>
+                <li>for 最适合遍历集合或范围，它让迭代意图比索引管理更突出</li>
+                <li>选择控制流时优先表达意图，而不是先写可变变量再用语句把它们拼起来</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 把一个布尔值转换成字符串状态，例如 true -> "ready"、false -> "waiting"，要求直接使用 if 表达式完成。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个 loop，不断累加计数器，直到第一次达到 10 时 break 出该值；不要使用循环外的结果变量。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 把“用 while + 索引遍历数组求和”的代码改写成 for 版本，并说明后者在可读性与错误风险上的优势。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设想你在写一个小型 CLI：读取配置失败就重试、读取成功后遍历任务列表执行。请说明这两段逻辑分别更适合 loop / while / for 中的哪一种，并给出理由。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch03-05-control-flow.html">The Rust Programming Language · Control Flow</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/flow_control.html">Rust By Example · Flow of Control</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

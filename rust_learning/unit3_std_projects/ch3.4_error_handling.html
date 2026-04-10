@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 3.4 错误处理 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 3 · 标准库与项目实战</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit2_syntax/ch2.6_traits.html">上一单元：Trait 系统</a></li>
+
+            <li class="unit-title">Unit 3 正式页面</li>
+            <li><a href="./ch3.1_strings.html">3.1 字符串</a></li>
+            <li><a href="./ch3.2_collections.html">3.2 集合</a></li>
+            <li><a href="./ch3.3_iterators.html">3.3 迭代器</a></li>
+            <li><a href="./ch3.4_error_handling.html" class="active">3.4 错误处理</a></li>
+            <li><a href="./ch3.5_modules.html">3.5 模块系统</a></li>
+            <li><a href="./ch3.6_project_practice.html">3.6 实战项目</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">panic vs Result</a></li>
+            <li><a href="#kp-2">Option 语义</a></li>
+            <li><a href="#kp-3">`?` 传播错误</a></li>
+            <li><a href="#kp-4">组合式处理</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 3 · 标准库与项目实战</span>
+            <h1>Ch 3.4 错误处理</h1>
+            <p class="chapter-description">这一章把 Rust 的错误处理拆成四个层次：什么时候应该 panic、什么时候返回 Result、何时只需要 Option，以及如何用 `?` 和组合器把错误传播、转换和恢复写得清楚而不混乱。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>区分 panic、Result、Option 分别适合什么失败语义</li>
+                <li>掌握 `?` 运算符的传播机制和使用前提</li>
+                <li>学会用 `map_err`、`unwrap_or_else`、`match` 组织恢复逻辑</li>
+                <li>避免把可恢复错误写成 panic，或把缺失值误建模成复杂错误类型</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先熟悉 enum、模式匹配和基础函数签名。错误处理本质上是把失败纳入类型系统，因此如果还没习惯“返回类型表达分支”，会容易只想靠 panic 解决问题。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>3.4.1 `panic!` vs `Result`：是程序无法继续，还是调用方可以决定？</h2>
+            <div class="think-box">
+                <div class="think-icon">🚨</div>
+                <p>同样是“出错了”，为什么 Rust 要把 panic 和 Result 明确区分开？</p>
+            </div>
+            <p><code>panic!</code> 表示程序进入了无法继续的状态，通常用于违反内部不变量；<code>Result&lt;T, E&gt;</code> 表示失败是预期的一部分，调用方应该有机会选择恢复、重试或上报。</p>
+            <div class="note-box warning">
+                <p><strong>正式规则：</strong>边界输入、文件读取、网络请求等可预期失败优先建模为 <code>Result</code>；只有真正的不可恢复错误才应考虑 panic。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>result_vs_panic.rs</span></div>
+                <pre><code>fn divide(total: i32, count: i32) -&gt; Result&lt;i32, &amp;&#x27;static str&gt; {
+    if count == 0 {
+        return Err(&quot;count must not be zero&quot;);
+    }
+    Ok(total / count)
+}
+
+fn main() {
+    println!(&quot;{:?}&quot;, divide(10, 2));
+    println!(&quot;{:?}&quot;, divide(10, 0));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Ok(5)
+Err(&quot;count must not be zero&quot;)</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="输入校验失败是可预期错误，应让调用方决定如何处理。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>读取配置文件路径为空、解析失败这类问题，更适合先用什么表达？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-4-q1" value="A"> A. Result，因为调用方可以选择恢复或提示用户</label>
+                    <label><input type="radio" name="u3-4-q1" value="B"> B. panic!，因为所有错误都应该立刻终止</label>
+                    <label><input type="radio" name="u3-4-q1" value="C"> C. unsafe，因为这样更灵活</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-2">
+            <h2>3.4.2 `Option`：不是所有“拿不到值”都该当成错误</h2>
+            <div class="think-box">
+                <div class="think-icon">❓</div>
+                <p>查找集合元素时没找到，是失败，还是一种正常分支？</p>
+            </div>
+            <p><code>Option&lt;T&gt;</code> 用于“值可能存在，也可能不存在”的场景，例如可选配置、集合查找、用户可能没填字段。它不需要额外错误信息，因为“没有值”本身就是全部语义。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong>当缺失本身就是合法业务状态时，用 <code>Option</code>；当失败原因需要传递给调用方时，用 <code>Result</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>option_lookup.rs</span></div>
+                <pre><code>fn main() {
+    let ports = vec![3000, 4000, 5000];
+    let found = ports.iter().find(|&amp;&amp;port| port == 4000);
+
+    println!(&quot;{:?}&quot;, found);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Some(4000)</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：`Option` 和 `Result` 能互相转吗？</button>
+                <div class="collapsible-content">可以。常见做法是用 `ok_or` / `ok_or_else` 把 `Option` 转成 `Result`，在“缺失值现在要被视为错误”时补上错误信息。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="“没找到”如果是正常分支，就不需要伪造错误类型，Option 更直接。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>在集合中查找一个可能不存在的元素，首选哪种返回类型更自然？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-4-q2" value="A"> A. panic!</label>
+                    <label><input type="radio" name="u3-4-q2" value="B"> B. String</label>
+                    <label><input type="radio" name="u3-4-q2" value="C"> C. Option</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-3">
+            <h2>3.4.3 `?` 运算符：让错误传播变成显式但不啰嗦</h2>
+            <div class="think-box">
+                <div class="think-icon">⛓️</div>
+                <p>如果每一步都手写 match 处理错误，业务逻辑会不会被样板代码淹没？</p>
+            </div>
+            <p><code>?</code> 的作用是：成功时继续解包值，失败时立刻把错误返回给外层调用者。它没有隐藏控制流，只是把常见的“早返回”写法浓缩成了一个符号。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong><code>?</code> 只能用于返回兼容 <code>Result</code> / <code>Option</code> 的函数或闭包中，且错误类型必须可转换。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>question_mark.rs</span></div>
+                <pre><code>fn parse_port(text: &amp;str) -&gt; Result&lt;u16, std::num::ParseIntError&gt; {
+    let port = text.parse::&lt;u16&gt;()?;
+    Ok(port)
+}
+
+fn main() {
+    println!(&quot;{:?}&quot;, parse_port(&quot;8080&quot;));
+    println!(&quot;{:?}&quot;, parse_port(&quot;abc&quot;));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Ok(8080)
+Err(ParseIntError { kind: InvalidDigit })</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="`?` 在 Err 时会提前返回，因此当前函数也必须能返回兼容的错误类型。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么含有 `?` 的函数签名通常也要返回 `Result`？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-4-q3" value="A"> A. 因为 `?` 会自动打印错误</label>
+                    <label><input type="radio" name="u3-4-q3" value="B"> B. 因为 `?` 需要在失败时把错误向外层提前返回</label>
+                    <label><input type="radio" name="u3-4-q3" value="C"> C. 因为 `?` 只能用于 main 函数</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-4">
+            <h2>3.4.4 组合式处理：`map_err`、`unwrap_or_else` 和模式匹配</h2>
+            <div class="think-box">
+                <div class="think-icon">🧰</div>
+                <p>传播错误很重要，但有时候你也想补充上下文、提供默认值或只处理其中一部分分支，怎么办？</p>
+            </div>
+            <p>Rust 的错误处理不只有 `match`。你可以用 <code>map_err</code> 改写错误信息，用 <code>unwrap_or_else</code> 提供延迟计算的默认值，也可以继续回到 <code>match</code> 写最清楚的分支逻辑。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong>优先选择最能表达意图的形式：简单转换用组合器，复杂分支用 <code>match</code>，不要把所有错误处理都写成链式“魔法”。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>map_err.rs</span></div>
+                <pre><code>fn load_retry_limit(text: &amp;str) -&gt; Result&lt;u8, String&gt; {
+    text.parse::&lt;u8&gt;()
+        .map_err(|_| format!(&quot;invalid retry limit: {text}&quot;))
+}
+
+fn main() {
+    println!(&quot;{:?}&quot;, load_retry_limit(&quot;3&quot;));
+    println!(&quot;{:?}&quot;, load_retry_limit(&quot;many&quot;));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Ok(3)
+Err(&quot;invalid retry limit: many&quot;)</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="map_err 最适合“保留失败语义，但把错误转换成当前层更合适的类型或消息”。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>想在向上返回前补充更贴近业务的错误消息，哪种工具最直接？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-4-q4" value="A"> A. map_err</label>
+                    <label><input type="radio" name="u3-4-q4" value="B"> B. collect</label>
+                    <label><input type="radio" name="u3-4-q4" value="C"> C. sort</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>panic 适合不可恢复的内部错误，Result 适合需要交给调用方处理的失败。</li>
+                <li>Option 表达“可能没有值”，不必硬造错误类型。</li>
+                <li>`?` 让常见的早返回传播变得简洁，但没有隐藏控制流。</li>
+                <li>组合器和 match 都是工具；选择最能表达当前错误语义的写法即可。</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 解释为什么文件读取失败通常不应该直接 panic。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 比较 `Option<T>` 和 `Result<T, E>` 的使用边界，并各举一个项目场景。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 把一段层层 `match` 的解析代码改写为使用 `?` 的版本，并说明可读性变化。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 设计一个读取配置的函数：缺少可选字段返回默认值，关键字段解析失败则返回带业务上下文的错误。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch09-00-error-handling.html">The Rust Programming Language · Error Handling</a></li>
+                <li><a href="https://doc.rust-lang.org/std/result/">std::result 文档</a></li>
+                <li><a href="https://doc.rust-lang.org/std/option/">std::option 文档</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

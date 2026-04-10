@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[Unit X] [Chapter Title] - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Rust 章节通用模板</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">模板导航</li>
+            <li><a href="../index.html">模板首页</a></li>
+            <li><a href="./chapter_template.html" class="active">通用章节模板</a></li>
+            <li><a href="../examples/ch1.1_ownership.html">Ownership 示例页</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">[Unit X · Unit Name]</span>
+            <h1>[Ch X.Y Chapter Title]</h1>
+            <p class="chapter-description">[用两到三句话解释本章要解决什么问题、为什么值得学、会落到哪些 Rust 场景上。]</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>[目标 1]</li>
+                <li>[目标 2]</li>
+                <li>[目标 3]</li>
+                <li>[目标 4]</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>[说明本章假设读者已经知道什么，以及哪些误区容易把前置问题误认为本章问题。]</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>[知识点 1 标题]</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>[从一个具体问题开场，让读者先进入场景。]</p>
+            </div>
+            <p>[先给直觉，再给规则。]</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>[example.rs]</span></div>
+                <pre><code>fn main() {
+    println!("replace me");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>replace me</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="[解释为什么 A 对，其他选项为什么会错。]">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>[本知识点的易错点问题]</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="template-q1" value="A"> A. [选项 A]</label>
+                    <label><input type="radio" name="template-q1" value="B"> B. [选项 B]</label>
+                    <label><input type="radio" name="template-q1" value="C"> C. [选项 C]</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>[知识点 2 标题]</h2>
+            <p>[继续推进，解释与上一知识点的关系。]</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：思考题答案</button>
+                <div class="collapsible-content">[这里放简短但有判断力的解释。]</div>
+            </div>
+        </section>
+
+        <section class="chapter-summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>[总结 1]</li>
+                <li>[总结 2]</li>
+                <li>[总结 3]</li>
+            </ul>
+        </section>
+
+        <section class="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> [基础题]</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> [进阶题]</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> [挑战题]</li>
+                <li><span class="exercise-level">🏆 附加：</span> [工程场景题]</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="#">[官方文档或权威资料 1]</a></li>
+                <li><a href="#">[官方文档或权威资料 2]</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
