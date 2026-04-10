@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.1 集合论与逻辑 - math_univers</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+</head>
+<body>
+
+<!-- 移动端菜单按钮 -->
+<button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+<!-- 侧边栏 -->
+<nav class="sidebar">
+    <div class="sidebar-logo">math_univers</div>
+    <div class="sidebar-subtitle">面向 Rust 开发者的数学基础</div>
+    <ul class="sidebar-nav">
+        <li class="unit-title">Unit 1 · 线性代数基础</li>
+        <li><a href="../../examples/ch1.1_vectors/index.html">1.1 向量与向量空间</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.2_matrices/index.html">1.2 矩阵与线性变换</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.3_determinants/index.html">1.3 行列式与特征值</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.4_practice/index.html">1.4 实战：Rust 中的线性代数</a></li>
+
+        <li class="unit-title">Unit 2 · 离散数学</li>
+        <li><a href="../ch2.1_sets_logic/index.html" class="active">2.1 集合论与逻辑</a></li>
+        <li><a href="../ch2.2_graph_theory/index.html">2.2 图论基础</a></li>
+        <li><a href="../ch2.3_combinatorics/index.html">2.3 组合数学与计数</a></li>
+        <li><a href="../ch2.4_practice/index.html">2.4 实战：图算法</a></li>
+
+        <li class="unit-title">Unit 3 · 数论与密码学</li>
+        <li><a href="../../unit3_number_theory/ch3.1_divisibility/index.html">3.1 整除性与素数</a></li>
+        <li><a href="../../unit3_number_theory/ch3.2_modular_arithmetic/index.html">3.2 模运算与同余</a></li>
+        <li><a href="../../unit3_number_theory/ch3.3_group_theory/index.html">3.3 群论入门</a></li>
+        <li><a href="../../unit3_number_theory/ch3.4_practice/index.html">3.4 实战：RSA 加密</a></li>
+
+        <li class="unit-title">Unit 4 · 概率论与统计</li>
+        <li><a href="../../unit4_probability/ch4.1_basics/index.html">4.1 概率基础</a></li>
+        <li><a href="../../unit4_probability/ch4.2_distributions/index.html">4.2 随机变量与分布</a></li>
+        <li><a href="../../unit4_probability/ch4.3_inference/index.html">4.3 统计推断基础</a></li>
+        <li><a href="../../unit4_probability/ch4.4_practice/index.html">4.4 实战：蒙特卡洛</a></li>
+
+        <li class="unit-title">Unit 5 · 微积分与优化</li>
+        <li><a href="../../unit5_calculus/ch5.1_limits/index.html">5.1 极限与连续性</a></li>
+        <li><a href="../../unit5_calculus/ch5.2_differentiation/index.html">5.2 微分与积分</a></li>
+        <li><a href="../../unit5_calculus/ch5.3_multivariable/index.html">5.3 多元微积分入门</a></li>
+        <li><a href="../../unit5_calculus/ch5.4_practice/index.html">5.4 实战：数值方法</a></li>
+    </ul>
+</nav>
+
+<!-- 主内容区 -->
+<main class="content">
+
+    <!-- 章节头 -->
+    <header class="chapter-header">
+        <span class="unit-label">Unit 2 · 离散数学</span>
+        <h1>Ch 2.1 集合论与逻辑</h1>
+        <p class="chapter-description">
+            集合与逻辑是数学和计算机科学的共同语言。Rust 的类型系统、模式匹配和迭代器都深深植根于这些概念。
+            本章将从集合运算出发，经过命题逻辑与谓词逻辑，最终到达证明方法——帮你建立严谨的数学思维，
+            并理解 Rust 设计哲学背后的数学原理。
+        </p>
+    </header>
+
+    <!-- 学习目标 -->
+    <section class="learning-objectives">
+        <h2>🎯 学习目标</h2>
+        <ul>
+            <li>掌握集合的基本运算（并、交、补、差）并能用 Rust <code>HashSet</code> 实现</li>
+            <li>理解命题逻辑的联结词、真值表，以及德摩根定律等基本等价关系</li>
+            <li>掌握谓词逻辑中全称量词 ∀ 和存在量词 ∃，并将其映射到 Rust 迭代器方法</li>
+            <li>了解直接证明、反证法和数学归纳法的基本思路</li>
+            <li>理解 Rust 类型系统与形式逻辑之间的深层联系（Curry-Howard 对应）</li>
+        </ul>
+    </section>
+
+    <!-- 前置知识 -->
+    <section class="prerequisites">
+        <h3>📋 前置知识</h3>
+        <p>
+            本章假设你了解基本的集合概念（元素、子集）和布尔运算（与、或、非）。
+            如果你熟悉 Rust 的 <code>HashSet</code>、<code>bool</code> 类型以及迭代器
+            （参见 <a href="#">Rust Roadmap Ch 3.2 &amp; Ch 4.1</a>），代码部分将更容易理解。
+        </p>
+    </section>
+
+    <!-- ===================== 知识点 1：集合运算 ===================== -->
+    <section class="knowledge-point" id="kp-1">
+        <h2>2.1.1 集合运算</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                假设你在开发一个权限管理系统：用户 A 拥有权限集合 {read, write, execute}，
+                用户 B 拥有 {read, admin}。当你需要"A 和 B 共同拥有的权限"或"A 有但 B 没有的权限"时，
+                你其实已经在做集合运算了。那么这些运算的数学定义是什么？
+            </p>
+        </div>
+
+        <h3>集合的基本概念</h3>
+        <p>
+            <strong>集合</strong>（Set）是由不同对象组成的无序整体。集合中的对象称为<strong>元素</strong>（Element）。
+            我们用大写字母表示集合，用 <span class="katex-inline">\in</span> 表示"属于"，
+            用 <span class="katex-inline">\notin</span> 表示"不属于"。
+        </p>
+        <p>
+            例如，<span class="katex-inline">A = \{1, 2, 3\}</span> 是一个包含三个元素的集合。
+            <span class="katex-inline">2 \in A</span>，但 <span class="katex-inline">5 \notin A</span>。
+            集合的两个关键特征：<strong>无序性</strong>（{1, 2} = {2, 1}）和
+            <strong>互异性</strong>（{1, 1, 2} = {1, 2}）。
+        </p>
+
+        <h3>四大集合运算</h3>
+        <p>给定全集 <span class="katex-inline">U</span> 和集合 <span class="katex-inline">A, B \subseteq U</span>：</p>
+
+        <div class="katex-display">A \cup B = \{x \mid x \in A \text{ or } x \in B\}</div>
+        <div class="katex-display">A \cap B = \{x \mid x \in A \text{ and } x \in B\}</div>
+        <div class="katex-display">A \setminus B = \{x \mid x \in A \text{ and } x \notin B\}</div>
+        <div class="katex-display">\overline{A} = A^c = \{x \in U \mid x \notin A\}</div>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>运算</th>
+                        <th>符号</th>
+                        <th>含义</th>
+                        <th>Rust HashSet 方法</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>并集 (Union)</td>
+                        <td><span class="katex-inline">A \cup B</span></td>
+                        <td>在 A 或 B 中的元素</td>
+                        <td><code>a.union(&amp;b)</code></td>
+                    </tr>
+                    <tr>
+                        <td>交集 (Intersection)</td>
+                        <td><span class="katex-inline">A \cap B</span></td>
+                        <td>同时在 A 和 B 中的元素</td>
+                        <td><code>a.intersection(&amp;b)</code></td>
+                    </tr>
+                    <tr>
+                        <td>差集 (Difference)</td>
+                        <td><span class="katex-inline">A \setminus B</span></td>
+                        <td>在 A 中但不在 B 中的元素</td>
+                        <td><code>a.difference(&amp;b)</code></td>
+                    </tr>
+                    <tr>
+                        <td>对称差 (Symmetric Diff.)</td>
+                        <td><span class="katex-inline">A \triangle B</span></td>
+                        <td>在 A 或 B 中但不同时在两者中</td>
+                        <td><code>a.symmetric_difference(&amp;b)</code></td>
+                    </tr>
+                    <tr>
+                        <td>补集 (Complement)</td>
+                        <td><span class="katex-inline">\overline{A}</span></td>
+                        <td>全集中不在 A 中的元素</td>
+                        <td><code>u.difference(&amp;a)</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>集合运算的重要定律</h3>
+        <p>集合运算满足许多与布尔代数类似的定律，其中最重要的是<strong>德摩根定律</strong>：</p>
+
+        <div class="katex-display">\overline{A \cup B} = \overline{A} \cap \overline{B}</div>
+        <div class="katex-display">\overline{A \cap B} = \overline{A} \cup \overline{B}</div>
+
+        <p>
+            直觉理解：不在"A 或 B"中 = 既不在 A 中也不在 B 中。如果你写过 Rust 代码
+            <code>!(a || b)</code> 等价于 <code>!a &amp;&amp; !b</code>，那你已经在用德摩根定律了！
+        </p>
+
+        <h3>Rust 实现：HashSet 上的集合运算</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>set_operations.rs</span>
+            </div>
+            <pre><code class="language-rust">use std::collections::HashSet;
+
+fn main() {
+    // 权限管理场景
+    let user_a: HashSet&lt;&amp;str&gt; = ["read", "write", "execute"].iter().cloned().collect();
+    let user_b: HashSet&lt;&amp;str&gt; = ["read", "admin"].iter().cloned().collect();
+
+    // 并集：A ∪ B — 两人拥有的所有权限
+    let union: HashSet&lt;_&gt; = user_a.union(&amp;user_b).cloned().collect();
+    println!("并集 A ∪ B: {:?}", union);
+
+    // 交集：A ∩ B — 两人共有的权限
+    let intersection: HashSet&lt;_&gt; = user_a.intersection(&amp;user_b).cloned().collect();
+    println!("交集 A ∩ B: {:?}", intersection);
+
+    // 差集：A \ B — A 有但 B 没有的权限
+    let difference: HashSet&lt;_&gt; = user_a.difference(&amp;user_b).cloned().collect();
+    println!("差集 A \\ B: {:?}", difference);
+
+    // 对称差：A △ B — 只属于其中一人的权限
+    let sym_diff: HashSet&lt;_&gt; = user_a.symmetric_difference(&amp;user_b).cloned().collect();
+    println!("对称差 A △ B: {:?}", sym_diff);
+
+    // 子集判断
+    let subset: HashSet&lt;&amp;str&gt; = ["read"].iter().cloned().collect();
+    println!("{{read}} ⊆ A? {}", subset.is_subset(&amp;user_a));
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>并集 A ∪ B: {"read", "write", "execute", "admin"}
+交集 A ∩ B: {"read"}
+差集 A \ B: {"write", "execute"}
+对称差 A △ B: {"write", "execute", "admin"}
+{read} ⊆ A? true</pre>
+            </div>
+        </div>
+
+        <div class="note-box tip">
+            <p>
+                <strong>💡 Rust 设计洞察</strong><br>
+                Rust 的 <code>HashSet</code> 要求元素实现 <code>Hash + Eq</code>——
+                这正是集合"互异性"的类型级保证。你不可能在 <code>HashSet</code> 中放入两个相等的元素，
+                编译器和运行时共同维护这个数学不变量。此外，<code>HashSet</code> 的集合运算返回迭代器
+                而非新集合，这体现了 Rust 的惰性求值哲学。
+            </p>
+        </div>
+
+        <!-- 快速测试 1 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="A ∩ B 是交集，即同时属于 A 和 B 的元素。A = {1,2,3,4}，B = {3,4,5,6}，共有元素为 {3,4}。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">若 A = {1, 2, 3, 4}，B = {3, 4, 5, 6}，则 A ∩ B = ？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q1" value="A"> A. {1, 2, 3, 4, 5, 6}</label>
+                <label><input type="radio" name="q1" value="B"> B. {3, 4}</label>
+                <label><input type="radio" name="q1" value="C"> C. {1, 2}</label>
+                <label><input type="radio" name="q1" value="D"> D. {5, 6}</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 2 -->
+        <div class="quick-quiz" data-answer="C" data-explanation="根据德摩根定律，!(A ∪ B) 的补集等于 A 的补集与 B 的补集的交集。在 Rust 中，!(a || b) 等价于 !a && !b。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">德摩根定律指出 <span class="katex-inline">\overline{A \cup B}</span> 等于什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q2" value="A"> A. <span class="katex-inline">\overline{A} \cup \overline{B}</span></label>
+                <label><input type="radio" name="q2" value="B"> B. <span class="katex-inline">A \cap B</span></label>
+                <label><input type="radio" name="q2" value="C"> C. <span class="katex-inline">\overline{A} \cap \overline{B}</span></label>
+                <label><input type="radio" name="q2" value="D"> D. <span class="katex-inline">\overline{A \cap B}</span></label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        集合运算描述了"对象之间的关系"。接下来我们进入命题逻辑——它描述的是"陈述之间的关系"，
+        而且与集合运算有着惊人的对称性。
+    </p>
+
+    <!-- ===================== 知识点 2：命题逻辑 ===================== -->
+    <section class="knowledge-point" id="kp-2">
+        <h2>2.1.2 命题逻辑</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                你写过这样的 Rust 代码吗：<code>if age &gt;= 18 &amp;&amp; has_license</code>？
+                这其实就是命题逻辑——<code>age &gt;= 18</code> 和 <code>has_license</code>
+                是两个命题，<code>&amp;&amp;</code> 是逻辑联结词"与"。
+                那么逻辑系统到底是如何工作的？
+            </p>
+        </div>
+
+        <h3>命题与真值</h3>
+        <p>
+            <strong>命题</strong>（Proposition）是一个有确定真假值的陈述句。
+            "2 是偶数"是命题（真），"关上门"不是命题（命令句没有真假值）。
+            我们用小写字母 <span class="katex-inline">p, q, r</span> 表示命题变量。
+        </p>
+
+        <h3>五大逻辑联结词</h3>
+        <p>逻辑联结词将简单命题组合成复合命题：</p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>联结词</th>
+                        <th>符号</th>
+                        <th>Rust 运算符</th>
+                        <th>含义</th>
+                        <th>真值条件</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>合取 (AND)</td>
+                        <td><span class="katex-inline">p \wedge q</span></td>
+                        <td><code>p &amp;&amp; q</code></td>
+                        <td>p 且 q</td>
+                        <td>两者都为真时才为真</td>
+                    </tr>
+                    <tr>
+                        <td>析取 (OR)</td>
+                        <td><span class="katex-inline">p \vee q</span></td>
+                        <td><code>p || q</code></td>
+                        <td>p 或 q</td>
+                        <td>至少一个为真即为真</td>
+                    </tr>
+                    <tr>
+                        <td>否定 (NOT)</td>
+                        <td><span class="katex-inline">\neg p</span></td>
+                        <td><code>!p</code></td>
+                        <td>非 p</td>
+                        <td>翻转真假值</td>
+                    </tr>
+                    <tr>
+                        <td>蕴含 (IMPLIES)</td>
+                        <td><span class="katex-inline">p \rightarrow q</span></td>
+                        <td><code>!p || q</code></td>
+                        <td>若 p 则 q</td>
+                        <td>仅 p 真 q 假时为假</td>
+                    </tr>
+                    <tr>
+                        <td>双条件 (IFF)</td>
+                        <td><span class="katex-inline">p \leftrightarrow q</span></td>
+                        <td><code>p == q</code></td>
+                        <td>p 当且仅当 q</td>
+                        <td>两者真假值相同时为真</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>真值表</h3>
+        <p>
+            真值表穷举所有可能的输入组合，列出复合命题的输出。这正是<strong>穷举验证</strong>的数学形式——
+            和 Rust 编译器检查 <code>match</code> 表达式是否覆盖所有分支的思路完全一致。
+        </p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th><span class="katex-inline">p</span></th>
+                        <th><span class="katex-inline">q</span></th>
+                        <th><span class="katex-inline">p \wedge q</span></th>
+                        <th><span class="katex-inline">p \vee q</span></th>
+                        <th><span class="katex-inline">\neg p</span></th>
+                        <th><span class="katex-inline">p \rightarrow q</span></th>
+                        <th><span class="katex-inline">p \leftrightarrow q</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>T</td><td>T</td><td>T</td><td>T</td><td>F</td><td>T</td><td>T</td>
+                    </tr>
+                    <tr>
+                        <td>T</td><td>F</td><td>F</td><td>T</td><td>F</td><td>F</td><td>F</td>
+                    </tr>
+                    <tr>
+                        <td>F</td><td>T</td><td>F</td><td>T</td><td>T</td><td>T</td><td>F</td>
+                    </tr>
+                    <tr>
+                        <td>F</td><td>F</td><td>F</td><td>F</td><td>T</td><td>T</td><td>T</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>重要的逻辑等价</h3>
+        <p>以下等价关系在编程中经常用到，特别是在简化条件判断和编译器优化中：</p>
+
+        <div class="katex-display">\neg(p \wedge q) \equiv \neg p \vee \neg q \quad \text{(德摩根律)}</div>
+        <div class="katex-display">\neg(p \vee q) \equiv \neg p \wedge \neg q \quad \text{(德摩根律)}</div>
+        <div class="katex-display">p \rightarrow q \equiv \neg p \vee q \quad \text{(蕴含消去)}</div>
+        <div class="katex-display">p \rightarrow q \equiv \neg q \rightarrow \neg p \quad \text{(逆否命题)}</div>
+
+        <p>
+            <strong>逆否命题</strong>在编程中特别有用："如果 p 则 q"等价于"如果非 q 则非 p"。
+            例如："如果函数返回 Ok，则输入有效"等价于"如果输入无效，则函数不返回 Ok"。
+        </p>
+
+        <h3>Rust 中的命题逻辑</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>propositional_logic.rs</span>
+            </div>
+            <pre><code class="language-rust">/// 验证德摩根定律和逻辑等价
+fn main() {
+    // 穷举所有真值组合（真值表验证）
+    for &amp;p in &amp;[true, false] {
+        for &amp;q in &amp;[true, false] {
+            // 德摩根律: !(p && q) == (!p || !q)
+            assert_eq!(!(p &amp;&amp; q), !p || !q);
+
+            // 德摩根律: !(p || q) == (!p && !q)
+            assert_eq!(!(p || q), !p &amp;&amp; !q);
+
+            // 蕴含消去: (p -> q) == (!p || q)
+            let implies = !p || q;
+            assert_eq!(implies, !p || q);
+
+            // 逆否命题: (p -> q) == (!q -> !p)
+            let contrapositive = !(!q) || !p; // 即 q || !p
+            assert_eq!(implies, contrapositive);
+
+            println!(
+                "p={}, q={} | p∧q={}, p∨q={}, p→q={}, p↔q={}",
+                p, q,
+                p &amp;&amp; q,
+                p || q,
+                !p || q,      // 蕴含
+                p == q,        // 双条件
+            );
+        }
+    }
+    println!("\n✓ 所有逻辑等价验证通过！");
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>p=true, q=true | p∧q=true, p∨q=true, p→q=true, p↔q=true
+p=true, q=false | p∧q=false, p∨q=true, p→q=false, p↔q=false
+p=false, q=true | p∧q=false, p∨q=true, p→q=true, p↔q=false
+p=false, q=false | p∧q=false, p∨q=false, p→q=true, p↔q=true
+
+✓ 所有逻辑等价验证通过！</pre>
+            </div>
+        </div>
+
+        <div class="note-box info">
+            <p>
+                <strong>ℹ️ 蕴含的"陷阱"</strong><br>
+                <span class="katex-inline">p \rightarrow q</span> 在 p 为假时<strong>总是为真</strong>——
+                这叫"空真"（vacuous truth）。"如果猪会飞，那么 1+1=3"在逻辑上为真！
+                在 Rust 中类似的例子：空集合上的 <code>.all()</code> 总是返回 <code>true</code>，
+                因为没有元素可以违反条件。
+            </p>
+        </div>
+
+        <!-- 快速测试 3 -->
+        <div class="quick-quiz" data-answer="D" data-explanation="蕴含 p → q 仅在 p 为真且 q 为假时才为假。当 p 为假时，不管 q 是什么，p → q 都为真（空真）。所以 false → false = true。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">命题 <span class="katex-inline">p \rightarrow q</span> 在哪种情况下为假？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q3" value="A"> A. p = false, q = false</label>
+                <label><input type="radio" name="q3" value="B"> B. p = false, q = true</label>
+                <label><input type="radio" name="q3" value="C"> C. p = true, q = true</label>
+                <label><input type="radio" name="q3" value="D"> D. p = true, q = false</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 4 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="根据德摩根律，!(p && q) 等价于 !p || !q。这在 Rust 代码的条件简化中非常常用。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">在 Rust 中，<code>!(a &amp;&amp; b)</code> 等价于哪个表达式？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q4" value="A"> A. <code>!a || !b</code></label>
+                <label><input type="radio" name="q4" value="B"> B. <code>!a &amp;&amp; !b</code></label>
+                <label><input type="radio" name="q4" value="C"> C. <code>a || b</code></label>
+                <label><input type="radio" name="q4" value="D"> D. <code>a &amp;&amp; !b</code></label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        命题逻辑处理的是具体的真假判断。但当我们需要表达"对于所有…"或"存在某个…"时，
+        就需要更强大的工具——谓词逻辑。这恰好对应 Rust 迭代器中的 <code>.all()</code> 和 <code>.any()</code>。
+    </p>
+
+    <!-- ===================== 知识点 3：谓词逻辑与量词 ===================== -->
+    <section class="knowledge-point" id="kp-3">
+        <h2>2.1.3 谓词逻辑与量词</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                考虑这两个 Rust 表达式：<code>numbers.iter().all(|&amp;x| x &gt; 0)</code> 和
+                <code>numbers.iter().any(|&amp;x| x &gt; 0)</code>。
+                前者问"所有元素是否都大于 0？"，后者问"是否存在某个元素大于 0？"。
+                这正是数学中全称量词 ∀ 和存在量词 ∃ 的直接体现。
+            </p>
+        </div>
+
+        <h3>谓词</h3>
+        <p>
+            <strong>谓词</strong>（Predicate）是一个含有变量的表达式，当变量取定值后变成命题。
+            例如 <span class="katex-inline">P(x): x &gt; 0</span> 是一个谓词——
+            <span class="katex-inline">P(3)</span> 为真，<span class="katex-inline">P(-1)</span> 为假。
+            在 Rust 中，谓词就是闭包 <code>|x| x &gt; 0</code>——一个接受输入、返回 <code>bool</code> 的函数。
+        </p>
+
+        <h3>全称量词 ∀ 和存在量词 ∃</h3>
+        <p>量词将谓词"绑定"到一个范围，使其变成命题：</p>
+
+        <div class="katex-display">\forall x \in S,\; P(x) \quad \text{对 S 中的所有 x，P(x) 成立}</div>
+        <div class="katex-display">\exists x \in S,\; P(x) \quad \text{S 中存在某个 x，使得 P(x) 成立}</div>
+
+        <p>它们之间存在深刻的对偶关系——否定一个量词会翻转为另一个：</p>
+
+        <div class="katex-display">\neg(\forall x,\; P(x)) \equiv \exists x,\; \neg P(x)</div>
+        <div class="katex-display">\neg(\exists x,\; P(x)) \equiv \forall x,\; \neg P(x)</div>
+
+        <p>
+            直觉理解："并非所有学生都通过了考试" 等价于 "存在某个学生没有通过考试"。
+            "不存在完美的软件" 等价于 "所有软件都有缺陷"。
+        </p>
+
+        <h3>多重量词</h3>
+        <p>
+            谓词可以有多个变量，需要多个量词来绑定。注意量词的<strong>顺序很重要</strong>：
+        </p>
+        <div class="katex-display">\forall x,\; \exists y,\; (x + y = 0) \quad \text{✓ 对每个 x 都存在其相反数}</div>
+        <div class="katex-display">\exists y,\; \forall x,\; (x + y = 0) \quad \text{✗ 不存在一个 y 使所有 x 加它都为 0}</div>
+
+        <h3>Rust 迭代器作为量词</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>quantifiers.rs</span>
+            </div>
+            <pre><code class="language-rust">fn main() {
+    let numbers = vec![2, 4, 6, 8, 10];
+
+    // ∀x ∈ numbers, x > 0  (全称量词)
+    let all_positive = numbers.iter().all(|&amp;x| x &gt; 0);
+    println!("∀x, x > 0 ? {}", all_positive); // true
+
+    // ∃x ∈ numbers, x > 7  (存在量词)
+    let exists_large = numbers.iter().any(|&amp;x| x &gt; 7);
+    println!("∃x, x > 7 ? {}", exists_large); // true
+
+    // 量词否定的对偶性验证
+    // ¬(∀x, P(x)) ≡ ∃x, ¬P(x)
+    let predicate = |&amp;x: &amp;i32| x % 2 == 0; // P(x): x 是偶数
+    let not_all_even = !numbers.iter().all(predicate);
+    let exists_odd = numbers.iter().any(|x| !predicate(x));
+    assert_eq!(not_all_even, exists_odd);
+    println!("¬(∀x, even(x)) ≡ ∃x, ¬even(x) ? ✓");
+
+    // 空集上的量词行为
+    let empty: Vec&lt;i32&gt; = vec![];
+    println!("空集 .all(|x| false) = {}", empty.iter().all(|_| false)); // true!
+    println!("空集 .any(|x| true)  = {}", empty.iter().any(|_| true));  // false
+
+    // 多重量词示例：∀x ∈ nums, ∃y ∈ nums, x + y == 10
+    let nums = vec![2, 4, 6, 8];
+    let result = nums.iter().all(|&amp;x| {
+        nums.iter().any(|&amp;y| x + y == 10)
+    });
+    println!("∀x ∃y, x+y=10 ? {}", result);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>∀x, x > 0 ? true
+∃x, x > 7 ? true
+¬(∀x, even(x)) ≡ ∃x, ¬even(x) ? ✓
+空集 .all(|x| false) = true
+空集 .any(|x| true)  = false
+∀x ∃y, x+y=10 ? true</pre>
+            </div>
+        </div>
+
+        <div class="note-box tip">
+            <p>
+                <strong>💡 Rust 迭代器与数学量词的完美映射</strong><br>
+                Rust 的 <code>.all()</code> 对应 ∀，<code>.any()</code> 对应 ∃。
+                空迭代器上 <code>.all()</code> 返回 <code>true</code>（空真），
+                <code>.any()</code> 返回 <code>false</code>——这与数学定义完全一致。
+                此外，<code>.find()</code> 是 ∃ 的"构造性"版本：不仅告诉你存在，还告诉你是谁。
+                这正是 Rust 实用主义哲学的体现。
+            </p>
+        </div>
+
+        <!-- 快速测试 5 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="根据量词否定的对偶性，¬(∀x, P(x)) ≡ ∃x, ¬P(x)。即'并非所有元素满足 P'等价于'存在某个元素不满足 P'。在 Rust 中：!iter.all(P) 等价于 iter.any(|x| !P(x))。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question"><span class="katex-inline">\neg(\forall x,\; P(x))</span> 等价于什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q5" value="A"> A. <span class="katex-inline">\forall x,\; \neg P(x)</span></label>
+                <label><input type="radio" name="q5" value="B"> B. <span class="katex-inline">\exists x,\; \neg P(x)</span></label>
+                <label><input type="radio" name="q5" value="C"> C. <span class="katex-inline">\neg(\exists x,\; P(x))</span></label>
+                <label><input type="radio" name="q5" value="D"> D. <span class="katex-inline">\exists x,\; P(x)</span></label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 6 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="空集合上的 .all() 总是返回 true，这是'空真'(vacuous truth)——没有元素能够违反条件。数学上，∀x ∈ ∅, P(x) 恒为真。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">在 Rust 中，<code>Vec::&lt;i32&gt;::new().iter().all(|_| false)</code> 返回什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q6" value="A"> A. <code>true</code>（空真）</label>
+                <label><input type="radio" name="q6" value="B"> B. <code>false</code></label>
+                <label><input type="radio" name="q6" value="C"> C. 编译错误</label>
+                <label><input type="radio" name="q6" value="D"> D. panic</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        有了集合和逻辑的工具，我们现在可以讨论数学最核心的技能——证明。
+        你会发现，Rust 的类型系统其实就是一个证明系统。
+    </p>
+
+    <!-- ===================== 知识点 4：证明方法 ===================== -->
+    <section class="knowledge-point" id="kp-4">
+        <h2>2.1.4 证明方法</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                当你在 Rust 中写 <code>match</code> 表达式时，编译器要求你覆盖所有可能的分支——
+                否则无法编译。这本质上就是在要求你给出一个"证明"：证明你处理了所有情况。
+                数学中的证明方法和这种思路是一脉相承的。
+            </p>
+        </div>
+
+        <h3>直接证明</h3>
+        <p>
+            <strong>直接证明</strong>（Direct Proof）是最直观的方法：从已知前提出发，通过一系列逻辑推导到达结论。
+        </p>
+        <p>
+            <strong>例</strong>：证明"如果 n 是偶数，则 n² 是偶数"。
+        </p>
+        <p>
+            <em>证明</em>：设 n 是偶数，则 <span class="katex-inline">n = 2k</span>（其中 k 为整数）。
+            那么 <span class="katex-inline">n^2 = (2k)^2 = 4k^2 = 2(2k^2)</span>。
+            因为 <span class="katex-inline">2k^2</span> 是整数，所以 <span class="katex-inline">n^2</span> 是偶数。∎
+        </p>
+
+        <h3>反证法（归谬法）</h3>
+        <p>
+            <strong>反证法</strong>（Proof by Contradiction）先假设结论的否定成立，然后推导出矛盾，
+            从而证明原命题为真。逻辑基础是：<span class="katex-inline">\neg(\neg p) \equiv p</span>（双重否定律）。
+        </p>
+        <p>
+            <strong>例</strong>：证明 <span class="katex-inline">\sqrt{2}</span> 是无理数。
+        </p>
+        <p>
+            <em>证明</em>：假设 <span class="katex-inline">\sqrt{2}</span> 是有理数，
+            则 <span class="katex-inline">\sqrt{2} = \frac{a}{b}</span>（a, b 互质）。
+            两边平方得 <span class="katex-inline">2 = \frac{a^2}{b^2}</span>，即 <span class="katex-inline">a^2 = 2b^2</span>。
+            因此 a² 是偶数，所以 a 是偶数，设 <span class="katex-inline">a = 2c</span>。
+            代入得 <span class="katex-inline">4c^2 = 2b^2</span>，即 <span class="katex-inline">b^2 = 2c^2</span>，
+            所以 b 也是偶数。但 a, b 都是偶数与"a, b 互质"矛盾。因此假设不成立，
+            <span class="katex-inline">\sqrt{2}</span> 是无理数。∎
+        </p>
+
+        <h3>数学归纳法</h3>
+        <p>
+            <strong>数学归纳法</strong>（Mathematical Induction）用于证明对所有自然数 n 都成立的命题。
+            它像递归一样工作：
+        </p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>基础步骤 (Base Case)</h4>
+                <p>证明命题在 <span class="katex-inline">n = 0</span>（或 <span class="katex-inline">n = 1</span>）时成立——相当于递归的终止条件。</p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>归纳步骤 (Inductive Step)</h4>
+                <p>假设命题在 <span class="katex-inline">n = k</span> 时成立（归纳假设），证明在 <span class="katex-inline">n = k+1</span> 时也成立——相当于递归的推进规则。</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>结论</h4>
+                <p>由归纳原理，命题对所有 <span class="katex-inline">n \geq 0</span> 成立。</p>
+            </div>
+        </div>
+
+        <p>
+            <strong>例</strong>：证明 <span class="katex-inline">1 + 2 + \cdots + n = \frac{n(n+1)}{2}</span>。
+        </p>
+        <p>
+            <em>基础步骤</em>：<span class="katex-inline">n = 1</span> 时，左边 = 1，右边 = <span class="katex-inline">\frac{1 \times 2}{2} = 1</span>。成立。✓
+        </p>
+        <p>
+            <em>归纳步骤</em>：假设 <span class="katex-inline">1 + 2 + \cdots + k = \frac{k(k+1)}{2}</span>。
+            则 <span class="katex-inline">1 + 2 + \cdots + k + (k+1) = \frac{k(k+1)}{2} + (k+1) = \frac{k(k+1) + 2(k+1)}{2} = \frac{(k+1)(k+2)}{2}</span>。
+            这正是公式在 <span class="katex-inline">n = k+1</span> 时的形式。✓
+        </p>
+
+        <h3>Rust 类型系统作为证明系统</h3>
+        <p>
+            Rust 的类型系统与证明理论之间存在深刻的联系，称为 <strong>Curry-Howard 对应</strong>：
+            类型对应命题，程序对应证明。如果一个类型有实例（程序能编译），就"证明"了对应的命题。
+        </p>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>type_as_proof.rs</span>
+            </div>
+            <pre><code class="language-rust">/// Rust 的类型系统 = 证明系统
+///
+/// Option&lt;T&gt; 强制你处理"值可能不存在"的情况
+/// 这等价于要求你证明：你的代码在所有分支上都是正确的
+
+fn safe_divide(a: f64, b: f64) -&gt; Option&lt;f64&gt; {
+    if b == 0.0 {
+        None    // 证明的分支 1：除数为零时返回 None
+    } else {
+        Some(a / b)  // 证明的分支 2：除数非零时安全除法
+    }
+}
+
+/// match 表达式 = 对所有情况的穷举证明
+fn describe_result(result: Option&lt;f64&gt;) -&gt; String {
+    match result {
+        Some(val) =&gt; format!("结果: {:.2}", val),
+        None =&gt; String::from("错误: 除以零"),
+        // 如果漏掉一个分支，编译器拒绝编译
+        // = 你的"证明"不完整！
+    }
+}
+
+/// Result&lt;T, E&gt; 类似逻辑析取：值要么是 T 要么是 E
+/// 编译器要求你处理两种情况 = 证明的完备性
+fn parse_and_double(s: &amp;str) -&gt; Result&lt;i32, String&gt; {
+    match s.parse::&lt;i32&gt;() {
+        Ok(n) =&gt; Ok(n * 2),
+        Err(e) =&gt; Err(format!("解析失败: {}", e)),
+    }
+}
+
+fn main() {
+    println!("{}", describe_result(safe_divide(10.0, 3.0)));
+    println!("{}", describe_result(safe_divide(10.0, 0.0)));
+
+    println!("{:?}", parse_and_double("21"));
+    println!("{:?}", parse_and_double("abc"));
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>结果: 3.33
+错误: 除以零
+Ok(42)
+Err("解析失败: invalid digit found in string")</pre>
+            </div>
+        </div>
+
+        <div class="note-box tip">
+            <p>
+                <strong>💡 Curry-Howard 对应一览</strong><br>
+                逻辑中的 <span class="katex-inline">A \wedge B</span>（A 且 B）对应 Rust 的元组 <code>(A, B)</code>；
+                <span class="katex-inline">A \vee B</span>（A 或 B）对应 <code>enum { Left(A), Right(B) }</code>（即 <code>Result&lt;A, B&gt;</code>）；
+                <span class="katex-inline">A \rightarrow B</span>（若 A 则 B）对应函数 <code>fn(A) -&gt; B</code>；
+                <span class="katex-inline">\bot</span>（假/矛盾）对应 <code>!</code>（never 类型，不可能的返回值）。
+                Rust 每次编译成功，都是在验证一个逻辑证明！
+            </p>
+        </div>
+
+        <!-- 快速测试 7 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="数学归纳法包含两步：(1) 基础步骤：证明 n=0 或 n=1 时成立；(2) 归纳步骤：假设 n=k 成立，证明 n=k+1 也成立。不需要验证所有自然数。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">数学归纳法的两个步骤是什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q7" value="A"> A. 假设成立 + 找到反例</label>
+                <label><input type="radio" name="q7" value="B"> B. 证明基础情况 + 从 n=k 推出 n=k+1</label>
+                <label><input type="radio" name="q7" value="C"> C. 验证 n=1 到 n=100 的所有情况</label>
+                <label><input type="radio" name="q7" value="D"> D. 假设结论为假 + 推导出矛盾</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 8 -->
+        <div class="quick-quiz" data-answer="C" data-explanation="在 Curry-Howard 对应中，类型对应命题，程序对应证明。fn(A) -> B 对应蕴含 A → B，元组 (A, B) 对应合取 A ∧ B，enum 对应析取 A ∨ B。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">在 Curry-Howard 对应中，Rust 的 <code>fn(A) -&gt; B</code> 对应逻辑中的什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q8" value="A"> A. <span class="katex-inline">A \wedge B</span>（合取）</label>
+                <label><input type="radio" name="q8" value="B"> B. <span class="katex-inline">A \vee B</span>（析取）</label>
+                <label><input type="radio" name="q8" value="C"> C. <span class="katex-inline">A \rightarrow B</span>（蕴含）</label>
+                <label><input type="radio" name="q8" value="D"> D. <span class="katex-inline">\neg A</span>（否定）</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ===================== 章节总结 ===================== -->
+    <section class="chapter-summary">
+        <h2>📝 章节总结</h2>
+        <ul>
+            <li><strong>集合</strong>是无序、互异的对象集，Rust 的 <code>HashSet</code> 直接对应数学集合</li>
+            <li><strong>集合运算</strong>（并、交、差、对称差）在权限管理、数据过滤等场景中广泛应用</li>
+            <li><strong>德摩根定律</strong>连接了集合运算和逻辑运算：<span class="katex-inline">\overline{A \cup B} = \overline{A} \cap \overline{B}</span></li>
+            <li><strong>命题逻辑</strong>的五大联结词（∧ ∨ ¬ → ↔）对应 Rust 的 <code>&amp;&amp; || ! </code> 等运算符</li>
+            <li><strong>蕴含</strong> <span class="katex-inline">p \rightarrow q</span> 在 p 为假时总是为真（空真）</li>
+            <li><strong>量词</strong> ∀ 和 ∃ 对应 Rust 的 <code>.all()</code> 和 <code>.any()</code>，它们的否定互相对偶</li>
+            <li><strong>证明方法</strong>包括直接证明、反证法和数学归纳法（类似递归）</li>
+            <li>Rust 的类型系统是一个<strong>证明系统</strong>：类型 = 命题，程序 = 证明（Curry-Howard 对应）</li>
+        </ul>
+    </section>
+
+    <!-- ===================== 课后练习 ===================== -->
+    <section class="exercises">
+        <h2>📚 课后练习</h2>
+
+        <!-- 基础题 1 -->
+        <div class="exercise-item" id="ex-1">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">1. 设 A = {1, 2, 3, 4, 5}，B = {3, 4, 5, 6, 7}，求 A ∪ B、A ∩ B、A \ B、B \ A 和 A △ B。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <span class="katex-inline">A \cup B = \{1, 2, 3, 4, 5, 6, 7\}</span><br>
+                        <span class="katex-inline">A \cap B = \{3, 4, 5\}</span><br>
+                        <span class="katex-inline">A \setminus B = \{1, 2\}</span><br>
+                        <span class="katex-inline">B \setminus A = \{6, 7\}</span><br>
+                        <span class="katex-inline">A \triangle B = \{1, 2, 6, 7\}</span>（在一个集合中但不同时在两个集合中的元素）
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 2 -->
+        <div class="exercise-item" id="ex-2">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">2. 构造命题 <span class="katex-inline">(p \vee q) \wedge \neg p</span> 的真值表，并判断该命题在何时为真。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <table>
+                        <thead><tr><th>p</th><th>q</th><th>p ∨ q</th><th>¬p</th><th>(p ∨ q) ∧ ¬p</th></tr></thead>
+                        <tbody>
+                            <tr><td>T</td><td>T</td><td>T</td><td>F</td><td>F</td></tr>
+                            <tr><td>T</td><td>F</td><td>T</td><td>F</td><td>F</td></tr>
+                            <tr><td>F</td><td>T</td><td>T</td><td>T</td><td><strong>T</strong></td></tr>
+                            <tr><td>F</td><td>F</td><td>F</td><td>T</td><td>F</td></tr>
+                        </tbody>
+                    </table>
+                    <p>该命题仅在 p = false 且 q = true 时为真。直觉上，这等价于 <span class="katex-inline">\neg p \wedge q</span>（p 不成立但 q 成立）。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 3 -->
+        <div class="exercise-item" id="ex-3">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">3. 将以下自然语言翻译为谓词逻辑公式：(a) "所有素数大于 1" (b) "存在一个偶数是素数"。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        设 <span class="katex-inline">P(x)</span> 表示"x 是素数"，<span class="katex-inline">E(x)</span> 表示"x 是偶数"。<br><br>
+                        (a) <span class="katex-inline">\forall x,\; (P(x) \rightarrow x &gt; 1)</span><br>
+                        (b) <span class="katex-inline">\exists x,\; (E(x) \wedge P(x))</span>（即 2）
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 4 -->
+        <div class="exercise-item" id="ex-4">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">4. 写出 <span class="katex-inline">p \rightarrow q</span> 的逆命题、否命题和逆否命题，并说明哪些与原命题等价。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        原命题：<span class="katex-inline">p \rightarrow q</span>（若 p 则 q）<br>
+                        逆命题：<span class="katex-inline">q \rightarrow p</span>（若 q 则 p）<br>
+                        否命题：<span class="katex-inline">\neg p \rightarrow \neg q</span>（若非 p 则非 q）<br>
+                        逆否命题：<span class="katex-inline">\neg q \rightarrow \neg p</span>（若非 q 则非 p）<br><br>
+                        <strong>原命题与逆否命题等价</strong>，逆命题与否命题等价。但原命题与逆命题不一定等价。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 5 -->
+        <div class="exercise-item" id="ex-5">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">5. 在 Rust 中，<code>[1, 3, 5].iter().all(|x| x % 2 == 1)</code> 和 <code>[1, 3, 5].iter().any(|x| x % 2 == 0)</code> 分别返回什么？用量词语言解释。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <code>.all(|x| x % 2 == 1)</code> 返回 <code>true</code>：<span class="katex-inline">\forall x \in \{1,3,5\},\; x \text{ 是奇数}</span> —— 所有元素确实都是奇数。<br><br>
+                        <code>.any(|x| x % 2 == 0)</code> 返回 <code>false</code>：<span class="katex-inline">\exists x \in \{1,3,5\},\; x \text{ 是偶数}</span> —— 不存在偶数元素。<br><br>
+                        注意它们的关系：<code>!all(odd)</code> = <code>any(even)</code> = <code>false</code>（因为 all(odd) = true）。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 6 -->
+        <div class="exercise-item" id="ex-6">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                6. 用真值表验证：<span class="katex-inline">p \rightarrow (q \rightarrow r)</span> 与 <span class="katex-inline">(p \wedge q) \rightarrow r</span> 是否逻辑等价。
+                然后在 Rust 中用穷举法验证。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p><strong>它们是逻辑等价的。</strong></p>
+                    <p>
+                        <span class="katex-inline">p \rightarrow (q \rightarrow r) \equiv \neg p \vee (\neg q \vee r) \equiv \neg p \vee \neg q \vee r</span><br>
+                        <span class="katex-inline">(p \wedge q) \rightarrow r \equiv \neg(p \wedge q) \vee r \equiv \neg p \vee \neg q \vee r</span><br>
+                        两者化简结果相同。✓
+                    </p>
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>验证代码</span>
+                        </div>
+                        <pre><code class="language-rust">fn main() {
+    for &amp;p in &amp;[true, false] {
+        for &amp;q in &amp;[true, false] {
+            for &amp;r in &amp;[true, false] {
+                let lhs = !p || (!q || r);  // p → (q → r)
+                let rhs = !(p &amp;&amp; q) || r;   // (p ∧ q) → r
+                assert_eq!(lhs, rhs);
+            }
+        }
+    }
+    println!("✓ 等价性验证通过");
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 7 -->
+        <div class="exercise-item" id="ex-7">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                7. 用数学归纳法证明：对所有 <span class="katex-inline">n \geq 1</span>，<span class="katex-inline">1^2 + 2^2 + \cdots + n^2 = \frac{n(n+1)(2n+1)}{6}</span>。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <strong>基础步骤</strong>：<span class="katex-inline">n = 1</span> 时，左边 = 1，右边 = <span class="katex-inline">\frac{1 \times 2 \times 3}{6} = 1</span>。✓<br><br>
+                        <strong>归纳步骤</strong>：假设 <span class="katex-inline">\sum_{i=1}^{k} i^2 = \frac{k(k+1)(2k+1)}{6}</span>。<br>
+                        则 <span class="katex-inline">\sum_{i=1}^{k+1} i^2 = \frac{k(k+1)(2k+1)}{6} + (k+1)^2</span><br>
+                        <span class="katex-inline">= \frac{k(k+1)(2k+1) + 6(k+1)^2}{6}</span><br>
+                        <span class="katex-inline">= \frac{(k+1)[k(2k+1) + 6(k+1)]}{6}</span><br>
+                        <span class="katex-inline">= \frac{(k+1)(2k^2 + 7k + 6)}{6}</span><br>
+                        <span class="katex-inline">= \frac{(k+1)(k+2)(2k+3)}{6}</span><br>
+                        这正是公式在 <span class="katex-inline">n = k+1</span> 时的形式。✓
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 8 -->
+        <div class="exercise-item" id="ex-8">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                8. 证明集合等式 <span class="katex-inline">A \setminus (B \cup C) = (A \setminus B) \cap (A \setminus C)</span>。
+                提示：用元素法（证明两边包含相同的元素）。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        设 <span class="katex-inline">x \in A \setminus (B \cup C)</span><br>
+                        <span class="katex-inline">\Leftrightarrow x \in A \wedge x \notin (B \cup C)</span><br>
+                        <span class="katex-inline">\Leftrightarrow x \in A \wedge \neg(x \in B \vee x \in C)</span><br>
+                        <span class="katex-inline">\Leftrightarrow x \in A \wedge (x \notin B \wedge x \notin C)</span>（德摩根律）<br>
+                        <span class="katex-inline">\Leftrightarrow (x \in A \wedge x \notin B) \wedge (x \in A \wedge x \notin C)</span><br>
+                        <span class="katex-inline">\Leftrightarrow x \in (A \setminus B) \wedge x \in (A \setminus C)</span><br>
+                        <span class="katex-inline">\Leftrightarrow x \in (A \setminus B) \cap (A \setminus C)</span> ∎
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 9 -->
+        <div class="exercise-item" id="ex-9">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                9. 写出以下命题的否定，并化简：<span class="katex-inline">\forall \epsilon &gt; 0,\; \exists N,\; \forall n &gt; N,\; |a_n - L| &lt; \epsilon</span>
+                （这是数列极限的定义）。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        逐层否定，每遇到一个量词就翻转（∀ ↔ ∃）：<br><br>
+                        <span class="katex-inline">\neg(\forall \epsilon &gt; 0,\; \exists N,\; \forall n &gt; N,\; |a_n - L| &lt; \epsilon)</span><br>
+                        <span class="katex-inline">\equiv \exists \epsilon &gt; 0,\; \forall N,\; \exists n &gt; N,\; |a_n - L| \geq \epsilon</span><br><br>
+                        直觉理解：数列<strong>不</strong>收敛到 L 意味着——存在某个精度 ε，无论你取多大的 N，
+                        总能在 N 之后找到某项 aₙ 距离 L 至少有 ε 远。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 挑战题 10 -->
+        <div class="exercise-item" id="ex-10">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">
+                10. 用反证法证明：不存在最大的素数（即素数有无穷多个）。这是欧几里得的经典证明。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <strong>反证法</strong>：假设素数有限，设全部素数为 <span class="katex-inline">p_1, p_2, \ldots, p_n</span>。<br>
+                        构造 <span class="katex-inline">N = p_1 \times p_2 \times \cdots \times p_n + 1</span>。<br>
+                        N 除以任何一个已知素数 <span class="katex-inline">p_i</span> 都余 1，所以 N 不能被任何已知素数整除。<br>
+                        但 N &gt; 1，根据算术基本定理，N 要么本身是素数，要么能分解为素因子。<br>
+                        无论哪种情况，都存在一个不在 <span class="katex-inline">\{p_1, \ldots, p_n\}</span> 中的素数——矛盾！<br>
+                        因此素数不可能是有限的。∎
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 挑战题 11 -->
+        <div class="exercise-item" id="ex-11">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">
+                11. 证明幂集的大小：如果集合 A 有 n 个元素，则其幂集 <span class="katex-inline">\mathcal{P}(A)</span>（所有子集的集合）恰好有 <span class="katex-inline">2^n</span> 个元素。
+                使用数学归纳法。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <strong>基础步骤</strong>：<span class="katex-inline">n = 0</span> 时，<span class="katex-inline">A = \emptyset</span>，
+                        <span class="katex-inline">\mathcal{P}(\emptyset) = \{\emptyset\}</span>，有 <span class="katex-inline">2^0 = 1</span> 个元素。✓<br><br>
+                        <strong>归纳步骤</strong>：假设 |A| = k 时 <span class="katex-inline">|\mathcal{P}(A)| = 2^k</span>。<br>
+                        设 |B| = k+1，取 B 中任意一个元素 x，令 <span class="katex-inline">A = B \setminus \{x\}</span>，则 |A| = k。<br>
+                        B 的子集分为两类：<br>
+                        (1) 不含 x 的子集：即 A 的子集，有 <span class="katex-inline">2^k</span> 个。<br>
+                        (2) 含 x 的子集：每个 A 的子集加上 x 得到，也有 <span class="katex-inline">2^k</span> 个。<br>
+                        总数 = <span class="katex-inline">2^k + 2^k = 2^{k+1}</span>。✓
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 附加题 12 -->
+        <div class="exercise-item" id="ex-12">
+            <span class="difficulty bonus">🏆 附加题</span>
+            <p class="exercise-question">
+                12. <strong>Rust 工程实战</strong>：实现一个简单的命题逻辑求值器。定义一个 <code>Prop</code> 枚举类型，
+                支持 Var、And、Or、Not、Implies 五种构造，实现 <code>eval()</code> 方法根据变量赋值计算真值，
+                并实现一个 <code>truth_table()</code> 函数打印所有可能的赋值结果。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看参考实现</button>
+                <div class="collapsible-content">
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>参考答案</span>
+                        </div>
+                        <pre><code class="language-rust">use std::collections::HashMap;
+
+#[derive(Clone)]
+enum Prop {
+    Var(String),
+    Not(Box&lt;Prop&gt;),
+    And(Box&lt;Prop&gt;, Box&lt;Prop&gt;),
+    Or(Box&lt;Prop&gt;, Box&lt;Prop&gt;),
+    Implies(Box&lt;Prop&gt;, Box&lt;Prop&gt;),
+}
+
+impl Prop {
+    fn eval(&amp;self, env: &amp;HashMap&lt;String, bool&gt;) -&gt; bool {
+        match self {
+            Prop::Var(name) =&gt; *env.get(name).unwrap_or(&amp;false),
+            Prop::Not(p) =&gt; !p.eval(env),
+            Prop::And(p, q) =&gt; p.eval(env) &amp;&amp; q.eval(env),
+            Prop::Or(p, q) =&gt; p.eval(env) || q.eval(env),
+            Prop::Implies(p, q) =&gt; !p.eval(env) || q.eval(env),
+        }
+    }
+
+    fn vars(&amp;self) -&gt; Vec&lt;String&gt; {
+        let mut result = Vec::new();
+        self.collect_vars(&amp;mut result);
+        result.sort();
+        result.dedup();
+        result
+    }
+
+    fn collect_vars(&amp;self, acc: &amp;mut Vec&lt;String&gt;) {
+        match self {
+            Prop::Var(name) =&gt; acc.push(name.clone()),
+            Prop::Not(p) =&gt; p.collect_vars(acc),
+            Prop::And(p, q) | Prop::Or(p, q) | Prop::Implies(p, q) =&gt; {
+                p.collect_vars(acc);
+                q.collect_vars(acc);
+            }
+        }
+    }
+}
+
+fn truth_table(prop: &amp;Prop) {
+    let vars = prop.vars();
+    let n = vars.len();
+    for mask in 0..(1 &lt;&lt; n) {
+        let mut env = HashMap::new();
+        for (i, var) in vars.iter().enumerate() {
+            env.insert(var.clone(), (mask &gt;&gt; (n - 1 - i)) &amp; 1 == 1);
+        }
+        let result = prop.eval(&amp;env);
+        let vals: Vec&lt;_&gt; = vars.iter()
+            .map(|v| format!("{}={}", v, env[v]))
+            .collect();
+        println!("{} => {}", vals.join(", "), result);
+    }
+}
+
+fn main() {
+    // 构造 p → (q → p)，这是一个重言式
+    let p = Prop::Var("p".into());
+    let q = Prop::Var("q".into());
+    let formula = Prop::Implies(
+        Box::new(p.clone()),
+        Box::new(Prop::Implies(Box::new(q), Box::new(p))),
+    );
+    println!("真值表: p → (q → p)");
+    truth_table(&amp;formula);
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 附加题 13 -->
+        <div class="exercise-item" id="ex-13">
+            <span class="difficulty bonus">🏆 附加题</span>
+            <p class="exercise-question">
+                13. <strong>深度思考</strong>：Rust 的 <code>enum</code> 类型和 <code>match</code> 的穷尽性检查
+                如何体现 Curry-Howard 对应？设计一个实际的例子，展示如何通过类型系统"证明"
+                一个程序的正确性（例如，用类型状态模式确保 TCP 连接按正确顺序进行状态转换）。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看思路</button>
+                <div class="collapsible-content">
+                    <p><strong>核心思路：类型状态模式（Typestate Pattern）</strong></p>
+                    <p>
+                        使用零大小类型（ZST）表示状态，编译器在编译期就能阻止非法状态转换：
+                    </p>
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>typestate_tcp.rs</span>
+                        </div>
+                        <pre><code class="language-rust">// 状态类型（零大小，仅存在于类型层面）
+struct Closed;
+struct Listening;
+struct Established;
+
+// TcpConnection 的状态编码在类型参数中
+struct TcpConnection&lt;State&gt; {
+    _state: std::marker::PhantomData&lt;State&gt;,
+}
+
+impl TcpConnection&lt;Closed&gt; {
+    fn new() -&gt; Self {
+        TcpConnection { _state: std::marker::PhantomData }
+    }
+    // 只有 Closed 状态才能 listen
+    fn listen(self) -&gt; TcpConnection&lt;Listening&gt; {
+        println!("开始监听...");
+        TcpConnection { _state: std::marker::PhantomData }
+    }
+}
+
+impl TcpConnection&lt;Listening&gt; {
+    // 只有 Listening 状态才能 accept
+    fn accept(self) -&gt; TcpConnection&lt;Established&gt; {
+        println!("接受连接");
+        TcpConnection { _state: std::marker::PhantomData }
+    }
+}
+
+impl TcpConnection&lt;Established&gt; {
+    fn send(&amp;self, data: &amp;str) {
+        println!("发送: {}", data);
+    }
+    fn close(self) -&gt; TcpConnection&lt;Closed&gt; {
+        println!("关闭连接");
+        TcpConnection { _state: std::marker::PhantomData }
+    }
+}
+
+fn main() {
+    let conn = TcpConnection::&lt;Closed&gt;::new();
+    let conn = conn.listen();   // Closed → Listening
+    let conn = conn.accept();   // Listening → Established
+    conn.send("Hello!");
+    let _conn = conn.close();   // Established → Closed
+
+    // conn.send("test"); // 编译错误！conn 已被 move
+    // TcpConnection::&lt;Closed&gt;::new().send("x"); // 编译错误！Closed 没有 send
+}</code></pre>
+                    </div>
+                    <p>
+                        类型系统在编译期就证明了：连接必须按 Closed → Listening → Established 的顺序转换，
+                        不可能在错误的状态上调用方法。这就是 Curry-Howard 对应的工程应用。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== 延伸阅读 ===================== -->
+    <section class="further-reading">
+        <h2>📖 延伸阅读</h2>
+        <ul>
+            <li>
+                <a href="https://doc.rust-lang.org/std/collections/struct.HashSet.html" target="_blank">
+                    Rust 标准库 HashSet 文档
+                </a>
+                <span class="reading-tag">文档</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    官方文档中关于集合操作的完整 API，包含 union、intersection 等方法
+                </span>
+            </li>
+            <li>
+                <a href="https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence" target="_blank">
+                    Curry-Howard Correspondence — Wikipedia
+                </a>
+                <span class="reading-tag">理论</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    类型系统与逻辑证明之间对应关系的详细介绍
+                </span>
+            </li>
+            <li>
+                <a href="https://www.cs.cmu.edu/~mhh/readings/discrete.pdf" target="_blank">
+                    Discrete Mathematics and Its Applications — Rosen
+                </a>
+                <span class="reading-tag">教材</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    经典离散数学教材，涵盖集合论、逻辑和证明方法的完整内容
+                </span>
+            </li>
+            <li>
+                <a href="https://clig.dev/" target="_blank">
+                    Command Line Interface Guidelines
+                </a>
+                <span class="reading-tag">实践</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    设计 CLI 工具时的逻辑思维范式——将形式逻辑应用于工程实践
+                </span>
+            </li>
+        </ul>
+    </section>
+
+</main>
+
+<!-- 脚本 -->
+<script src="../../assets/js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof initKaTeX === 'function') {
+            initKaTeX();
+        }
+    });
+</script>
+</body>
+</html>
