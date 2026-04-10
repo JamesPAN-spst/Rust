@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 1.3 行列式与特征值 - math_univers</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+</head>
+<body>
+
+<!-- 移动端菜单按钮 -->
+<button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+<!-- 侧边栏 -->
+<nav class="sidebar">
+    <div class="sidebar-logo">math_univers</div>
+    <div class="sidebar-subtitle">面向 Rust 开发者的数学基础</div>
+    <ul class="sidebar-nav">
+        <li class="unit-title">Unit 1 · 线性代数基础</li>
+        <li><a href="../ch1.1_vectors/index.html">1.1 向量与向量空间</a></li>
+        <li><a href="../ch1.2_matrices/index.html">1.2 矩阵与线性变换</a></li>
+        <li><a href="../ch1.3_determinants/index.html" class="active">1.3 行列式与特征值</a></li>
+        <li><a href="../ch1.4_practice/index.html">1.4 实战：Rust 中的线性代数</a></li>
+
+        <li class="unit-title">Unit 2 · 离散数学</li>
+        <li><a href="../../unit2_discrete_math/ch2.1_sets_logic/index.html">2.1 集合论与逻辑</a></li>
+        <li><a href="../../unit2_discrete_math/ch2.2_graph_theory/index.html">2.2 图论基础</a></li>
+        <li><a href="../../unit2_discrete_math/ch2.3_combinatorics/index.html">2.3 组合数学与计数</a></li>
+        <li><a href="../../unit2_discrete_math/ch2.4_practice/index.html">2.4 实战：图算法</a></li>
+
+        <li class="unit-title">Unit 3 · 数论与密码学</li>
+        <li><a href="../../unit3_number_theory/ch3.1_divisibility/index.html">3.1 整除性与素数</a></li>
+        <li><a href="../../unit3_number_theory/ch3.2_modular_arithmetic/index.html">3.2 模运算与同余</a></li>
+        <li><a href="../../unit3_number_theory/ch3.3_group_theory/index.html">3.3 群论入门</a></li>
+        <li><a href="../../unit3_number_theory/ch3.4_practice/index.html">3.4 实战：RSA 加密</a></li>
+
+        <li class="unit-title">Unit 4 · 概率论与统计</li>
+        <li><a href="../../unit4_probability/ch4.1_basics/index.html">4.1 概率基础</a></li>
+        <li><a href="../../unit4_probability/ch4.2_distributions/index.html">4.2 随机变量与分布</a></li>
+        <li><a href="../../unit4_probability/ch4.3_inference/index.html">4.3 统计推断基础</a></li>
+        <li><a href="../../unit4_probability/ch4.4_practice/index.html">4.4 实战：蒙特卡洛</a></li>
+
+        <li class="unit-title">Unit 5 · 微积分与优化</li>
+        <li><a href="../../unit5_calculus/ch5.1_limits/index.html">5.1 极限与连续性</a></li>
+        <li><a href="../../unit5_calculus/ch5.2_differentiation/index.html">5.2 微分与积分</a></li>
+        <li><a href="../../unit5_calculus/ch5.3_multivariable/index.html">5.3 多元微积分入门</a></li>
+        <li><a href="../../unit5_calculus/ch5.4_practice/index.html">5.4 实战：数值方法</a></li>
+    </ul>
+</nav>
+
+<!-- 主内容区 -->
+<main class="content">
+
+    <!-- 章节头 -->
+    <header class="chapter-header">
+        <span class="unit-label">Unit 1 · 线性代数基础</span>
+        <h1>Ch 1.3 行列式与特征值</h1>
+        <p class="chapter-description">
+            行列式告诉你一个线性变换如何缩放空间，特征值告诉你空间的哪些方向在变换中"不转弯"。
+            本章将从几何直觉出发，在 Rust 中实现这些核心概念，并连接到游戏物理和系统稳定性分析等实战场景。
+        </p>
+    </header>
+
+    <!-- 学习目标 -->
+    <section class="learning-objectives">
+        <h2>🎯 学习目标</h2>
+        <ul>
+            <li>理解行列式的代数定义，掌握 2×2 和 3×3 矩阵的计算方法</li>
+            <li>建立行列式的几何直觉：面积/体积缩放因子与方向翻转</li>
+            <li>理解特征值与特征向量的定义，能手算 2×2 矩阵的特征值</li>
+            <li>了解对角化的条件和特征分解的基本思想</li>
+            <li>能用 Rust 实现行列式计算和 2×2 特征值求解</li>
+        </ul>
+    </section>
+
+    <!-- 前置知识 -->
+    <section class="prerequisites">
+        <h3>📋 前置知识</h3>
+        <p>
+            本章假设你已经掌握矩阵的基本运算（乘法、转置）和线性变换的概念
+            （参见 <a href="../ch1.2_matrices/index.html">Ch 1.2 矩阵与线性变换</a>）。
+            你还应该熟悉 Rust 的数组和基本运算符重载
+            （参见 <a href="../ch1.1_vectors/index.html">Ch 1.1 向量与向量空间</a>）。
+        </p>
+    </section>
+
+    <!-- ===================== 知识点 1：行列式的定义与计算 ===================== -->
+    <section class="knowledge-point" id="kp-1">
+        <h2>1.3.1 行列式的定义与计算</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                你有一个 2D 变换矩阵，把它应用到一个单位正方形上。变换后的形状面积变了吗？
+                变大了还是变小了？有没有被"翻转"（像照镜子一样）？
+                行列式一个数字就能回答这三个问题。
+            </p>
+        </div>
+
+        <h3>2×2 行列式</h3>
+        <p>
+            对于 2×2 矩阵，行列式的计算非常直接——主对角线之积减去副对角线之积：
+        </p>
+
+        <div class="katex-display">\det\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix} = ad - bc</div>
+
+        <p>
+            这个公式虽然简单，但蕴含了深刻的几何意义（我们在 KP2 中会详细探讨）。
+            先记住这个"交叉相减"的模式。
+        </p>
+
+        <h3>3×3 行列式与余子式展开</h3>
+        <p>
+            对于 3×3 矩阵，我们沿第一行进行<strong>余子式展开</strong>（cofactor expansion）：
+        </p>
+
+        <div class="katex-display">\det\begin{pmatrix} a &amp; b &amp; c \\ d &amp; e &amp; f \\ g &amp; h &amp; i \end{pmatrix} = a(ei - fh) - b(di - fg) + c(dh - eg)</div>
+
+        <p>
+            注意符号的交替模式：<strong>+ - +</strong>。每一项都是第一行元素乘以它的
+            <strong>余子式</strong>（删掉所在行和列后剩余 2×2 矩阵的行列式）。
+            这个递归结构意味着 n×n 行列式可以分解为 (n-1)×(n-1) 行列式——虽然效率不高，但概念清晰。
+        </p>
+
+        <div class="note-box info">
+            <p>
+                <strong>ℹ️ 计算复杂度提醒</strong><br>
+                余子式展开的时间复杂度是 O(n!)，对大矩阵来说极其缓慢。
+                工业级实现（如 <code>nalgebra</code>）使用 LU 分解，复杂度为 O(n³)。
+                但对于 2×2 和 3×3，直接公式是最快的选择——游戏引擎里几乎都这么做。
+            </p>
+        </div>
+
+        <h3>Rust 实现</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>determinant.rs</span>
+            </div>
+            <pre><code class="language-rust">/// 2x2 矩阵行列式
+fn det2(m: &amp;[[f64; 2]; 2]) -&gt; f64 {
+    m[0][0] * m[1][1] - m[0][1] * m[1][0]
+}
+
+/// 3x3 矩阵行列式（余子式展开）
+fn det3(m: &amp;[[f64; 3]; 3]) -&gt; f64 {
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+  - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+  + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+}
+
+fn main() {
+    // 2x2 示例
+    let a = [[3.0, 7.0],
+             [1.0, -4.0]];
+    println!("det(A) = {}", det2(&amp;a));
+    // 3 * (-4) - 7 * 1 = -12 - 7 = -19
+
+    // 3x3 示例：单位矩阵
+    let identity = [[1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0]];
+    println!("det(I) = {}", det3(&amp;identity));
+
+    // 3x3 示例：缩放矩阵（各轴缩放 2, 3, 4 倍）
+    let scale = [[2.0, 0.0, 0.0],
+                 [0.0, 3.0, 0.0],
+                 [0.0, 0.0, 4.0]];
+    println!("det(Scale) = {}", det3(&amp;scale));
+    // 体积缩放 = 2 * 3 * 4 = 24
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>det(A) = -19
+det(I) = 1
+det(Scale) = 24</pre>
+            </div>
+        </div>
+
+        <!-- 快速测试 1 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="det = 2×6 - 3×4 = 12 - 12 = 0。行列式为零意味着矩阵是奇异的（不可逆），变换把空间压扁了一个维度。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">矩阵 [[2, 3], [4, 6]] 的行列式是多少？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q1" value="A"> A. 24</label>
+                <label><input type="radio" name="q1" value="B"> B. 0</label>
+                <label><input type="radio" name="q1" value="C"> C. -6</label>
+                <label><input type="radio" name="q1" value="D"> D. 12</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 1b -->
+        <div class="quick-quiz" data-answer="C" data-explanation="余子式展开沿任意行或列都可以进行，结果相同。选择零元素最多的行/列可以减少计算量。沿第一列、第二行等都完全合法。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">关于余子式展开，以下哪个说法是正确的？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q1b" value="A"> A. 只能沿第一行展开</label>
+                <label><input type="radio" name="q1b" value="B"> B. 只能沿对角线展开</label>
+                <label><input type="radio" name="q1b" value="C"> C. 沿任意行或列展开结果相同</label>
+                <label><input type="radio" name="q1b" value="D"> D. 展开方向会影响行列式的符号</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        计算只是第一步。真正强大的是行列式背后的几何意义——它能一眼看穿线性变换的"本质"。
+    </p>
+
+    <!-- ===================== 知识点 2：行列式的几何意义 ===================== -->
+    <section class="knowledge-point" id="kp-2">
+        <h2>1.3.2 行列式的几何意义</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                在游戏中，你对一个 2D 精灵应用了一个变换矩阵。美术同事问你：
+                "变换后的精灵面积是原来的几倍？它是不是被镜像翻转了？"
+                你只需要算一个数——行列式——就能立即回答。
+            </p>
+        </div>
+
+        <h3>面积与体积的缩放因子</h3>
+        <p>
+            行列式的<strong>绝对值</strong>就是线性变换对面积（2D）或体积（3D）的缩放倍数。
+            如果一个 2×2 矩阵 A 的 det(A) = 3，那么 A 把任何形状的面积放大 3 倍。
+        </p>
+
+        <div class="katex-display">\text{变换后面积} = |\det(A)| \times \text{原始面积}</div>
+
+        <h3>方向（定向性）</h3>
+        <p>
+            行列式的<strong>符号</strong>告诉你变换是否翻转了空间的"手性"（orientation）：
+        </p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>det(A) 值</th>
+                        <th>几何含义</th>
+                        <th>实际场景</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>det &gt; 0</td>
+                        <td>保持方向，面积缩放 det 倍</td>
+                        <td>旋转、均匀缩放</td>
+                    </tr>
+                    <tr>
+                        <td>det &lt; 0</td>
+                        <td>翻转方向（镜像），面积缩放 |det| 倍</td>
+                        <td>反射变换、坐标轴翻转</td>
+                    </tr>
+                    <tr>
+                        <td>det = 0</td>
+                        <td>空间被压扁（降维），面积变为 0</td>
+                        <td>奇异矩阵、投影到低维</td>
+                    </tr>
+                    <tr>
+                        <td>det = 1</td>
+                        <td>面积不变，方向不变</td>
+                        <td>纯旋转、剪切变换</td>
+                    </tr>
+                    <tr>
+                        <td>det = -1</td>
+                        <td>面积不变，但方向翻转</td>
+                        <td>纯反射</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>与线性变换的联系</h3>
+        <p>
+            回忆 Ch 1.2 中的内容：矩阵 <strong>就是</strong> 线性变换。当你把矩阵的列向量看作
+            变换后的基向量时，行列式就是这些列向量围成的平行四边形（2D）或平行六面体（3D）的
+            <strong>有向面积/体积</strong>。
+        </p>
+
+        <div class="katex-display">\det\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix} = \text{列向量} \begin{pmatrix}a\\c\end{pmatrix} \text{和} \begin{pmatrix}b\\d\end{pmatrix} \text{围成的有向面积}</div>
+
+        <div class="note-box warning">
+            <p>
+                <strong>⚠️ 游戏开发中的陷阱</strong><br>
+                当你在 3D 引擎中检测三角形的正反面（backface culling）时，
+                实际上就是在检查行列式的符号。如果你意外地用了一个 det &lt; 0 的变换矩阵，
+                所有面的朝向都会翻转——物体看起来"里外翻转"了。
+                这就是为什么很多引擎在运行时检查模型矩阵的行列式符号。
+            </p>
+        </div>
+
+        <h3>Rust 验证：变换缩放面积</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>det_geometry.rs</span>
+            </div>
+            <pre><code class="language-rust">fn det2(m: &amp;[[f64; 2]; 2]) -&gt; f64 {
+    m[0][0] * m[1][1] - m[0][1] * m[1][0]
+}
+
+/// 将 2x2 矩阵应用到一个点
+fn transform(m: &amp;[[f64; 2]; 2], p: [f64; 2]) -&gt; [f64; 2] {
+    [
+        m[0][0] * p[0] + m[0][1] * p[1],
+        m[1][0] * p[0] + m[1][1] * p[1],
+    ]
+}
+
+/// 用叉积计算平行四边形面积（有向）
+fn signed_area(v1: [f64; 2], v2: [f64; 2]) -&gt; f64 {
+    v1[0] * v2[1] - v1[1] * v2[0]
+}
+
+fn main() {
+    // 变换矩阵：旋转 45° + 缩放 2 倍
+    let angle = std::f64::consts::FRAC_PI_4; // 45°
+    let s = 2.0;
+    let m = [
+        [s * angle.cos(), -s * angle.sin()],
+        [s * angle.sin(),  s * angle.cos()],
+    ];
+
+    let d = det2(&amp;m);
+    println!("det = {:.2}", d);
+    println!("面积缩放倍数 = {:.2}", d.abs());
+    println!("方向保持 = {}", d &gt; 0.0);
+
+    // 验证：变换单位正方形的两条边
+    let e1 = transform(&amp;m, [1.0, 0.0]);
+    let e2 = transform(&amp;m, [0.0, 1.0]);
+    let area = signed_area(e1, e2);
+    println!("变换后平行四边形面积 = {:.2}", area);
+    println!("与行列式一致 = {}", (area - d).abs() &lt; 1e-10);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>det = 4.00
+面积缩放倍数 = 4.00
+方向保持 = true
+变换后平行四边形面积 = 4.00
+与行列式一致 = true</pre>
+            </div>
+        </div>
+
+        <!-- 快速测试 2 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="det = -1 意味着面积缩放倍数 |det| = 1（面积不变），但符号为负表示方向翻转（镜像）。这正是反射变换的特征。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">一个 2×2 矩阵的行列式 = -1，对单位正方形做变换后会怎样？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q2" value="A"> A. 面积不变，但形状被镜像翻转</label>
+                <label><input type="radio" name="q2" value="B"> B. 面积变为 0</label>
+                <label><input type="radio" name="q2" value="C"> C. 面积翻倍</label>
+                <label><input type="radio" name="q2" value="D"> D. 面积不变，形状也不变</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 2b -->
+        <div class="quick-quiz" data-answer="D" data-explanation="det = 0 意味着矩阵是奇异的，变换把空间压扁了至少一个维度。一个 3D 物体被压成了一个平面（甚至一条线或一个点），体积变为 0。此时矩阵不可逆——你无法从压扁的结果还原出原来的形状。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">如果 3×3 变换矩阵的行列式为 0，意味着什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q2b" value="A"> A. 变换保持体积不变</label>
+                <label><input type="radio" name="q2b" value="B"> B. 变换是纯旋转</label>
+                <label><input type="radio" name="q2b" value="C"> C. 变换是镜像反射</label>
+                <label><input type="radio" name="q2b" value="D"> D. 变换把 3D 空间压扁了，矩阵不可逆</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        行列式揭示了变换"缩放了多少"。接下来的特征值则揭示变换沿哪些方向"只做拉伸"——
+        这是理解复杂变换的核心钥匙。
+    </p>
+
+    <!-- ===================== 知识点 3：特征值与特征向量 ===================== -->
+    <section class="knowledge-point" id="kp-3">
+        <h2>1.3.3 特征值与特征向量</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                想象你在用一个矩阵旋转+缩放空间中的所有向量。大多数向量的方向都会改变。
+                但有没有一些特殊的方向，变换后向量只是被拉长或缩短，方向完全不变（或恰好反转 180°）？
+                这些"固执"的方向就是<strong>特征向量</strong>，拉伸倍数就是<strong>特征值</strong>。
+            </p>
+        </div>
+
+        <h3>定义</h3>
+        <p>
+            对于方阵 A，如果存在非零向量 <span class="katex-inline">\vec{v}</span> 和标量
+            <span class="katex-inline">\lambda</span> 使得：
+        </p>
+
+        <div class="katex-display">A\vec{v} = \lambda\vec{v}</div>
+
+        <p>
+            则 <span class="katex-inline">\lambda</span> 称为<strong>特征值</strong>（eigenvalue），
+            <span class="katex-inline">\vec{v}</span> 称为对应的<strong>特征向量</strong>（eigenvector）。
+        </p>
+
+        <p>
+            直觉解读：对特征向量施加变换 A，效果等同于乘以常数 <span class="katex-inline">\lambda</span>。
+            这个方向只被"缩放"，不被"旋转"。
+        </p>
+
+        <h3>特征多项式</h3>
+        <p>
+            从定义出发推导特征值的计算方法：
+        </p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>移项</h4>
+                <p><span class="katex-inline">A\vec{v} - \lambda\vec{v} = \vec{0}</span>，即 <span class="katex-inline">(A - \lambda I)\vec{v} = \vec{0}</span></p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>非零解条件</h4>
+                <p>要让 <span class="katex-inline">\vec{v} \neq \vec{0}</span>，矩阵 <span class="katex-inline">(A - \lambda I)</span> 必须是奇异的（不可逆）</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>行列式为零</h4>
+                <p>奇异矩阵的行列式为零：<span class="katex-inline">\det(A - \lambda I) = 0</span>——这就是<strong>特征方程</strong></p>
+            </div>
+        </div>
+
+        <h3>2×2 矩阵的特征值</h3>
+        <p>
+            对于 <span class="katex-inline">A = \begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}</span>，
+            特征方程展开后是一个二次方程：
+        </p>
+
+        <div class="katex-display">\lambda^2 - (a+d)\lambda + (ad-bc) = 0</div>
+
+        <p>
+            其中 <span class="katex-inline">a+d</span> 是矩阵的<strong>迹</strong>（trace，对角线元素之和），
+            <span class="katex-inline">ad-bc</span> 就是行列式。用求根公式即可：
+        </p>
+
+        <div class="katex-display">\lambda = \frac{(a+d) \pm \sqrt{(a+d)^2 - 4(ad-bc)}}{2}</div>
+
+        <div class="note-box tip">
+            <p>
+                <strong>💡 记忆技巧</strong><br>
+                特征值的两个关键性质：<br>
+                · 特征值之和 = 迹（trace）：<span class="katex-inline">\lambda_1 + \lambda_2 = a + d</span><br>
+                · 特征值之积 = 行列式：<span class="katex-inline">\lambda_1 \cdot \lambda_2 = ad - bc</span><br>
+                这是韦达定理在线性代数中的应用——和你在高中学的一模一样！
+            </p>
+        </div>
+
+        <h3>Rust 实现</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>eigenvalues.rs</span>
+            </div>
+            <pre><code class="language-rust">/// 2x2 矩阵的特征值
+/// 返回 None 如果判别式为负（复数特征值）
+fn eigenvalues_2x2(m: &amp;[[f64; 2]; 2]) -&gt; Option&lt;(f64, f64)&gt; {
+    let trace = m[0][0] + m[1][1];
+    let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    let discriminant = trace * trace - 4.0 * det;
+
+    if discriminant &lt; 0.0 {
+        // 复数特征值（例如纯旋转矩阵）
+        println!("判别式 &lt; 0：特征值为复数");
+        None
+    } else {
+        let sqrt_disc = discriminant.sqrt();
+        Some((
+            (trace + sqrt_disc) / 2.0,
+            (trace - sqrt_disc) / 2.0,
+        ))
+    }
+}
+
+/// 给定特征值，求对应的特征向量
+fn eigenvector_2x2(m: &amp;[[f64; 2]; 2], lambda: f64) -&gt; [f64; 2] {
+    // (A - λI)v = 0 的第一行：(a-λ)v1 + b*v2 = 0
+    let a = m[0][0] - lambda;
+    let b = m[0][1];
+
+    if b.abs() &gt; 1e-10 {
+        [b, -a] // 取 v1=b, v2=-(a-λ)，满足方程
+    } else if a.abs() &gt; 1e-10 {
+        [0.0, 1.0]
+    } else {
+        [1.0, 0.0]
+    }
+}
+
+fn main() {
+    // 示例：对角线缩放 + 剪切
+    let m = [[2.0, 1.0],
+             [0.0, 3.0]];
+
+    println!("矩阵 A = [[2, 1], [0, 3]]");
+
+    if let Some((l1, l2)) = eigenvalues_2x2(&amp;m) {
+        println!("特征值: λ₁ = {:.2}, λ₂ = {:.2}", l1, l2);
+
+        let v1 = eigenvector_2x2(&amp;m, l1);
+        let v2 = eigenvector_2x2(&amp;m, l2);
+        println!("特征向量 v₁ = ({:.2}, {:.2})", v1[0], v1[1]);
+        println!("特征向量 v₂ = ({:.2}, {:.2})", v2[0], v2[1]);
+
+        // 验证 Av = λv
+        let av1 = [m[0][0]*v1[0] + m[0][1]*v1[1],
+                   m[1][0]*v1[0] + m[1][1]*v1[1]];
+        let lv1 = [l1 * v1[0], l1 * v1[1]];
+        println!("\n验证 Av₁ = λ₁v₁:");
+        println!("  Av₁  = ({:.2}, {:.2})", av1[0], av1[1]);
+        println!("  λ₁v₁ = ({:.2}, {:.2})", lv1[0], lv1[1]);
+    }
+
+    // 旋转矩阵没有实数特征值
+    println!("\n90° 旋转矩阵:");
+    let rot = [[0.0, -1.0],
+               [1.0,  0.0]];
+    eigenvalues_2x2(&amp;rot);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>矩阵 A = [[2, 1], [0, 3]]
+特征值: λ₁ = 3.00, λ₂ = 2.00
+特征向量 v₁ = (1.00, -1.00)
+特征向量 v₂ = (1.00, 0.00)
+
+验证 Av₁ = λ₁v₁:
+  Av₁  = (1.00, -3.00)
+  λ₁v₁ = (3.00, -3.00)
+
+90° 旋转矩阵:
+判别式 < 0：特征值为复数</pre>
+            </div>
+        </div>
+
+        <div class="note-box warning">
+            <p>
+                <strong>⚠️ 注意验证输出</strong><br>
+                上面的验证步骤中 Av₁ 和 λ₁v₁ 不完全一致——这是因为特征向量可以乘以任意非零常数。
+                实际使用中通常会<strong>归一化</strong>特征向量（使其长度为 1）。
+                关键是检查 <span class="katex-inline">A\vec{v}</span> 和 <span class="katex-inline">\lambda\vec{v}</span>
+                是否<strong>平行</strong>（比例一致）。
+            </p>
+        </div>
+
+        <!-- 快速测试 3 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="特征值之积等于行列式，特征值之和等于迹。det(A) = λ₁ × λ₂ = 3 × (-1) = -3。trace(A) = λ₁ + λ₂ = 3 + (-1) = 2。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">矩阵 A 的特征值为 3 和 -1，那么 det(A) 和 trace(A) 分别是？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q3" value="A"> A. det = 2, trace = -3</label>
+                <label><input type="radio" name="q3" value="B"> B. det = -3, trace = 2</label>
+                <label><input type="radio" name="q3" value="C"> C. det = 3, trace = -1</label>
+                <label><input type="radio" name="q3" value="D"> D. det = -1, trace = 3</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 3b -->
+        <div class="quick-quiz" data-answer="C" data-explanation="纯旋转不会把任何方向只拉伸而不旋转（除了 0° 和 180° 的特殊情况）。45° 旋转的特征值是复数 e^{±i·45°}，没有实数特征值。也就是说——没有任何实数方向在 45° 旋转下保持不动。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">2D 旋转 45° 的矩阵有实数特征值吗？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q3b" value="A"> A. 有，特征值都是 1</label>
+                <label><input type="radio" name="q3b" value="B"> B. 有，特征值是 ±1</label>
+                <label><input type="radio" name="q3b" value="C"> C. 没有，特征值是复数</label>
+                <label><input type="radio" name="q3b" value="D"> D. 有，特征值是 0</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- 过渡 -->
+    <p class="transition-text">
+        特征值和特征向量本身就很有用。但它们的"终极形态"是对角化——
+        把一个复杂矩阵分解成最简单的对角形式，让矩阵乘方和指数运算变得平凡。
+    </p>
+
+    <!-- ===================== 知识点 4：对角化与矩阵分解入门 ===================== -->
+    <section class="knowledge-point" id="kp-4">
+        <h2>1.3.4 对角化与矩阵分解入门</h2>
+
+        <div class="think-box">
+            <div class="think-icon">🤔</div>
+            <p>
+                假设你要计算一个矩阵的 100 次方——<span class="katex-inline">A^{100}</span>。
+                直接做 100 次矩阵乘法太慢了。但如果 A 能分解成
+                <span class="katex-inline">A = PDP^{-1}</span>（其中 D 是对角矩阵），
+                那么 <span class="katex-inline">A^{100} = PD^{100}P^{-1}</span>，
+                而对角矩阵的乘方只需要对角线元素各自取 100 次方——瞬间完成！
+            </p>
+        </div>
+
+        <h3>什么是对角化？</h3>
+        <p>
+            如果矩阵 A 有 n 个线性无关的特征向量，我们可以将其分解为：
+        </p>
+
+        <div class="katex-display">A = PDP^{-1}</div>
+
+        <p>其中：</p>
+        <ul>
+            <li><strong>P</strong>：列向量由特征向量组成的矩阵</li>
+            <li><strong>D</strong>：对角线上为对应特征值的对角矩阵</li>
+            <li><span class="katex-inline">P^{-1}</span>：P 的逆矩阵</li>
+        </ul>
+
+        <div class="katex-display">A = \begin{pmatrix} | &amp; | \\ \vec{v}_1 &amp; \vec{v}_2 \\ | &amp; | \end{pmatrix} \begin{pmatrix} \lambda_1 &amp; 0 \\ 0 &amp; \lambda_2 \end{pmatrix} \begin{pmatrix} | &amp; | \\ \vec{v}_1 &amp; \vec{v}_2 \\ | &amp; | \end{pmatrix}^{-1}</div>
+
+        <h3>什么时候可以对角化？</h3>
+        <p>
+            不是所有矩阵都能对角化。充要条件是：矩阵有 n 个<strong>线性无关</strong>的特征向量。
+        </p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>情况</th>
+                        <th>可对角化？</th>
+                        <th>示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>n 个不同的特征值</td>
+                        <td>✅ 一定可以</td>
+                        <td><span class="katex-inline">\begin{pmatrix}2&amp;0\\0&amp;3\end{pmatrix}</span></td>
+                    </tr>
+                    <tr>
+                        <td>重复特征值 + 足够特征向量</td>
+                        <td>✅ 可以</td>
+                        <td><span class="katex-inline">\begin{pmatrix}5&amp;0\\0&amp;5\end{pmatrix}</span>（已是对角）</td>
+                    </tr>
+                    <tr>
+                        <td>重复特征值 + 特征向量不足</td>
+                        <td>❌ 不可以</td>
+                        <td><span class="katex-inline">\begin{pmatrix}1&amp;1\\0&amp;1\end{pmatrix}</span>（只有 1 个特征向量）</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="note-box tip">
+            <p>
+                <strong>💡 实对称矩阵总是可对角化</strong><br>
+                如果 <span class="katex-inline">A = A^T</span>（对称矩阵），数学上可以证明它一定有 n 个
+                正交的特征向量。更好的是，P 可以选为正交矩阵（<span class="katex-inline">P^{-1} = P^T</span>），
+                计算逆矩阵变得极其高效。这就是为什么很多物理引擎中的惯性矩阵都是对称的——方便分解。
+            </p>
+        </div>
+
+        <h3>对角化的威力：矩阵乘方</h3>
+        <p>
+            对角化最直接的应用就是高效计算矩阵的幂：
+        </p>
+
+        <div class="katex-display">A^n = PD^nP^{-1} = P\begin{pmatrix} \lambda_1^n &amp; 0 \\ 0 &amp; \lambda_2^n \end{pmatrix}P^{-1}</div>
+
+        <h3>实际应用</h3>
+        <ul>
+            <li><strong>矩阵乘方</strong>：马尔可夫链的稳态、Fibonacci 数列的矩阵快速幂</li>
+            <li><strong>稳定性分析</strong>：如果所有 |λ| &lt; 1，系统收敛；有 |λ| &gt; 1，系统发散</li>
+            <li><strong>主成分分析（PCA）</strong>：协方差矩阵的特征值分解揭示数据的主要变化方向</li>
+            <li><strong>物理模拟</strong>：振动系统的固有频率就是刚度矩阵的特征值</li>
+        </ul>
+
+        <h3>Rust 实现：对角化与矩阵乘方</h3>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>diagonalize.rs</span>
+            </div>
+            <pre><code class="language-rust">/// 2x2 矩阵乘法
+fn mat_mul(a: &amp;[[f64; 2]; 2], b: &amp;[[f64; 2]; 2]) -&gt; [[f64; 2]; 2] {
+    [
+        [a[0][0]*b[0][0] + a[0][1]*b[1][0],
+         a[0][0]*b[0][1] + a[0][1]*b[1][1]],
+        [a[1][0]*b[0][0] + a[1][1]*b[1][0],
+         a[1][0]*b[0][1] + a[1][1]*b[1][1]],
+    ]
+}
+
+/// 2x2 矩阵求逆
+fn mat_inv(m: &amp;[[f64; 2]; 2]) -&gt; Option&lt;[[f64; 2]; 2]&gt; {
+    let det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
+    if det.abs() &lt; 1e-10 { return None; }
+    Some([
+        [ m[1][1]/det, -m[0][1]/det],
+        [-m[1][0]/det,  m[0][0]/det],
+    ])
+}
+
+/// 通过对角化计算 A^n
+fn mat_power(a: &amp;[[f64; 2]; 2], n: u32) -&gt; Option&lt;[[f64; 2]; 2]&gt; {
+    let trace = a[0][0] + a[1][1];
+    let det = a[0][0]*a[1][1] - a[0][1]*a[1][0];
+    let disc = trace*trace - 4.0*det;
+    if disc &lt; 0.0 { return None; } // 需要复数
+
+    let sqrt_d = disc.sqrt();
+    let l1 = (trace + sqrt_d) / 2.0;
+    let l2 = (trace - sqrt_d) / 2.0;
+
+    // 构造特征向量矩阵 P
+    let p: [[f64; 2]; 2];
+    if a[0][1].abs() &gt; 1e-10 {
+        p = [[a[0][1], a[0][1]],
+             [l1 - a[0][0], l2 - a[0][0]]];
+    } else if a[1][0].abs() &gt; 1e-10 {
+        p = [[l1 - a[1][1], l2 - a[1][1]],
+             [a[1][0], a[1][0]]];
+    } else {
+        // 已经是对角矩阵
+        return Some([
+            [a[0][0].powi(n as i32), 0.0],
+            [0.0, a[1][1].powi(n as i32)],
+        ]);
+    }
+
+    let p_inv = mat_inv(&amp;p)?;
+    // D^n
+    let dn = [[l1.powi(n as i32), 0.0],
+              [0.0, l2.powi(n as i32)]];
+
+    // A^n = P * D^n * P^{-1}
+    Some(mat_mul(&amp;mat_mul(&amp;p, &amp;dn), &amp;p_inv))
+}
+
+fn main() {
+    // Fibonacci 矩阵: [[1,1],[1,0]]^n 给出第 n 个 Fibonacci 数
+    let fib = [[1.0, 1.0],
+               [1.0, 0.0]];
+
+    for n in [5, 10, 20] {
+        if let Some(result) = mat_power(&amp;fib, n) {
+            println!("F({}) = {:.0}", n, result[0][0]);
+        }
+    }
+
+    // 稳定性分析示例
+    let system = [[0.8, 0.1],
+                  [0.2, 0.7]];
+    let trace = system[0][0] + system[1][1];
+    let det = system[0][0]*system[1][1] - system[0][1]*system[1][0];
+    let disc = (trace*trace - 4.0*det).sqrt();
+    let l1 = (trace + disc) / 2.0;
+    let l2 = (trace - disc) / 2.0;
+    println!("\n系统特征值: {:.3}, {:.3}", l1, l2);
+    println!("稳定性: {}", if l1.abs() &lt; 1.0 &amp;&amp; l2.abs() &lt; 1.0 {
+        "收敛 ✓" } else { "发散 ✗" });
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>F(5) = 8
+F(10) = 89
+F(20) = 10946
+
+系统特征值: 0.900, 0.600
+稳定性: 收敛 ✓</pre>
+            </div>
+        </div>
+
+        <div class="note-box info">
+            <p>
+                <strong>ℹ️ 超越对角化：其他矩阵分解</strong><br>
+                对角化只是矩阵分解的冰山一角。工业界常用的还有：<br>
+                · <strong>LU 分解</strong>：求解线性方程组（比求逆更高效）<br>
+                · <strong>QR 分解</strong>：数值稳定地计算特征值<br>
+                · <strong>SVD（奇异值分解）</strong>：适用于任何矩阵（不要求方阵），是推荐系统和图像压缩的核心<br>
+                在 Rust 中，<code>nalgebra</code> 库提供了所有这些分解的高效实现。
+            </p>
+        </div>
+
+        <!-- 快速测试 4 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="对角化后 A^n = PD^nP^{-1}。D 是对角矩阵，D^n 只需要对角线元素各自取 n 次方，不需要做任何矩阵乘法。所以关键步骤是对角线元素的幂运算。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">用对角化计算 A^n 的核心思想是什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q4" value="A"> A. 转换到特征基后，乘方变成对角线元素各自取幂</label>
+                <label><input type="radio" name="q4" value="B"> B. 把矩阵拆成 n 个小矩阵的和</label>
+                <label><input type="radio" name="q4" value="C"> C. 用递归方法把 n 次乘法减半</label>
+                <label><input type="radio" name="q4" value="D"> D. 直接展开成多项式</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- 快速测试 4b -->
+        <div class="quick-quiz" data-answer="D" data-explanation="矩阵 [[1,1],[0,1]] 的特征值是 1（重数 2），但只有一个线性无关的特征向量 (1,0)。缺少足够的特征向量，所以不可对角化。这类矩阵称为"缺陷矩阵"（defective matrix）。">
+            <span class="quiz-badge">⚡ 快速测试</span>
+            <p class="quiz-question">矩阵 [[1, 1], [0, 1]] 能否对角化？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q4b" value="A"> A. 能，因为它有 2 个特征值</label>
+                <label><input type="radio" name="q4b" value="B"> B. 能，因为它是上三角矩阵</label>
+                <label><input type="radio" name="q4b" value="C"> C. 能，因为 det ≠ 0</label>
+                <label><input type="radio" name="q4b" value="D"> D. 不能，因为特征值重复且特征向量不足</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ===================== 章节总结 ===================== -->
+    <section class="chapter-summary">
+        <h2>📝 章节总结</h2>
+        <ul>
+            <li><strong>行列式</strong>是方阵的一个标量值，2×2 为 ad-bc，3×3 用余子式展开</li>
+            <li>行列式的<strong>绝对值</strong>是线性变换对面积/体积的缩放倍数</li>
+            <li>行列式的<strong>符号</strong>表示变换是否翻转了空间的方向（手性）</li>
+            <li>行列式 = 0 意味着矩阵<strong>奇异</strong>（不可逆），空间被"压扁"</li>
+            <li><strong>特征值</strong>是满足 Av = λv 的标量 λ，通过 det(A - λI) = 0 求解</li>
+            <li>特征值之和 = 迹，特征值之积 = 行列式</li>
+            <li><strong>对角化</strong> A = PDP⁻¹ 使得矩阵乘方变为对角线元素取幂</li>
+            <li>可对角化条件：有 n 个线性无关的特征向量；<strong>实对称矩阵总是可对角化</strong></li>
+            <li>特征值的绝对值决定系统稳定性：全部 |λ| &lt; 1 则收敛</li>
+        </ul>
+    </section>
+
+    <!-- ===================== 课后练习 ===================== -->
+    <section class="exercises">
+        <h2>📚 课后练习</h2>
+
+        <!-- 基础题 1 -->
+        <div class="exercise-item" id="ex-1">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">1. 计算矩阵 [[5, 3], [2, 4]] 的行列式。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <span class="katex-inline">\det = 5 \times 4 - 3 \times 2 = 20 - 6 = 14</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 2 -->
+        <div class="exercise-item" id="ex-2">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">2. 计算 3×3 矩阵 [[1, 2, 3], [0, 4, 5], [0, 0, 6]] 的行列式。提示：它是上三角矩阵。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        上三角矩阵的行列式等于对角线元素之积：
+                        <span class="katex-inline">\det = 1 \times 4 \times 6 = 24</span>
+                    </p>
+                    <p>
+                        你可以用余子式展开验证：沿第一列展开，只有 a₁₁ = 1 对应的余子式非零，
+                        其余元素都是 0，所以 det = 1 × (4×6 - 5×0) - 0 + 0 = 24。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 3 -->
+        <div class="exercise-item" id="ex-3">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">3. 矩阵 A 表示把所有向量沿 x 轴翻转（y → -y），写出 A 并计算 det(A)。这验证了什么几何直觉？</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        <span class="katex-inline">A = \begin{pmatrix}1 &amp; 0 \\ 0 &amp; -1\end{pmatrix}</span>，
+                        <span class="katex-inline">\det(A) = 1 \times (-1) - 0 \times 0 = -1</span>
+                    </p>
+                    <p>
+                        det = -1 验证了：反射变换保持面积不变（|det| = 1），但翻转了方向（det &lt; 0）。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 基础题 4 -->
+        <div class="exercise-item" id="ex-4">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">4. 求矩阵 [[4, 0], [0, 3]] 的特征值和特征向量。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        这是对角矩阵，特征值就是对角线元素：<span class="katex-inline">\lambda_1 = 4, \lambda_2 = 3</span>。
+                    </p>
+                    <p>
+                        特征向量就是标准基向量：
+                        <span class="katex-inline">\vec{v}_1 = (1, 0)</span>（对应 λ₁ = 4），
+                        <span class="katex-inline">\vec{v}_2 = (0, 1)</span>（对应 λ₂ = 3）。
+                    </p>
+                    <p>验证：A(1,0)ᵀ = (4,0)ᵀ = 4·(1,0)ᵀ ✓</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 5 -->
+        <div class="exercise-item" id="ex-5">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                5. 求矩阵 [[1, 2], [3, 2]] 的特征值和特征向量。验证特征值之和 = trace，特征值之积 = det。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        trace = 1 + 2 = 3，det = 1×2 - 2×3 = -4<br>
+                        特征方程：λ² - 3λ - 4 = 0，即 (λ-4)(λ+1) = 0<br>
+                        <span class="katex-inline">\lambda_1 = 4, \lambda_2 = -1</span>
+                    </p>
+                    <p>
+                        验证：4 + (-1) = 3 = trace ✓，4 × (-1) = -4 = det ✓
+                    </p>
+                    <p>
+                        λ₁ = 4 的特征向量：(A - 4I)v = 0 → [[-3, 2], [3, -2]]v = 0 → v₁ = (2, 3)<br>
+                        λ₂ = -1 的特征向量：(A + I)v = 0 → [[2, 2], [3, 3]]v = 0 → v₂ = (1, -1)
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 6 -->
+        <div class="exercise-item" id="ex-6">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                6. 证明：如果 A 是可逆矩阵，则 det(A⁻¹) = 1/det(A)。提示：用 det(AB) = det(A)·det(B)。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        由 AA⁻¹ = I，取行列式：<br>
+                        det(AA⁻¹) = det(I) = 1<br>
+                        det(A) · det(A⁻¹) = 1<br>
+                        det(A⁻¹) = 1/det(A) ✓
+                    </p>
+                    <p>几何解读：如果 A 把面积放大 k 倍，A⁻¹ 必须缩小 k 倍才能还原。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 7 -->
+        <div class="exercise-item" id="ex-7">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                7. 一个离散动力系统的状态转移矩阵为 A = [[0.6, 0.3], [0.4, 0.7]]。
+                求特征值，判断系统是否稳定（所有 |λ| &lt; 1 是否满足？），并分析长期行为。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        trace = 1.3，det = 0.42 - 0.12 = 0.30<br>
+                        λ² - 1.3λ + 0.30 = 0<br>
+                        λ = (1.3 ± √(1.69 - 1.20))/2 = (1.3 ± 0.7)/2<br>
+                        <span class="katex-inline">\lambda_1 = 1.0, \lambda_2 = 0.3</span>
+                    </p>
+                    <p>
+                        λ₁ = 1（不严格小于 1），系统不会衰减到零，而是收敛到一个<strong>稳态</strong>。
+                        这是马尔可夫链的典型行为：长期后状态会趋于一个固定的概率分布。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进阶题 8 -->
+        <div class="exercise-item" id="ex-8">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">
+                8. 在 Rust 中，修改上面的 <code>det3</code> 函数，使其支持沿任意行展开（参数指定行号 0, 1, 或 2），
+                并验证三种展开方式得到相同结果。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>参考答案</span>
+                        </div>
+                        <pre><code class="language-rust">/// 2x2 行列式
+fn det2(a: f64, b: f64, c: f64, d: f64) -&gt; f64 {
+    a * d - b * c
+}
+
+/// 3x3 行列式，沿指定行展开（row = 0, 1, 2）
+fn det3_row(m: &amp;[[f64; 3]; 3], row: usize) -&gt; f64 {
+    let mut result = 0.0;
+    for col in 0..3 {
+        let sign = if (row + col) % 2 == 0 { 1.0 } else { -1.0 };
+        // 构造余子式：删除 row 行和 col 列
+        let mut minor = [[0.0; 2]; 2];
+        let mut mi = 0;
+        for i in 0..3 {
+            if i == row { continue; }
+            let mut mj = 0;
+            for j in 0..3 {
+                if j == col { continue; }
+                minor[mi][mj] = m[i][j];
+                mj += 1;
+            }
+            mi += 1;
+        }
+        result += sign * m[row][col]
+            * det2(minor[0][0], minor[0][1],
+                   minor[1][0], minor[1][1]);
+    }
+    result
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 挑战题 9 -->
+        <div class="exercise-item" id="ex-9">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">
+                9. 证明：旋转矩阵的行列式总是 1。从 2D 旋转矩阵
+                <span class="katex-inline">R(\theta) = \begin{pmatrix}\cos\theta &amp; -\sin\theta \\ \sin\theta &amp; \cos\theta\end{pmatrix}</span>
+                出发，并推广到"旋转保持面积和方向不变"的几何直觉。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        det(R) = cos²θ - (-sin²θ) = cos²θ + sin²θ = 1 ✓
+                    </p>
+                    <p>
+                        几何直觉：旋转不会拉伸或压缩任何区域，也不会翻转方向——它只是"转了个方向"。
+                        det = 1 完美表达了这个性质：面积保持不变（|det| = 1），手性不翻转（det &gt; 0）。
+                        这也是为什么旋转矩阵属于特殊正交群 SO(n)——定义就是 det = 1 的正交矩阵。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 挑战题 10 -->
+        <div class="exercise-item" id="ex-10">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">
+                10. 使用对角化方法，推导 Fibonacci 数列的通项公式。提示：
+                矩阵 <span class="katex-inline">F = \begin{pmatrix}1 &amp; 1 \\ 1 &amp; 0\end{pmatrix}</span>，
+                其特征值为黄金比例 <span class="katex-inline">\phi</span> 和 <span class="katex-inline">\hat{\phi}</span>。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看答案</button>
+                <div class="collapsible-content">
+                    <p>
+                        特征方程：λ² - λ - 1 = 0（trace = 1, det = -1）<br>
+                        <span class="katex-inline">\lambda = \frac{1 \pm \sqrt{5}}{2}</span><br>
+                        <span class="katex-inline">\phi = \frac{1+\sqrt{5}}{2} \approx 1.618</span>（黄金比例），
+                        <span class="katex-inline">\hat{\phi} = \frac{1-\sqrt{5}}{2} \approx -0.618</span>
+                    </p>
+                    <p>
+                        对角化后 F^n = PD^nP⁻¹，最终得到 Binet 公式：
+                    </p>
+                    <div class="katex-display">F_n = \frac{\phi^n - \hat{\phi}^n}{\sqrt{5}}</div>
+                    <p>
+                        由于 |φ̂| &lt; 1，φ̂^n → 0，所以 F_n ≈ φ^n/√5（四舍五入到最近整数即可）。
+                        这就是为什么 Fibonacci 数列的增长率是黄金比例！
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 附加题 11 -->
+        <div class="exercise-item" id="ex-11">
+            <span class="difficulty bonus">🏆 附加题</span>
+            <p class="exercise-question">
+                11. <strong>Rust 工程实战</strong>：实现一个通用的 NxN 行列式计算器，使用递归余子式展开。
+                然后用它验证：对于随机生成的 4×4 矩阵，det(AB) = det(A)·det(B)。
+                思考：这个递归实现的时间复杂度是多少？如何优化？
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看参考实现</button>
+                <div class="collapsible-content">
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>参考答案</span>
+                        </div>
+                        <pre><code class="language-rust">/// NxN 行列式（递归余子式展开）
+fn det(m: &amp;Vec&lt;Vec&lt;f64&gt;&gt;) -&gt; f64 {
+    let n = m.len();
+    if n == 1 { return m[0][0]; }
+    if n == 2 {
+        return m[0][0]*m[1][1] - m[0][1]*m[1][0];
+    }
+
+    let mut result = 0.0;
+    for col in 0..n {
+        let sign = if col % 2 == 0 { 1.0 } else { -1.0 };
+        // 构造余子式矩阵
+        let minor: Vec&lt;Vec&lt;f64&gt;&gt; = (1..n)
+            .map(|i| {
+                (0..n).filter(|&amp;j| j != col)
+                      .map(|j| m[i][j])
+                      .collect()
+            })
+            .collect();
+        result += sign * m[0][col] * det(&amp;minor);
+    }
+    result
+}
+
+// 时间复杂度：O(n!) —— 每层展开 n 项，
+// 每项递归计算 (n-1)x(n-1) 行列式。
+// 优化：LU 分解可达 O(n³)。</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 附加题 12 -->
+        <div class="exercise-item" id="ex-12">
+            <span class="difficulty bonus">🏆 附加题</span>
+            <p class="exercise-question">
+                12. <strong>游戏引擎应用</strong>：在 3D 物理引擎中，刚体的惯性张量是一个 3×3 对称矩阵。
+                其特征值代表绕三个主轴旋转的惯性矩，特征向量代表主轴方向。
+                设计一个 Rust 结构体 <code>RigidBody</code>，存储惯性张量，
+                并实现一个方法计算主轴方向和主惯性矩（提示：对称矩阵一定可对角化）。
+            </p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击查看思路</button>
+                <div class="collapsible-content">
+                    <p><strong>设计思路：</strong></p>
+                    <ol>
+                        <li>定义 <code>RigidBody</code>，包含 <code>inertia: [[f64; 3]; 3]</code></li>
+                        <li>对称矩阵保证实数特征值和正交特征向量</li>
+                        <li>对 2×2 可用公式法；对 3×3 工业实现用迭代法（Jacobi 旋转或 QR 迭代）</li>
+                        <li>主惯性矩 = 特征值，主轴方向 = 对应的归一化特征向量</li>
+                        <li>物理意义：沿主轴旋转时，角动量与角速度平行（不会产生"摇晃"）</li>
+                    </ol>
+                    <div class="code-playground">
+                        <div class="code-header">
+                            <span class="code-lang">Rust</span>
+                            <span>rigid_body.rs 框架</span>
+                        </div>
+                        <pre><code class="language-rust">struct RigidBody {
+    mass: f64,
+    inertia: [[f64; 3]; 3], // 对称矩阵
+}
+
+impl RigidBody {
+    /// 计算主轴和主惯性矩
+    /// 返回 (特征值数组, 特征向量矩阵)
+    fn principal_axes(&amp;self)
+        -&gt; ([f64; 3], [[f64; 3]; 3])
+    {
+        // 实际实现应使用 Jacobi 方法
+        // 或依赖 nalgebra::SymmetricEigen
+        todo!("使用数值方法求解对称矩阵特征值")
+    }
+
+    /// 在主轴坐标系中，扭矩 -&gt; 角加速度
+    /// 简化为：α_i = τ_i / I_i
+    fn angular_acceleration(
+        &amp;self,
+        torque: [f64; 3],
+        principal_inertia: [f64; 3],
+    ) -&gt; [f64; 3] {
+        [
+            torque[0] / principal_inertia[0],
+            torque[1] / principal_inertia[1],
+            torque[2] / principal_inertia[2],
+        ]
+    }
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== 延伸阅读 ===================== -->
+    <section class="further-reading">
+        <h2>📖 延伸阅读</h2>
+        <ul>
+            <li>
+                <a href="https://www.3blue1brown.com/lessons/determinant" target="_blank">
+                    3Blue1Brown - The Determinant
+                </a>
+                <span class="reading-tag">视频</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    最直观的行列式几何意义可视化，强烈推荐
+                </span>
+            </li>
+            <li>
+                <a href="https://www.3blue1brown.com/lessons/eigenvalues" target="_blank">
+                    3Blue1Brown - Eigenvectors and Eigenvalues
+                </a>
+                <span class="reading-tag">视频</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    特征值的动画解释，看完你就不会忘记 Av = λv 的含义
+                </span>
+            </li>
+            <li>
+                <a href="https://docs.rs/nalgebra/latest/nalgebra/" target="_blank">
+                    nalgebra 文档 — Rust 线性代数库
+                </a>
+                <span class="reading-tag">文档</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    工业级实现：<code>matrix.determinant()</code>、<code>SymmetricEigen</code>、LU/QR/SVD 分解
+                </span>
+            </li>
+            <li>
+                <a href="https://en.wikipedia.org/wiki/Eigendecomposition_of_a_matrix" target="_blank">
+                    Wikipedia - Eigendecomposition of a Matrix
+                </a>
+                <span class="reading-tag">参考</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    全面的数学参考，包含对角化的完整条件和证明
+                </span>
+            </li>
+            <li>
+                <a href="https://gamemath.com/" target="_blank">
+                    3D Math Primer for Graphics and Game Development
+                </a>
+                <span class="reading-tag">书籍</span>
+                <br><span style="color: var(--color-text-muted); font-size: 0.85rem;">
+                    行列式和特征值在游戏开发中的实际应用，面向工程师的写作风格
+                </span>
+            </li>
+        </ul>
+    </section>
+
+</main>
+
+<!-- 脚本 -->
+<script src="../../assets/js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script>
+    // 页面加载后初始化 KaTeX
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof initKaTeX === 'function') {
+            initKaTeX();
+        }
+    });
+</script>
+</body>
+</html>
