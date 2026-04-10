@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 6.A 游戏开发方向 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 6 · 方向分支</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit5_advanced/ch5.4_unsafe_rust.html">上一单元</a></li>
+
+            <li class="unit-title">Unit 6 正式页面</li>
+            <li><a href="./ch6.A_game_dev.html" class="active">6.A 游戏开发方向</a></li>
+            <li><a href="./ch6.B_security.html">6.B 安全攻防方向</a></li>
+            <li><a href="./ch6.C_systems.html">6.C 系统编程方向</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">为什么用 Rust 做游戏</a></li>
+            <li><a href="#kp-2">Bevy 与 ECS 架构</a></li>
+            <li><a href="#kp-3">游戏循环与渲染管线</a></li>
+            <li><a href="#kp-4">资源管理与社区生态</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 6 · 方向分支</span>
+            <h1>Ch 6.A 游戏开发方向</h1>
+            <p class="chapter-description">Rust 在游戏开发领域正在崭露头角。这一章介绍为什么 Rust 的所有权与零成本抽象特性天然适合游戏引擎，并以 Bevy 为代表深入 ECS 架构、游戏循环、渲染管线和资源管理等核心概念。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 Rust 在游戏开发中的独特优势：内存安全 + 零成本抽象 + 无 GC</li>
+                <li>掌握 Bevy 引擎的 ECS（Entity-Component-System）架构核心思想</li>
+                <li>建立对游戏循环和渲染管线的基本直觉</li>
+                <li>了解 Rust 游戏开发社区生态：macroquad、ggez、wgpu 等工具</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议已掌握 Rust 所有权、Trait 系统、泛型以及基础并发概念。游戏开发中的 ECS 模式大量依赖泛型查询和系统调度，对 Trait 和生命周期有较高要求。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>6.A.1 为什么用 Rust 做游戏？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>游戏引擎的核心需求是什么？高性能、可预测的延迟、安全的并发——Rust 的设计目标和游戏开发的需求之间有多大的重叠？</p>
+            </div>
+            <p>传统游戏开发以 C++ 为主，但内存错误（use-after-free、数据竞争）是游戏崩溃和安全漏洞的主要来源。Rust 在编译期消除这些问题，同时不引入垃圾回收器——这意味着没有 GC 停顿，帧率更加稳定。</p>
+            <div class="note-box tip">
+                <p><strong>核心优势：</strong>Rust 提供 C++ 级别的性能，同时通过所有权系统在编译期保证内存安全和线程安全，无需 GC 暂停。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>game_loop_skeleton.rs</span></div>
+                <pre><code>use std::time::{Duration, Instant};
+
+fn main() {
+    let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
+
+    loop {
+        let frame_start = Instant::now();
+
+        // update() — 游戏逻辑
+        // render() — 画面绘制
+
+        let elapsed = frame_start.elapsed();
+        if elapsed < target_frame_time {
+            std::thread::sleep(target_frame_time - elapsed);
+        }
+
+        // 演示只跑一帧后退出
+        println!("frame time: {:?}", frame_start.elapsed());
+        break;
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>frame time: 16.6ms (约等于 60fps 的单帧时长)</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="Rust 的所有权系统在编译期消除内存错误，同时没有 GC 带来的帧率抖动，这是游戏开发的核心诉求。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>Rust 用于游戏开发的最大优势是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u6a-q1" value="A"> A. 内置完整的游戏引擎</label>
+                    <label><input type="radio" name="u6a-q1" value="B"> B. 编译期内存安全 + 零 GC 停顿 + C++ 级性能</label>
+                    <label><input type="radio" name="u6a-q1" value="C"> C. 拥有最多的游戏开发教程</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>6.A.2 Bevy 与 ECS 架构</h2>
+            <div class="think-box">
+                <div class="think-icon">🧠</div>
+                <p>传统面向对象的游戏架构中，"玩家"类同时持有位置、血量、渲染信息、输入处理……当功能交叉增长，继承层级会变得极其脆弱。有没有更解耦的方式？</p>
+            </div>
+            <p>ECS（Entity-Component-System）把数据和逻辑彻底分离：Entity 是一个 ID，Component 是纯数据，System 是操作数据的函数。Bevy 是 Rust 生态中最活跃的 ECS 游戏引擎，利用 Rust 的类型系统实现了高效的查询和调度。</p>
+            <div class="note-box tip">
+                <p><strong>ECS 三要素：</strong>Entity（实体 ID）、Component（数据块，如 Position、Velocity）、System（操作 Component 的纯函数）。Bevy 通过 Query 类型安全地访问组件。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>bevy_ecs_example.rs</span></div>
+                <pre><code>use bevy::prelude::*;
+
+// Component：纯数据
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+
+#[derive(Component)]
+struct Velocity { dx: f32, dy: f32 }
+
+// System：操作数据的函数
+fn movement_system(mut query: Query&lt;&amp;mut Position, &amp;Velocity&gt;) {
+    for (mut pos, vel) in &amp;mut query {
+        pos.x += vel.dx;
+        pos.y += vel.dy;
+    }
+}
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Update, movement_system)
+        .run();
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>Bevy 自动调度 movement_system，
+每帧为所有同时拥有 Position 和 Velocity 的实体更新位置。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：ECS 和传统 OOP 游戏架构的核心区别是什么？</button>
+                <div class="collapsible-content">OOP 架构中数据和行为绑定在类层级里，功能交叉时容易产生"菱形继承"等问题。ECS 把数据（Component）和行为（System）完全解耦，通过组合而非继承来构建实体行为，更利于并行调度和缓存友好的内存布局。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="ECS 的核心设计是将数据（Component）和逻辑（System）分离，Entity 只是一个 ID，通过组合来定义行为。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>在 ECS 架构中，System 的职责是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u6a-q2" value="A"> A. 存储实体的所有属性数据</label>
+                    <label><input type="radio" name="u6a-q2" value="B"> B. 作为实体的唯一标识符</label>
+                    <label><input type="radio" name="u6a-q2" value="C"> C. 定义操作 Component 数据的逻辑</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>6.A.3 游戏循环与渲染管线基础</h2>
+            <div class="think-box">
+                <div class="think-icon">🔄</div>
+                <p>游戏的"心跳"是什么？为什么需要固定的更新频率？渲染帧和逻辑帧是同一个东西吗？</p>
+            </div>
+            <p>游戏循环是一切游戏运行的骨架：每帧依次处理输入、更新状态、渲染画面。现代引擎通常将逻辑更新（fixed timestep）和渲染（variable framerate）分离。渲染管线则负责将场景数据转化为屏幕像素，wgpu 是 Rust 生态中跨平台 GPU 抽象的代表。</p>
+            <div class="note-box warning">
+                <p><strong>常见误区：</strong>把游戏逻辑绑定在渲染帧率上会导致不同机器上行为不一致。应使用固定时间步长（fixed timestep）做物理/逻辑更新。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>fixed_timestep.rs</span></div>
+                <pre><code>use std::time::{Duration, Instant};
+
+const TICK_RATE: Duration = Duration::from_millis(16); // ~60Hz
+
+fn main() {
+    let mut last_update = Instant::now();
+    let mut accumulator = Duration::ZERO;
+    let mut tick_count: u32 = 0;
+
+    // 模拟 5 帧
+    for _ in 0..5 {
+        let now = Instant::now();
+        accumulator += now - last_update;
+        last_update = now;
+
+        // 以固定步长消费累积时间
+        while accumulator >= TICK_RATE {
+            // fixed_update(): 物理、AI、碰撞
+            tick_count += 1;
+            accumulator -= TICK_RATE;
+        }
+
+        // render(): 可以在任意帧率下调用
+        println!("render frame, total ticks so far: {tick_count}");
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>render frame, total ticks so far: 0
+render frame, total ticks so far: 0
+...
+（逻辑 tick 在累积时间足够时才执行）</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：wgpu 在渲染管线中扮演什么角色？</button>
+                <div class="collapsible-content">wgpu 是基于 WebGPU 标准的 Rust GPU 抽象层，能跨平台运行在 Vulkan、Metal、DX12 和 WebGPU 之上。它处于"引擎"和"GPU 驱动"之间，负责 shader 编译、缓冲区管理、渲染通道等底层操作，Bevy 的渲染后端就建立在 wgpu 之上。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="固定时间步长确保逻辑更新与帧率解耦，在任何机器上物理行为都保持一致。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么游戏逻辑应使用固定时间步长而非跟随渲染帧率？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u6a-q3" value="A"> A. 保证不同帧率下游戏行为一致</label>
+                    <label><input type="radio" name="u6a-q3" value="B"> B. 让画面更流畅</label>
+                    <label><input type="radio" name="u6a-q3" value="C"> C. 减少代码量</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>6.A.4 资源管理与社区生态</h2>
+            <div class="think-box">
+                <div class="think-icon">📦</div>
+                <p>游戏需要加载纹理、模型、音频、配置文件——这些资源的生命周期怎么管？Rust 社区除了 Bevy 还有哪些工具？</p>
+            </div>
+            <p>资源管理的核心挑战是异步加载、缓存去重和热重载。Bevy 使用 <code>AssetServer</code> 和 <code>Handle&lt;T&gt;</code> 来跟踪资源状态——加载、已就绪、失败。Rust 游戏生态还包括 macroquad（极简 2D）、ggez（2D 游戏框架）和 wgpu（底层 GPU 抽象），覆盖从原型验证到高性能渲染的全部需求。</p>
+            <div class="note-box tip">
+                <p><strong>生态一览：</strong><code>bevy</code> — 全功能 ECS 引擎；<code>macroquad</code> — 即时模式 2D，适合快速原型；<code>ggez</code> — LÖVE 风格 2D 框架；<code>wgpu</code> — 跨平台 GPU 抽象层。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>bevy_asset_loading.rs</span></div>
+                <pre><code>use bevy::prelude::*;
+
+fn setup(mut commands: Commands, asset_server: Res&lt;AssetServer&gt;) {
+    // 异步加载纹理，返回 Handle
+    let texture: Handle&lt;Image&gt; = asset_server.load("textures/player.png");
+
+    commands.spawn(SpriteBundle {
+        texture,
+        ..default()
+    });
+}
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .run();
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>AssetServer 在后台异步加载纹理，
+Handle&lt;Image&gt; 让系统在资源就绪后自动渲染 Sprite。</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="Bevy 的 AssetServer 提供异步加载和引用计数缓存，Handle&lt;T&gt; 跟踪加载状态，避免手动管理资源生命周期。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>Bevy 中 <code>Handle&lt;T&gt;</code> 的作用是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u6a-q4" value="A"> A. 直接存储资源的完整数据</label>
+                    <label><input type="radio" name="u6a-q4" value="B"> B. 作为异步加载资源的引用和状态追踪器</label>
+                    <label><input type="radio" name="u6a-q4" value="C"> C. 仅用于标记资源类型，不参与加载</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>Rust 的内存安全、零 GC 和 C++ 级性能使其天然适合游戏开发。</li>
+                <li>ECS 架构将数据和逻辑解耦，Bevy 是 Rust 生态中最活跃的 ECS 引擎。</li>
+                <li>游戏循环应分离逻辑更新（固定时间步长）和渲染（可变帧率），wgpu 提供跨平台 GPU 抽象。</li>
+                <li>Rust 游戏社区已有 macroquad、ggez、wgpu 等多种成熟工具覆盖不同层次需求。</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 解释 ECS 中 Entity、Component、System 各自的职责，以及它们如何协作。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 用 Bevy 创建一个最小项目：一个 Sprite 在窗口中以固定速度向右移动。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 比较 macroquad 和 Bevy 在实现一个简单 2D 弹球游戏时的代码量和架构差异。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 设计一个资源预加载系统：在进入关卡前异步加载所有素材，显示加载进度条，加载完成后切换场景。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://bevyengine.org/learn/">Bevy 官方学习资源</a></li>
+                <li><a href="https://github.com/bevyengine/bevy">Bevy GitHub 仓库</a></li>
+                <li><a href="https://macroquad.rs/">macroquad 官网</a></li>
+                <li><a href="https://wgpu.rs/">wgpu 官方文档</a></li>
+                <li><a href="https://arewegameyet.rs/">Are We Game Yet? — Rust 游戏开发生态总览</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
