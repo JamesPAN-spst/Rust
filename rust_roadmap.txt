@@ -1,0 +1,200 @@
+═══════════════════════════════════════════════
+  RUST 学习路径大纲
+  目标方向：游戏开发 / 系统编程 / 安全攻防
+═══════════════════════════════════════════════
+
+───────────────────────────────────────────────
+Unit 0 · 环境与心态
+───────────────────────────────────────────────
+Ch 0.1 工具链
+  - rustup（版本管理）
+  - cargo（构建 / 包管理 / 测试 / 文档一体化）
+  - rust-analyzer（LSP 编辑器集成）
+  - clippy（linter）
+  - rustfmt（格式化）
+
+Ch 0.2 心态建设
+  - 与 C++ 的本质区别：编译期拦截 vs 运行期崩溃
+  - "Fighting the borrow checker" 是正常阶段
+  - 编译器错误信息是学习资源，不是障碍
+
+───────────────────────────────────────────────
+Unit 1 · 所有权系统（核心难点）
+───────────────────────────────────────────────
+Ch 1.1 Ownership
+  - 每个值有唯一所有者
+  - move 语义（赋值 = 所有权转移）
+  - Copy trait（值类型的例外）
+  - Drop trait（RAII 自动析构）
+
+Ch 1.2 Borrowing
+  - 不可变引用 &T（可多个）
+  - 可变引用 &mut T（唯一）
+  - 借用规则：aliasing XOR mutability
+  - 引用必须始终有效（no dangling）
+
+Ch 1.3 Lifetimes
+  - 生命周期参数 'a 语法
+  - 生命周期省略规则
+  - 'static 生命周期
+  - 结构体中的生命周期
+
+Ch 1.4 所有权的实际影响
+  - 为什么 Rust 没有双重释放
+  - 为什么 Rust 没有数据竞争（编译期）
+  - 与 C++ 智能指针的对比
+
+───────────────────────────────────────────────
+Unit 2 · 基础语法
+───────────────────────────────────────────────
+Ch 2.1 基本类型与变量
+  - let / mut / const / static
+  - 标量类型（i32, u64, f64, bool, char）
+  - 复合类型（tuple, array）
+  - shadowing
+
+Ch 2.2 控制流
+  - if / else（表达式）
+  - loop / while / for
+  - break 返回值
+
+Ch 2.3 函数与闭包
+  - fn 签名与返回值
+  - 闭包语法 |x| x + 1
+  - Fn / FnMut / FnOnce 三种闭包 trait
+
+Ch 2.4 Struct 与 Enum
+  - struct / tuple struct / unit struct
+  - impl 块与方法
+  - enum 及其代数数据类型本质
+  - Option<T> / Result<T, E>
+
+Ch 2.5 模式匹配
+  - match 表达式
+  - if let / while let
+  - 解构 struct / enum / tuple
+  - 守卫（match guards）
+
+Ch 2.6 Trait 系统
+  - trait 定义与实现
+  - 默认方法
+  - trait bound（泛型约束）
+  - derive 宏（Debug, Clone, PartialEq, ...）
+
+───────────────────────────────────────────────
+Unit 3 · 标准库与项目实战
+───────────────────────────────────────────────
+Ch 3.1 字符串
+  - String vs &str 的区别
+  - UTF-8 处理
+  - 字符串切片与索引陷阱
+
+Ch 3.2 集合
+  - Vec<T>
+  - HashMap<K, V> / BTreeMap
+  - HashSet / BTreeSet
+  - VecDeque
+
+Ch 3.3 迭代器
+  - Iterator trait
+  - 惰性求值
+  - map / filter / fold / collect
+  - 自定义迭代器
+
+Ch 3.4 错误处理
+  - Result 与 ? 操作符
+  - panic! vs Result
+  - thiserror / anyhow 库
+  - Error trait
+
+Ch 3.5 模块系统
+  - mod / use / pub
+  - Cargo workspace
+  - 发布到 crates.io 的基础
+
+Ch 3.6 实战项目
+  - CLI 工具（clap 库）
+  - 文件处理器
+  - 简单 web 爬虫
+
+───────────────────────────────────────────────
+Unit 4 · 并发与异步
+───────────────────────────────────────────────
+Ch 4.1 线程并发
+  - std::thread
+  - Send / Sync trait
+  - Arc<T>（原子引用计数）
+  - Mutex<T> / RwLock<T>
+  - channel（mpsc 消息传递）
+
+Ch 4.2 异步编程
+  - async / await 语法
+  - Future trait
+  - tokio 运行时
+  - async fn 与生命周期
+
+Ch 4.3 异步生态
+  - tokio::spawn
+  - select! 宏
+  - 异步 I/O（文件、网络）
+  - 异步与同步代码交互
+
+───────────────────────────────────────────────
+Unit 5 · 高级特性
+───────────────────────────────────────────────
+Ch 5.1 智能指针
+  - Box<T>（堆分配）
+  - Rc<T>（引用计数）
+  - RefCell<T>（内部可变性）
+  - Cow<T>（写时复制）
+
+Ch 5.2 泛型与 Trait 对象
+  - 静态分发（泛型单态化）
+  - 动态分发（dyn Trait）
+  - 对象安全
+  - impl Trait 返回类型
+
+Ch 5.3 宏系统
+  - 声明宏 macro_rules!
+  - 过程宏（derive / attribute / function-like）
+  - build.rs 构建脚本
+
+Ch 5.4 Unsafe Rust
+  - unsafe 的五种能力
+  - 裸指针
+  - FFI（与 C 互操作）
+  - 安全抽象的构建原则
+
+───────────────────────────────────────────────
+Unit 6 · 方向分支
+───────────────────────────────────────────────
+Ch 6.A 游戏开发方向
+  - bevy 引擎基础
+  - ECS（Entity-Component-System）架构
+  - 渲染管线（wgpu）
+  - 物理引擎（rapier）
+  - 资源加载与热重载
+
+Ch 6.B 安全攻防方向
+  - ring / rustcrypto 库
+  - 网络编程（tokio + socket2）
+  - 二进制解析（nom）
+  - fuzzing（cargo-fuzz）
+  - 内存安全漏洞分析
+
+Ch 6.C 系统编程方向
+  - no_std 开发
+  - 嵌入式 Rust（embedded-hal）
+  - OS 开发（blog_os 教程）
+  - 写一个解释器或 JIT
+  - 性能分析（perf, flamegraph）
+
+───────────────────────────────────────────────
+参考资料
+───────────────────────────────────────────────
+- The Rust Programming Language（官方 Book）
+- Rust by Example
+- Rustlings（交互练习）
+- Rust for Rustaceans（进阶）
+- Programming Rust（O'Reilly）
+- Jon Gjengset 的 YouTube 频道（深度讲解）
