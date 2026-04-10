@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.2 图论基础 - math_univers</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+</head>
+<body>
+
+<button class="menu-toggle" aria-label="切换菜单">☰</button>
+<nav class="sidebar">
+    <div class="sidebar-logo">math_univers</div>
+    <div class="sidebar-subtitle">面向 Rust 开发者的数学基础</div>
+    <ul class="sidebar-nav">
+        <li class="unit-title">Unit 1 · 线性代数基础</li>
+        <li><a href="../../examples/ch1.1_vectors/index.html">1.1 向量与向量空间</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.2_matrices/index.html">1.2 矩阵与线性变换</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.3_determinants/index.html">1.3 行列式与特征值</a></li>
+        <li><a href="../../unit1_linear_algebra/ch1.4_practice/index.html">1.4 实战：Rust 中的线性代数</a></li>
+
+        <li class="unit-title">Unit 2 · 离散数学</li>
+        <li><a href="../ch2.1_sets_logic/index.html">2.1 集合论与逻辑</a></li>
+        <li><a href="../ch2.2_graph_theory/index.html" class="active">2.2 图论基础</a></li>
+        <li><a href="../ch2.3_combinatorics/index.html">2.3 组合数学与计数</a></li>
+        <li><a href="../ch2.4_practice/index.html">2.4 实战：图算法</a></li>
+
+        <li class="unit-title">Unit 3 · 数论与密码学</li>
+        <li><a href="../../unit3_number_theory/ch3.1_divisibility/index.html">3.1 整除性与素数</a></li>
+        <li><a href="../../unit3_number_theory/ch3.2_modular_arithmetic/index.html">3.2 模运算与同余</a></li>
+        <li><a href="../../unit3_number_theory/ch3.3_group_theory/index.html">3.3 群论入门</a></li>
+        <li><a href="../../unit3_number_theory/ch3.4_practice/index.html">3.4 实战：RSA 加密</a></li>
+
+        <li class="unit-title">Unit 4 · 概率论与统计</li>
+        <li><a href="../../unit4_probability/ch4.1_basics/index.html">4.1 概率基础</a></li>
+        <li><a href="../../unit4_probability/ch4.2_distributions/index.html">4.2 随机变量与分布</a></li>
+        <li><a href="../../unit4_probability/ch4.3_inference/index.html">4.3 统计推断基础</a></li>
+        <li><a href="../../unit4_probability/ch4.4_practice/index.html">4.4 实战：蒙特卡洛</a></li>
+
+        <li class="unit-title">Unit 5 · 微积分与优化</li>
+        <li><a href="../../unit5_calculus/ch5.1_limits/index.html">5.1 极限与连续性</a></li>
+        <li><a href="../../unit5_calculus/ch5.2_differentiation/index.html">5.2 微分与积分</a></li>
+        <li><a href="../../unit5_calculus/ch5.3_multivariable/index.html">5.3 多元微积分入门</a></li>
+        <li><a href="../../unit5_calculus/ch5.4_practice/index.html">5.4 实战：数值方法</a></li>
+    </ul>
+</nav>
+
+<main class="content">
+
+    <!-- ==================== Chapter Header ==================== -->
+    <header class="chapter-header">
+        <span class="unit-label">Unit 2 · 离散数学</span>
+        <h1>Ch 2.2 图论基础</h1>
+        <p class="chapter-description">图论是描述"关系"的数学语言，从社交网络到路由算法，从依赖管理到编译器优化。本章将带你理解图的核心概念，并用 Rust 实现经典图算法。</p>
+    </header>
+
+    <!-- ==================== Learning Objectives ==================== -->
+    <section class="learning-objectives">
+        <h2>🎯 学习目标</h2>
+        <ul>
+            <li>掌握邻接矩阵和邻接表两种图的表示方法，并能在 Rust 中实现</li>
+            <li>理解广度优先搜索（BFS）和深度优先搜索（DFS）的原理与应用场景</li>
+            <li>实现 Dijkstra 最短路径算法，掌握优先队列在 Rust 中的使用</li>
+            <li>理解最小生成树的概念，实现 Kruskal 算法与 Union-Find 数据结构</li>
+            <li>能够根据问题特征选择合适的图表示和算法，并分析时间/空间复杂度</li>
+        </ul>
+    </section>
+
+    <!-- ==================== Prerequisites ==================== -->
+    <section class="prerequisites">
+        <h2>📋 前置知识</h2>
+        <ul>
+            <li><strong>Ch 2.1 集合论与逻辑</strong> — 图的定义基于集合论，顶点集 V 和边集 E 是核心概念</li>
+            <li><strong>Rust 集合类型</strong> — 熟悉 <code>Vec</code>、<code>HashMap</code>、<code>HashSet</code>、<code>VecDeque</code>、<code>BinaryHeap</code> 的基本用法</li>
+            <li><strong>Rust 所有权基础</strong> — 理解借用和引用，处理图的遍历时会频繁用到</li>
+        </ul>
+    </section>
+
+    <!-- ==================== KP1: 图的表示 ==================== -->
+    <section class="knowledge-point" id="kp-1">
+        <h2>2.2.1 图的表示</h2>
+
+        <div class="think-box">
+            <span class="think-badge">🤔 想一想</span>
+            <p>在社交网络中，每个用户是一个节点，好友关系是一条边。如果有 1000 万用户，你会怎么在代码中高效地存储和查询这些关系？直接用一个 1000万 × 1000万 的矩阵？还是有更好的方式？</p>
+        </div>
+
+        <h3>图的基本定义</h3>
+        <p>图（Graph）是由<strong>顶点</strong>（Vertex）和<strong>边</strong>（Edge）构成的数学结构。形式化地，一个图定义为：</p>
+        <div class="katex-display">G = (V, E)</div>
+        <p>其中 <span class="katex-inline">V</span> 是顶点的有限集合，<span class="katex-inline">E \subseteq V \times V</span> 是边的集合。</p>
+
+        <h3>图的分类</h3>
+        <ul>
+            <li><strong>无向图</strong>（Undirected Graph）：边没有方向，<span class="katex-inline">(u, v) = (v, u)</span>。例如：好友关系。</li>
+            <li><strong>有向图</strong>（Directed Graph / Digraph）：边有方向，<span class="katex-inline">(u, v) \neq (v, u)</span>。例如：Twitter 关注关系。</li>
+            <li><strong>加权图</strong>（Weighted Graph）：每条边有一个权重 <span class="katex-inline">w(u, v)</span>。例如：城市之间的距离。</li>
+            <li><strong>无权图</strong>（Unweighted Graph）：所有边的权重相同（或视为 1）。</li>
+        </ul>
+
+        <p>对于无向图，<strong>度</strong>（degree）是与顶点相连的边数。对于有向图，分为<strong>入度</strong>（in-degree）和<strong>出度</strong>（out-degree）。图论中一个基本定理——握手定理告诉我们：</p>
+        <div class="katex-display">\sum_{v \in V} \deg(v) = 2|E|</div>
+
+        <h3>邻接矩阵 vs 邻接表</h3>
+        <p>图在计算机中最常用的两种表示方式是<strong>邻接矩阵</strong>和<strong>邻接表</strong>。选择哪种取决于图的稀疏程度和操作需求。</p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>特性</th>
+                        <th>邻接矩阵</th>
+                        <th>邻接表</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>空间复杂度</td>
+                        <td><span class="katex-inline">O(V^2)</span></td>
+                        <td><span class="katex-inline">O(V + E)</span></td>
+                    </tr>
+                    <tr>
+                        <td>查询边 (u, v) 是否存在</td>
+                        <td><span class="katex-inline">O(1)</span></td>
+                        <td><span class="katex-inline">O(\deg(u))</span></td>
+                    </tr>
+                    <tr>
+                        <td>遍历顶点 u 的所有邻居</td>
+                        <td><span class="katex-inline">O(V)</span></td>
+                        <td><span class="katex-inline">O(\deg(u))</span></td>
+                    </tr>
+                    <tr>
+                        <td>添加边</td>
+                        <td><span class="katex-inline">O(1)</span></td>
+                        <td><span class="katex-inline">O(1)</span></td>
+                    </tr>
+                    <tr>
+                        <td>适用场景</td>
+                        <td>稠密图，频繁查询边</td>
+                        <td>稀疏图，频繁遍历邻居</td>
+                    </tr>
+                    <tr>
+                        <td>Rust 实现</td>
+                        <td><code>Vec&lt;Vec&lt;i32&gt;&gt;</code></td>
+                        <td><code>Vec&lt;Vec&lt;usize&gt;&gt;</code> 或 <code>HashMap</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>邻接矩阵实现</span>
+            </div>
+            <pre><code class="language-rust">/// 使用邻接矩阵表示无向加权图
+struct AdjMatrix {
+    size: usize,
+    matrix: Vec&lt;Vec&lt;i32&gt;&gt;, // 0 表示无边，其他值表示权重
+}
+
+impl AdjMatrix {
+    fn new(size: usize) -&gt; Self {
+        AdjMatrix {
+            size,
+            matrix: vec![vec![0; size]; size],
+        }
+    }
+
+    fn add_edge(&amp;mut self, u: usize, v: usize, weight: i32) {
+        self.matrix[u][v] = weight;
+        self.matrix[v][u] = weight; // 无向图，对称
+    }
+
+    fn has_edge(&amp;self, u: usize, v: usize) -&gt; bool {
+        self.matrix[u][v] != 0
+    }
+
+    fn neighbors(&amp;self, u: usize) -&gt; Vec&lt;usize&gt; {
+        (0..self.size)
+            .filter(|&amp;v| self.matrix[u][v] != 0)
+            .collect()
+    }
+}
+
+fn main() {
+    let mut graph = AdjMatrix::new(4);
+    graph.add_edge(0, 1, 1);
+    graph.add_edge(0, 2, 1);
+    graph.add_edge(1, 3, 1);
+    graph.add_edge(2, 3, 1);
+
+    println!("边 (0,1) 存在: {}", graph.has_edge(0, 1));
+    println!("边 (0,3) 存在: {}", graph.has_edge(0, 3));
+    println!("顶点 0 的邻居: {:?}", graph.neighbors(0));
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>边 (0,1) 存在: true
+边 (0,3) 存在: false
+顶点 0 的邻居: [1, 2]</pre>
+            </div>
+        </div>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>邻接表实现</span>
+            </div>
+            <pre><code class="language-rust">use std::collections::HashMap;
+
+/// 使用邻接表表示有向加权图
+struct AdjList {
+    edges: HashMap&lt;usize, Vec&lt;(usize, i32)&gt;&gt;, // 邻居节点 + 权重
+}
+
+impl AdjList {
+    fn new() -&gt; Self {
+        AdjList {
+            edges: HashMap::new(),
+        }
+    }
+
+    fn add_vertex(&amp;mut self, v: usize) {
+        self.edges.entry(v).or_insert_with(Vec::new);
+    }
+
+    fn add_edge(&amp;mut self, from: usize, to: usize, weight: i32) {
+        self.edges.entry(from).or_default().push((to, weight));
+    }
+
+    fn add_undirected_edge(&amp;mut self, u: usize, v: usize, weight: i32) {
+        self.add_edge(u, v, weight);
+        self.add_edge(v, u, weight);
+    }
+
+    fn neighbors(&amp;self, v: usize) -&gt; &amp;[(usize, i32)] {
+        self.edges.get(&amp;v).map_or(&amp;[], |v| v.as_slice())
+    }
+}
+
+fn main() {
+    let mut graph = AdjList::new();
+    graph.add_undirected_edge(0, 1, 4);
+    graph.add_undirected_edge(0, 2, 1);
+    graph.add_undirected_edge(1, 3, 2);
+    graph.add_undirected_edge(2, 3, 5);
+
+    println!("顶点 0 的邻居: {:?}", graph.neighbors(0));
+    println!("顶点 2 的邻居: {:?}", graph.neighbors(2));
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>顶点 0 的邻居: [(1, 4), (2, 1)]
+顶点 2 的邻居: [(0, 1), (3, 5)]</pre>
+            </div>
+        </div>
+
+        <div class="note-box info">
+            <span class="note-badge">💡 选择建议</span>
+            <p>在实际 Rust 项目中，<strong>邻接表</strong>是更常用的选择。大多数真实世界的图都是稀疏的（社交网络中每人平均几百个好友，远小于总用户数）。<code>Vec&lt;Vec&lt;(usize, i32)&gt;&gt;</code> 在性能上优于 <code>HashMap</code> 版本，因为连续内存访问对 CPU 缓存更友好。生产环境中推荐使用 <code>petgraph</code> crate。</p>
+        </div>
+
+        <!-- Quiz q1 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="邻接矩阵的空间复杂度是 O(V²)，与边数无关。对于稀疏图（边数远小于 V²），邻接表的 O(V+E) 空间效率更高。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">一个有 1000 个顶点、2000 条边的稀疏图，使用邻接矩阵需要多少空间（忽略常数因子）？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q1" value="A"> A. O(2000)</label>
+                <label><input type="radio" name="q1" value="B"> B. O(1,000,000)</label>
+                <label><input type="radio" name="q1" value="C"> C. O(3000)</label>
+                <label><input type="radio" name="q1" value="D"> D. O(1000)</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- Quiz q2 -->
+        <div class="quick-quiz" data-answer="C" data-explanation="邻接表查询特定边需要遍历起点的所有邻居，复杂度为 O(deg(u))。而邻接矩阵只需 O(1) 的数组索引即可判断。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">在邻接表中查询边 (u, v) 是否存在的时间复杂度是？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q2" value="A"> A. O(1)</label>
+                <label><input type="radio" name="q2" value="B"> B. O(V)</label>
+                <label><input type="radio" name="q2" value="C"> C. O(deg(u))</label>
+                <label><input type="radio" name="q2" value="D"> D. O(E)</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ==================== Transition ==================== -->
+    <p class="transition-text">掌握了图的表示方法后，接下来我们要学习如何<strong>系统地访问图中的每个节点</strong>——这就是图遍历算法的核心任务。</p>
+
+    <!-- ==================== KP2: 图遍历 ==================== -->
+    <section class="knowledge-point" id="kp-2">
+        <h2>2.2.2 图遍历</h2>
+
+        <div class="think-box">
+            <span class="think-badge">🤔 想一想</span>
+            <p>在一个网络爬虫程序中，你需要从一个种子 URL 出发，发现所有可达的网页。你会选择先把当前页面的所有链接都探索完再深入，还是沿着一条链接一直探索到底？这两种策略对应着两种经典的图遍历方式。</p>
+        </div>
+
+        <h3>广度优先搜索 (BFS)</h3>
+        <p>BFS 像水波纹一样，从起点开始逐层向外扩展。它使用<strong>队列</strong>（FIFO）来管理待访问的节点，保证先发现的节点先被处理。</p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>初始化</h4>
+                <p>将起始节点放入队列，标记为已访问。创建一个 <code>visited</code> 集合来避免重复访问。</p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>出队处理</h4>
+                <p>从队列头部取出一个节点，处理该节点（例如打印、记录距离等）。</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>扩展邻居</h4>
+                <p>遍历当前节点的所有未访问邻居，标记为已访问并加入队列尾部。</p>
+            </div>
+            <div class="step" data-step="4">
+                <h4>重复</h4>
+                <p>重复步骤 2-3，直到队列为空。此时所有可达节点都已被访问。</p>
+            </div>
+        </div>
+
+        <p>BFS 的关键性质：对于无权图，BFS 能保证找到从起点到每个节点的<strong>最短路径</strong>（最少边数）。时间复杂度 <span class="katex-inline">O(V + E)</span>，空间复杂度 <span class="katex-inline">O(V)</span>。</p>
+
+        <h3>深度优先搜索 (DFS)</h3>
+        <p>DFS 像探险家一样，沿着一条路径一直走到底，走不通再回溯。它使用<strong>栈</strong>（LIFO，可用递归的调用栈或显式栈实现）。</p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>初始化</h4>
+                <p>将起始节点压入栈（或直接开始递归调用），标记为已访问。</p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>取栈顶节点</h4>
+                <p>弹出栈顶元素并处理。在递归版本中，这对应当前函数调用的节点。</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>深入邻居</h4>
+                <p>对当前节点的每个未访问邻居，递归地或通过压栈来继续深入探索。</p>
+            </div>
+            <div class="step" data-step="4">
+                <h4>回溯</h4>
+                <p>当一个节点的所有邻居都已访问时，自动回溯到上一个节点继续探索其他分支。</p>
+            </div>
+        </div>
+
+        <p>DFS 适合用于：检测环、拓扑排序、连通分量、迷宫求解等。时间复杂度同为 <span class="katex-inline">O(V + E)</span>。</p>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>特性</th>
+                        <th>BFS</th>
+                        <th>DFS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>数据结构</td>
+                        <td>队列 (VecDeque)</td>
+                        <td>栈 (递归 / Vec)</td>
+                    </tr>
+                    <tr>
+                        <td>遍历顺序</td>
+                        <td>逐层扩展</td>
+                        <td>一路到底再回溯</td>
+                    </tr>
+                    <tr>
+                        <td>最短路径（无权图）</td>
+                        <td>✅ 保证</td>
+                        <td>❌ 不保证</td>
+                    </tr>
+                    <tr>
+                        <td>空间复杂度</td>
+                        <td><span class="katex-inline">O(V)</span>（最坏情况存整层）</td>
+                        <td><span class="katex-inline">O(V)</span>（最坏情况存整条路径）</td>
+                    </tr>
+                    <tr>
+                        <td>典型应用</td>
+                        <td>最短路径、层序遍历</td>
+                        <td>环检测、拓扑排序、连通性</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>BFS 实现</span>
+            </div>
+            <pre><code class="language-rust">use std::collections::VecDeque;
+
+/// BFS 遍历，返回从 start 出发可达的所有节点（按访问顺序）
+fn bfs(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;, start: usize) -&gt; Vec&lt;usize&gt; {
+    let n = graph.len();
+    let mut visited = vec![false; n];
+    let mut order = Vec::new();
+    let mut queue = VecDeque::new();
+
+    visited[start] = true;
+    queue.push_back(start);
+
+    while let Some(node) = queue.pop_front() {
+        order.push(node);
+        for &amp;neighbor in &amp;graph[node] {
+            if !visited[neighbor] {
+                visited[neighbor] = true;
+                queue.push_back(neighbor);
+            }
+        }
+    }
+    order
+}
+
+fn main() {
+    // 邻接表：0-1, 0-2, 1-3, 2-3, 3-4
+    let graph = vec![
+        vec![1, 2],    // 0 的邻居
+        vec![0, 3],    // 1 的邻居
+        vec![0, 3],    // 2 的邻居
+        vec![1, 2, 4], // 3 的邻居
+        vec![3],       // 4 的邻居
+    ];
+
+    let result = bfs(&amp;graph, 0);
+    println!("BFS 遍历顺序: {:?}", result);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>BFS 遍历顺序: [0, 1, 2, 3, 4]</pre>
+            </div>
+        </div>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>DFS 实现（递归版 + 迭代版）</span>
+            </div>
+            <pre><code class="language-rust">/// DFS 递归版
+fn dfs_recursive(
+    graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;,
+    node: usize,
+    visited: &amp;mut Vec&lt;bool&gt;,
+    order: &amp;mut Vec&lt;usize&gt;,
+) {
+    visited[node] = true;
+    order.push(node);
+    for &amp;neighbor in &amp;graph[node] {
+        if !visited[neighbor] {
+            dfs_recursive(graph, neighbor, visited, order);
+        }
+    }
+}
+
+/// DFS 迭代版（使用显式栈）
+fn dfs_iterative(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;, start: usize) -&gt; Vec&lt;usize&gt; {
+    let n = graph.len();
+    let mut visited = vec![false; n];
+    let mut order = Vec::new();
+    let mut stack = vec![start];
+
+    while let Some(node) = stack.pop() {
+        if visited[node] {
+            continue;
+        }
+        visited[node] = true;
+        order.push(node);
+        // 逆序压栈以保证与递归版本相同的遍历顺序
+        for &amp;neighbor in graph[node].iter().rev() {
+            if !visited[neighbor] {
+                stack.push(neighbor);
+            }
+        }
+    }
+    order
+}
+
+fn main() {
+    let graph = vec![
+        vec![1, 2],    // 0
+        vec![0, 3],    // 1
+        vec![0, 3],    // 2
+        vec![1, 2, 4], // 3
+        vec![3],       // 4
+    ];
+
+    // 递归版
+    let mut visited = vec![false; graph.len()];
+    let mut order = Vec::new();
+    dfs_recursive(&amp;graph, 0, &amp;mut visited, &amp;mut order);
+    println!("DFS 递归: {:?}", order);
+
+    // 迭代版
+    let order2 = dfs_iterative(&amp;graph, 0);
+    println!("DFS 迭代: {:?}", order2);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>DFS 递归: [0, 1, 3, 2, 4]
+DFS 迭代: [0, 1, 3, 2, 4]</pre>
+            </div>
+        </div>
+
+        <div class="note-box tip">
+            <span class="note-badge">🦀 Rust 技巧</span>
+            <p><code>std::collections::VecDeque</code> 是 Rust 标准库中的双端队列，底层使用环形缓冲区实现，<code>push_back</code> 和 <code>pop_front</code> 均为 <span class="katex-inline">O(1)</span>，非常适合 BFS。避免使用 <code>Vec</code> 的 <code>remove(0)</code> 作为队列——它是 <span class="katex-inline">O(n)</span> 的！</p>
+        </div>
+
+        <!-- Quiz q3 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="BFS 逐层扩展，保证先到达的路径边数最少，因此在无权图中能找到最短路径。DFS 沿一条路走到底，不保证最短。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">在无权图中，哪种遍历算法能保证找到从起点到任意可达顶点的最短路径（边数最少）？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q3" value="A"> A. BFS</label>
+                <label><input type="radio" name="q3" value="B"> B. DFS</label>
+                <label><input type="radio" name="q3" value="C"> C. 两者都可以</label>
+                <label><input type="radio" name="q3" value="D"> D. 两者都不行</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- Quiz q4 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="DFS 天然适合检测回边（back edge），即遍历过程中遇到已在当前递归栈中的节点，就说明存在环。BFS 也可以检测环，但 DFS 的实现更自然。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">检测有向图中是否存在环，通常首选哪种算法？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q4" value="A"> A. BFS</label>
+                <label><input type="radio" name="q4" value="B"> B. DFS</label>
+                <label><input type="radio" name="q4" value="C"> C. Dijkstra</label>
+                <label><input type="radio" name="q4" value="D"> D. Kruskal</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ==================== Transition ==================== -->
+    <p class="transition-text">BFS 已经能解决无权图的最短路径问题。但如果边有不同的权重呢？我们需要更强大的算法——<strong>Dijkstra 最短路径算法</strong>。</p>
+
+    <!-- ==================== KP3: 最短路径 ==================== -->
+    <section class="knowledge-point" id="kp-3">
+        <h2>2.2.3 最短路径</h2>
+
+        <div class="think-box">
+            <span class="think-badge">🤔 想一想</span>
+            <p>你在使用 GPS 导航时，它是如何在数百万条道路中几乎瞬间找到最短路线的？背后的核心算法之一就是 Dijkstra——一种贪心策略的最短路径算法。</p>
+        </div>
+
+        <h3>Dijkstra 算法</h3>
+        <p>Dijkstra 算法解决<strong>单源最短路径</strong>问题：给定一个起点，求到图中所有其他顶点的最短距离。它的核心思想是<strong>贪心</strong>：每次选择当前距离最小的未确定节点，确定其最短距离，然后更新其邻居。</p>
+
+        <p>松弛操作（Relaxation）是算法的核心：</p>
+        <div class="katex-display">d[v] = \min(d[v],\ d[u] + w(u, v))</div>
+        <p>如果经过节点 <span class="katex-inline">u</span> 到达 <span class="katex-inline">v</span> 的路径比当前已知的最短路径更短，则更新 <span class="katex-inline">d[v]</span>。</p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>初始化</h4>
+                <p>设起点 <span class="katex-inline">s</span> 的距离 <span class="katex-inline">d[s] = 0</span>，其余所有顶点 <span class="katex-inline">d[v] = \infty</span>。将 <span class="katex-inline">(0, s)</span> 放入优先队列（最小堆）。</p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>取最小距离节点</h4>
+                <p>从优先队列中弹出距离最小的节点 <span class="katex-inline">u</span>。如果 <span class="katex-inline">u</span> 已确认最短距离，跳过。</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>松弛相邻边</h4>
+                <p>对 <span class="katex-inline">u</span> 的每个邻居 <span class="katex-inline">v</span>，如果 <span class="katex-inline">d[u] + w(u,v) &lt; d[v]</span>，更新 <span class="katex-inline">d[v]</span> 并将 <span class="katex-inline">(d[v], v)</span> 加入优先队列。</p>
+            </div>
+            <div class="step" data-step="4">
+                <h4>重复</h4>
+                <p>重复步骤 2-3，直到优先队列为空或所有节点都已确认。</p>
+            </div>
+        </div>
+
+        <p>使用二叉堆实现的 Dijkstra 时间复杂度为 <span class="katex-inline">O((V + E) \log V)</span>。</p>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>Dijkstra 算法实现</span>
+            </div>
+            <pre><code class="language-rust">use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+
+const INF: i64 = i64::MAX;
+
+/// Dijkstra 最短路径算法
+/// 返回从 start 到每个节点的最短距离
+fn dijkstra(graph: &amp;Vec&lt;Vec&lt;(usize, i64)&gt;&gt;, start: usize) -&gt; Vec&lt;i64&gt; {
+    let n = graph.len();
+    let mut dist = vec![INF; n];
+    dist[start] = 0;
+
+    // Rust 的 BinaryHeap 是最大堆，用 Reverse 包装变成最小堆
+    let mut heap = BinaryHeap::new();
+    heap.push(Reverse((0i64, start)));
+
+    while let Some(Reverse((cost, u))) = heap.pop() {
+        // 如果当前路径已经不是最优，跳过
+        if cost &gt; dist[u] {
+            continue;
+        }
+        for &amp;(v, w) in &amp;graph[u] {
+            let new_dist = dist[u] + w;
+            if new_dist &lt; dist[v] {
+                dist[v] = new_dist;
+                heap.push(Reverse((new_dist, v)));
+            }
+        }
+    }
+    dist
+}
+
+fn main() {
+    // 有向加权图: 5 个顶点
+    // 0 --(4)--&gt; 1, 0 --(1)--&gt; 2
+    // 1 --(1)--&gt; 3
+    // 2 --(2)--&gt; 1, 2 --(5)--&gt; 3
+    // 3 --(3)--&gt; 4
+    let graph = vec![
+        vec![(1, 4), (2, 1)],  // 0
+        vec![(3, 1)],          // 1
+        vec![(1, 2), (3, 5)],  // 2
+        vec![(4, 3)],          // 3
+        vec![],                // 4
+    ];
+
+    let dist = dijkstra(&amp;graph, 0);
+    for (i, d) in dist.iter().enumerate() {
+        let d_str = if *d == INF {
+            "不可达".to_string()
+        } else {
+            d.to_string()
+        };
+        println!("0 -&gt; {}: {}", i, d_str);
+    }
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>0 -&gt; 0: 0
+0 -&gt; 1: 3
+0 -&gt; 2: 1
+0 -&gt; 3: 4
+0 -&gt; 4: 7</pre>
+            </div>
+        </div>
+
+        <div class="note-box warning">
+            <span class="note-badge">⚠️ 注意</span>
+            <p><strong>Dijkstra 算法不能处理负权边！</strong>如果图中存在负权边，贪心策略会失效——已经"确认"最短的节点可能后续通过负权边被更新为更短。此时应使用 Bellman-Ford 算法（时间复杂度 <span class="katex-inline">O(VE)</span>）或 SPFA。</p>
+        </div>
+
+        <!-- Quiz q5 -->
+        <div class="quick-quiz" data-answer="C" data-explanation="使用二叉堆的 Dijkstra 算法，每个节点最多入堆一次 O(V log V)，每条边最多松弛一次 O(E log V)，总时间复杂度 O((V+E) log V)。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">使用二叉堆实现的 Dijkstra 算法的时间复杂度是？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q5" value="A"> A. O(V²)</label>
+                <label><input type="radio" name="q5" value="B"> B. O(V + E)</label>
+                <label><input type="radio" name="q5" value="C"> C. O((V + E) log V)</label>
+                <label><input type="radio" name="q5" value="D"> D. O(VE)</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- Quiz q6 -->
+        <div class="quick-quiz" data-answer="D" data-explanation="Rust 的 BinaryHeap 是最大堆。要用作最小堆，可以用 std::cmp::Reverse 包装元素，或自定义 Ord 实现。这是 Rust 标准库的常见模式。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">在 Rust 中，如何将 BinaryHeap（最大堆）用作最小堆？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q6" value="A"> A. 使用 BinaryHeap::min()</label>
+                <label><input type="radio" name="q6" value="B"> B. 存储负值</label>
+                <label><input type="radio" name="q6" value="C"> C. 使用 BTreeSet 替代</label>
+                <label><input type="radio" name="q6" value="D"> D. 用 Reverse 包装元素</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ==================== Transition ==================== -->
+    <p class="transition-text">最短路径关注的是两点间的最优路线。而如果我们要用<strong>最少的总成本连通所有节点</strong>呢？这就是最小生成树问题。</p>
+
+    <!-- ==================== KP4: 最小生成树 ==================== -->
+    <section class="knowledge-point" id="kp-4">
+        <h2>2.2.4 最小生成树</h2>
+
+        <div class="think-box">
+            <span class="think-badge">🤔 想一想</span>
+            <p>一家网络公司需要用光缆连接 10 个城市的数据中心。每两个城市之间铺设光缆的成本不同。如何选择线路，使得所有数据中心连通，且总铺设成本最低？</p>
+        </div>
+
+        <h3>最小生成树 (MST) 定义</h3>
+        <p>对于一个连通无向加权图 <span class="katex-inline">G = (V, E)</span>，最小生成树是 <span class="katex-inline">G</span> 的一个子图 <span class="katex-inline">T = (V, E')</span>，满足：</p>
+        <ul>
+            <li><span class="katex-inline">T</span> 是树（连通且无环）</li>
+            <li><span class="katex-inline">T</span> 包含 <span class="katex-inline">G</span> 的所有顶点</li>
+            <li>边的总权重最小：<div class="katex-display">\min \sum_{(u,v) \in E'} w(u, v)</div></li>
+        </ul>
+        <p>一棵生成树恰好有 <span class="katex-inline">|V| - 1</span> 条边。</p>
+
+        <h3>Prim 算法</h3>
+        <p>Prim 算法类似 Dijkstra：从任意一个顶点开始，每次选择连接已选集合和未选集合的<strong>最小权边</strong>，将新顶点加入已选集合。重复直到所有顶点都被选中。时间复杂度使用二叉堆时为 <span class="katex-inline">O((V + E) \log V)</span>。</p>
+
+        <h3>Kruskal 算法</h3>
+        <p>Kruskal 算法从另一个角度出发：将所有边<strong>按权重排序</strong>，从小到大依次尝试加入。如果加入一条边不会形成环，就加入；否则跳过。判断"是否形成环"正是 <strong>Union-Find</strong>（并查集）数据结构的拿手好戏。</p>
+
+        <div class="step-by-step">
+            <div class="step" data-step="1">
+                <h4>排序所有边</h4>
+                <p>按权重从小到大排序。</p>
+            </div>
+            <div class="step" data-step="2">
+                <h4>初始化 Union-Find</h4>
+                <p>每个顶点独立为一个集合。</p>
+            </div>
+            <div class="step" data-step="3">
+                <h4>遍历边</h4>
+                <p>对于每条边 <span class="katex-inline">(u, v, w)</span>，如果 <span class="katex-inline">u</span> 和 <span class="katex-inline">v</span> 不在同一个集合中（<code>find(u) != find(v)</code>），则加入该边并合并两个集合。</p>
+            </div>
+            <div class="step" data-step="4">
+                <h4>终止</h4>
+                <p>当已选边数等于 <span class="katex-inline">|V| - 1</span> 时，MST 构建完成。</p>
+            </div>
+        </div>
+
+        <p>Kruskal 的时间复杂度主要来自排序：<span class="katex-inline">O(E \log E)</span>。</p>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>Union-Find（并查集）实现</span>
+            </div>
+            <pre><code class="language-rust">/// 并查集（Union-Find），支持路径压缩和按秩合并
+struct UnionFind {
+    parent: Vec&lt;usize&gt;,
+    rank: Vec&lt;usize&gt;,
+}
+
+impl UnionFind {
+    fn new(n: usize) -&gt; Self {
+        UnionFind {
+            parent: (0..n).collect(), // 初始时每个节点的父节点是自身
+            rank: vec![0; n],
+        }
+    }
+
+    /// 查找根节点，带路径压缩
+    fn find(&amp;mut self, x: usize) -&gt; usize {
+        if self.parent[x] != x {
+            self.parent[x] = self.find(self.parent[x]);
+        }
+        self.parent[x]
+    }
+
+    /// 按秩合并两个集合，返回是否成功合并（false 表示已在同一集合）
+    fn union(&amp;mut self, x: usize, y: usize) -&gt; bool {
+        let rx = self.find(x);
+        let ry = self.find(y);
+        if rx == ry {
+            return false;
+        }
+        match self.rank[rx].cmp(&amp;self.rank[ry]) {
+            std::cmp::Ordering::Less =&gt; self.parent[rx] = ry,
+            std::cmp::Ordering::Greater =&gt; self.parent[ry] = rx,
+            std::cmp::Ordering::Equal =&gt; {
+                self.parent[ry] = rx;
+                self.rank[rx] += 1;
+            }
+        }
+        true
+    }
+}
+
+fn main() {
+    let mut uf = UnionFind::new(5);
+    uf.union(0, 1);
+    uf.union(2, 3);
+    println!("0 和 1 连通: {}", uf.find(0) == uf.find(1)); // true
+    println!("0 和 2 连通: {}", uf.find(0) == uf.find(2)); // false
+    uf.union(1, 3);
+    println!("0 和 3 连通: {}", uf.find(0) == uf.find(3)); // true
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>0 和 1 连通: true
+0 和 2 连通: false
+0 和 3 连通: true</pre>
+            </div>
+        </div>
+
+        <div class="code-playground">
+            <div class="code-header">
+                <span class="code-lang">Rust</span>
+                <span>Kruskal 最小生成树算法</span>
+            </div>
+            <pre><code class="language-rust">/// 边：(权重, 起点, 终点)
+type Edge = (i64, usize, usize);
+
+/// Kruskal 算法求最小生成树
+/// 返回 MST 的边集和总权重
+fn kruskal(n: usize, edges: &amp;mut Vec&lt;Edge&gt;) -&gt; (Vec&lt;Edge&gt;, i64) {
+    edges.sort(); // 按权重排序
+
+    let mut uf = UnionFind::new(n);
+    let mut mst = Vec::new();
+    let mut total_weight = 0i64;
+
+    for &amp;(w, u, v) in edges.iter() {
+        if uf.union(u, v) {
+            mst.push((w, u, v));
+            total_weight += w;
+            if mst.len() == n - 1 {
+                break; // MST 完成
+            }
+        }
+    }
+    (mst, total_weight)
+}
+
+// UnionFind 结构体同上一个代码块（此处省略以避免重复）
+
+fn main() {
+    let n = 5; // 顶点数
+    let mut edges: Vec&lt;Edge&gt; = vec![
+        (4, 0, 1),
+        (1, 0, 2),
+        (3, 1, 2),
+        (2, 1, 3),
+        (5, 2, 3),
+        (7, 3, 4),
+        (6, 2, 4),
+    ];
+
+    let (mst, total) = kruskal(n, &amp;mut edges);
+    println!("MST 的边:");
+    for (w, u, v) in &amp;mst {
+        println!("  {} -- {} (权重: {})", u, v, w);
+    }
+    println!("总权重: {}", total);
+}</code></pre>
+            <div class="code-output">
+                <span class="output-label">输出</span>
+                <pre>MST 的边:
+  0 -- 2 (权重: 1)
+  1 -- 3 (权重: 2)
+  1 -- 2 (权重: 3)
+  2 -- 4 (权重: 6)
+总权重: 12</pre>
+            </div>
+        </div>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>特性</th>
+                        <th>Prim 算法</th>
+                        <th>Kruskal 算法</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>策略</td>
+                        <td>从一个顶点扩展</td>
+                        <td>全局按边权排序</td>
+                    </tr>
+                    <tr>
+                        <td>数据结构</td>
+                        <td>优先队列</td>
+                        <td>Union-Find</td>
+                    </tr>
+                    <tr>
+                        <td>时间复杂度</td>
+                        <td><span class="katex-inline">O((V+E) \log V)</span></td>
+                        <td><span class="katex-inline">O(E \log E)</span></td>
+                    </tr>
+                    <tr>
+                        <td>适合</td>
+                        <td>稠密图</td>
+                        <td>稀疏图</td>
+                    </tr>
+                    <tr>
+                        <td>实现难度</td>
+                        <td>中等（类似 Dijkstra）</td>
+                        <td>中等（需要 Union-Find）</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="note-box info">
+            <span class="note-badge">💡 工程实践</span>
+            <p>Union-Find 在 Rust 中的实现特别优雅——路径压缩需要可变引用，而按秩合并的逻辑用 <code>match</code> 模式匹配表达得非常清晰。在实际项目中，<code>petgraph</code> crate 已经提供了高效的 MST 实现，但理解底层原理有助于调试和性能优化。</p>
+        </div>
+
+        <!-- Quiz q7 -->
+        <div class="quick-quiz" data-answer="B" data-explanation="一棵包含 n 个顶点的树恰好有 n-1 条边。这是树的基本性质：连通且无环的图，边数 = 顶点数 - 1。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">一个有 n 个顶点的最小生成树包含多少条边？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q7" value="A"> A. n</label>
+                <label><input type="radio" name="q7" value="B"> B. n - 1</label>
+                <label><input type="radio" name="q7" value="C"> C. n + 1</label>
+                <label><input type="radio" name="q7" value="D"> D. n(n-1)/2</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+
+        <!-- Quiz q8 -->
+        <div class="quick-quiz" data-answer="A" data-explanation="Kruskal 算法按边权排序后，用 Union-Find 的 find 操作判断两个端点是否在同一集合中。如果不在同一集合（即连接它们不会形成环），则加入该边并 union 两个集合。">
+            <span class="quiz-badge">⚡ 快速测验</span>
+            <p class="quiz-question">Kruskal 算法中，Union-Find 的主要作用是什么？</p>
+            <div class="quiz-options">
+                <label><input type="radio" name="q8" value="A"> A. 快速判断加入边是否会形成环</label>
+                <label><input type="radio" name="q8" value="B"> B. 对边进行排序</label>
+                <label><input type="radio" name="q8" value="C"> C. 计算最短路径</label>
+                <label><input type="radio" name="q8" value="D"> D. 存储邻接表</label>
+            </div>
+            <div class="quiz-feedback"></div>
+        </div>
+    </section>
+
+    <!-- ==================== Chapter Summary ==================== -->
+    <section class="chapter-summary">
+        <h2>📝 本章总结</h2>
+        <ul>
+            <li><strong>图的表示</strong>：邻接矩阵适合稠密图和频繁边查询（<span class="katex-inline">O(1)</span>），邻接表适合稀疏图和邻居遍历（空间 <span class="katex-inline">O(V+E)</span>）。</li>
+            <li><strong>BFS</strong>：使用队列逐层扩展，保证无权图最短路径，时间 <span class="katex-inline">O(V+E)</span>。Rust 中用 <code>VecDeque</code>。</li>
+            <li><strong>DFS</strong>：使用栈或递归深入探索，适合环检测、拓扑排序，时间 <span class="katex-inline">O(V+E)</span>。</li>
+            <li><strong>Dijkstra</strong>：贪心策略求加权图单源最短路径，不可处理负权边，使用 <code>BinaryHeap</code> + <code>Reverse</code> 实现最小堆，时间 <span class="katex-inline">O((V+E) \log V)</span>。</li>
+            <li><strong>最小生成树</strong>：Kruskal 按边权排序 + Union-Find，Prim 类似 Dijkstra 逐步扩展。</li>
+            <li><strong>Union-Find</strong>：路径压缩 + 按秩合并，近乎 <span class="katex-inline">O(1)</span> 的查找和合并，是图算法中的经典辅助数据结构。</li>
+        </ul>
+    </section>
+
+    <!-- ==================== Exercises ==================== -->
+    <section class="exercises">
+        <h2>💪 练习题</h2>
+
+        <!-- Ex 1: Basic -->
+        <div class="exercise-item" id="ex-1">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">给定一个有 6 个顶点的无向图，边集为 {(0,1), (0,2), (1,3), (2,3), (3,4), (4,5)}。请分别写出它的邻接矩阵和邻接表表示。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p><strong>邻接矩阵</strong>（6×6，1 表示有边）：</p>
+<pre><code>  0 1 2 3 4 5
+0 [0,1,1,0,0,0]
+1 [1,0,0,1,0,0]
+2 [1,0,0,1,0,0]
+3 [0,1,1,0,1,0]
+4 [0,0,0,1,0,1]
+5 [0,0,0,0,1,0]</code></pre>
+                    <p><strong>邻接表</strong>：</p>
+<pre><code>0: [1, 2]
+1: [0, 3]
+2: [0, 3]
+3: [1, 2, 4]
+4: [3, 5]
+5: [4]</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 2: Basic -->
+        <div class="exercise-item" id="ex-2">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">对于上题的图，从顶点 0 开始执行 BFS，写出访问顺序。（如果有多个邻居，按编号从小到大访问）</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p>BFS 访问顺序：<strong>0 → 1 → 2 → 3 → 4 → 5</strong></p>
+                    <p>过程：起点 0 入队 → 出队 0，邻居 1、2 入队 → 出队 1，邻居 3 入队 → 出队 2，邻居 3 已访问 → 出队 3，邻居 4 入队 → 出队 4，邻居 5 入队 → 出队 5。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 3: Basic -->
+        <div class="exercise-item" id="ex-3">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">对于同样的图，从顶点 0 开始执行 DFS（优先访问编号较小的邻居），写出访问顺序。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p>DFS 访问顺序：<strong>0 → 1 → 3 → 2 → 4 → 5</strong></p>
+                    <p>过程：访问 0 → 访问邻居 1 → 访问 1 的邻居 3（0 已访问跳过）→ 访问 3 的邻居 2（1 已访问跳过）→ 2 的邻居都已访问，回溯 → 访问 3 的邻居 4 → 访问 4 的邻居 5。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 4: Basic -->
+        <div class="exercise-item" id="ex-4">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">有向图中，顶点的入度和出度有什么区别？如果一个 DAG（有向无环图）有一个顶点入度为 0，这意味着什么？</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p><strong>出度</strong>是从该顶点出发的边数，<strong>入度</strong>是指向该顶点的边数。</p>
+                    <p>入度为 0 的顶点没有任何前驱，在 DAG 中代表一个"起始"节点——没有依赖项。例如在编译依赖图中，入度为 0 的模块可以最先编译。这正是拓扑排序的起点选择策略。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 5: Basic -->
+        <div class="exercise-item" id="ex-5">
+            <span class="difficulty basic">⭐ 基础</span>
+            <p class="exercise-question">解释为什么 Dijkstra 算法不能处理负权边。举一个具体的反例（3个顶点即可）。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p>Dijkstra 的贪心策略假设：一旦从优先队列中弹出一个节点，它的最短距离已经确定。但负权边会违反这个假设。</p>
+                    <p><strong>反例</strong>：顶点 A, B, C。边 A→B(1), A→C(3), B→C(-5)。Dijkstra 从 A 开始：先确定 d[B]=1，然后确定 d[C]=3。但实际上 A→B→C 的路径长度为 1+(-5)=-4，比直接 A→C(3) 更短。贪心策略无法回溯修正已确认的 d[C]。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 6: Intermediate -->
+        <div class="exercise-item" id="ex-6">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">用 Rust 实现一个函数 <code>has_cycle</code>，使用 DFS 检测<strong>有向图</strong>中是否存在环。提示：需要三种状态（未访问、正在访问、已完成）。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">#[derive(Clone, PartialEq)]
+enum State { White, Gray, Black }
+
+fn has_cycle(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;) -&gt; bool {
+    let n = graph.len();
+    let mut state = vec![State::White; n];
+
+    for i in 0..n {
+        if state[i] == State::White {
+            if dfs_cycle(graph, i, &amp;mut state) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn dfs_cycle(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;, u: usize, state: &amp;mut Vec&lt;State&gt;) -&gt; bool {
+    state[u] = State::Gray; // 正在访问
+    for &amp;v in &amp;graph[u] {
+        if state[v] == State::Gray {
+            return true; // 发现回边，存在环
+        }
+        if state[v] == State::White &amp;&amp; dfs_cycle(graph, v, state) {
+            return true;
+        }
+    }
+    state[u] = State::Black; // 完成访问
+    false
+}</code></pre>
+                    <p>Gray 节点表示在当前 DFS 路径上。如果遇到 Gray 邻居，说明存在环。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 7: Intermediate -->
+        <div class="exercise-item" id="ex-7">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">修改 BFS 代码，使其不仅返回遍历顺序，还返回从起点到每个节点的<strong>最短距离</strong>（边数）和<strong>前驱节点</strong>（用于还原路径）。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">use std::collections::VecDeque;
+
+fn bfs_with_path(
+    graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;,
+    start: usize,
+) -&gt; (Vec&lt;i32&gt;, Vec&lt;Option&lt;usize&gt;&gt;) {
+    let n = graph.len();
+    let mut dist = vec![-1i32; n]; // -1 表示不可达
+    let mut prev: Vec&lt;Option&lt;usize&gt;&gt; = vec![None; n];
+    let mut queue = VecDeque::new();
+
+    dist[start] = 0;
+    queue.push_back(start);
+
+    while let Some(u) = queue.pop_front() {
+        for &amp;v in &amp;graph[u] {
+            if dist[v] == -1 {
+                dist[v] = dist[u] + 1;
+                prev[v] = Some(u);
+                queue.push_back(v);
+            }
+        }
+    }
+    (dist, prev)
+}
+
+// 还原从 start 到 target 的路径
+fn reconstruct_path(prev: &amp;[Option&lt;usize&gt;], target: usize) -&gt; Vec&lt;usize&gt; {
+    let mut path = Vec::new();
+    let mut current = Some(target);
+    while let Some(node) = current {
+        path.push(node);
+        current = prev[node];
+    }
+    path.reverse();
+    path
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 8: Intermediate -->
+        <div class="exercise-item" id="ex-8">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">实现一个函数，使用 DFS 对 DAG 进行<strong>拓扑排序</strong>。返回一个顶点的线性排序，使得对于每条有向边 (u, v)，u 都在 v 之前。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">fn topological_sort(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;) -&gt; Vec&lt;usize&gt; {
+    let n = graph.len();
+    let mut visited = vec![false; n];
+    let mut order = Vec::new();
+
+    for i in 0..n {
+        if !visited[i] {
+            topo_dfs(graph, i, &amp;mut visited, &amp;mut order);
+        }
+    }
+    order.reverse(); // DFS 后序的逆序即为拓扑排序
+    order
+}
+
+fn topo_dfs(
+    graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;,
+    u: usize,
+    visited: &amp;mut Vec&lt;bool&gt;,
+    order: &amp;mut Vec&lt;usize&gt;,
+) {
+    visited[u] = true;
+    for &amp;v in &amp;graph[u] {
+        if !visited[v] {
+            topo_dfs(graph, v, visited, order);
+        }
+    }
+    order.push(u); // 后序：所有后继都已处理后再加入
+}</code></pre>
+                    <p>关键思想：DFS 完成时（所有后继都已访问），将节点加入结果。最后反转结果即得拓扑排序。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 9: Intermediate -->
+        <div class="exercise-item" id="ex-9">
+            <span class="difficulty intermediate">⭐⭐ 进阶</span>
+            <p class="exercise-question">修改 Dijkstra 实现，使其不仅计算最短距离，还能还原<strong>最短路径</strong>本身。给定起点 0 和终点 4（使用本章中的示例图），输出具体路径。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+
+fn dijkstra_with_path(
+    graph: &amp;Vec&lt;Vec&lt;(usize, i64)&gt;&gt;,
+    start: usize,
+) -&gt; (Vec&lt;i64&gt;, Vec&lt;Option&lt;usize&gt;&gt;) {
+    let n = graph.len();
+    let mut dist = vec![i64::MAX; n];
+    let mut prev: Vec&lt;Option&lt;usize&gt;&gt; = vec![None; n];
+    let mut heap = BinaryHeap::new();
+
+    dist[start] = 0;
+    heap.push(Reverse((0i64, start)));
+
+    while let Some(Reverse((cost, u))) = heap.pop() {
+        if cost &gt; dist[u] { continue; }
+        for &amp;(v, w) in &amp;graph[u] {
+            let nd = dist[u] + w;
+            if nd &lt; dist[v] {
+                dist[v] = nd;
+                prev[v] = Some(u);
+                heap.push(Reverse((nd, v)));
+            }
+        }
+    }
+    (dist, prev)
+}
+// 使用本章示例图：最短路径 0 → 2 → 1 → 3 → 4，总距离 7</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 10: Advanced -->
+        <div class="exercise-item" id="ex-10">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">实现 <strong>Bellman-Ford 算法</strong>：处理可能含负权边的图的单源最短路径。额外要求：能检测<strong>负权环</strong>（如果存在负权环，返回错误而非距离数组）。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">fn bellman_ford(
+    n: usize,
+    edges: &amp;[(usize, usize, i64)], // (from, to, weight)
+    start: usize,
+) -&gt; Result&lt;Vec&lt;i64&gt;, &amp;'static str&gt; {
+    let mut dist = vec![i64::MAX; n];
+    dist[start] = 0;
+
+    // 松弛 V-1 轮
+    for _ in 0..n - 1 {
+        for &amp;(u, v, w) in edges {
+            if dist[u] != i64::MAX &amp;&amp; dist[u] + w &lt; dist[v] {
+                dist[v] = dist[u] + w;
+            }
+        }
+    }
+
+    // 第 V 轮检测负权环
+    for &amp;(u, v, w) in edges {
+        if dist[u] != i64::MAX &amp;&amp; dist[u] + w &lt; dist[v] {
+            return Err("图中存在负权环");
+        }
+    }
+
+    Ok(dist)
+}</code></pre>
+                    <p>时间复杂度 <span class="katex-inline">O(VE)</span>。如果第 V 轮仍能松弛某条边，说明存在负权环。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 11: Advanced -->
+        <div class="exercise-item" id="ex-11">
+            <span class="difficulty advanced">⭐⭐⭐ 挑战</span>
+            <p class="exercise-question">使用 BFS 实现<strong>二分图检测</strong>：判断一个无向图是否是二分图（可以将顶点分为两组，使得每条边的两个端点分别属于不同组）。提示：尝试对图进行二着色。</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">use std::collections::VecDeque;
+
+fn is_bipartite(graph: &amp;Vec&lt;Vec&lt;usize&gt;&gt;) -&gt; bool {
+    let n = graph.len();
+    let mut color: Vec&lt;i8&gt; = vec![-1; n]; // -1 未染色，0 和 1 两种颜色
+
+    for start in 0..n {
+        if color[start] != -1 { continue; }
+        color[start] = 0;
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+
+        while let Some(u) = queue.pop_front() {
+            for &amp;v in &amp;graph[u] {
+                if color[v] == -1 {
+                    color[v] = 1 - color[u]; // 染相反颜色
+                    queue.push_back(v);
+                } else if color[v] == color[u] {
+                    return false; // 相邻同色，非二分图
+                }
+            }
+        }
+    }
+    true
+}</code></pre>
+                    <p>如果 BFS 过程中发现相邻节点已被染成相同颜色，则图不是二分图。注意要处理不连通图（外层循环遍历所有未染色节点）。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 12: Bonus -->
+        <div class="exercise-item" id="ex-12">
+            <span class="difficulty bonus">🏆 附加</span>
+            <p class="exercise-question">使用 <code>petgraph</code> crate 重新实现本章的 Dijkstra 算法。比较你的手写实现与 petgraph 内置 <code>dijkstra()</code> 函数的 API 设计差异，思考：petgraph 是如何抽象"图"这一概念的？它的泛型设计给你什么启发？</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+<pre><code class="language-rust">// Cargo.toml: petgraph = "0.6"
+use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::algo::dijkstra;
+
+fn main() {
+    let mut graph = DiGraph::&lt;&amp;str, i32&gt;::new();
+    let a = graph.add_node("A");
+    let b = graph.add_node("B");
+    let c = graph.add_node("C");
+    let d = graph.add_node("D");
+    let e = graph.add_node("E");
+
+    graph.add_edge(a, b, 4);
+    graph.add_edge(a, c, 1);
+    graph.add_edge(c, b, 2);
+    graph.add_edge(b, d, 1);
+    graph.add_edge(c, d, 5);
+    graph.add_edge(d, e, 3);
+
+    let result = dijkstra(&amp;graph, a, None, |e| *e.weight());
+    for (node, cost) in &amp;result {
+        println!("{}: {}", graph[*node], cost);
+    }
+}</code></pre>
+                    <p><strong>关键差异</strong>：petgraph 使用 trait（如 <code>IntoEdges</code>、<code>Visitable</code>）抽象图的接口，使算法可以适用于任何实现了这些 trait 的图类型。边的权重通过闭包 <code>|e| *e.weight()</code> 获取，极大地增加了灵活性。这种 trait-based 泛型设计是 Rust 生态的典型模式。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ex 13: Bonus -->
+        <div class="exercise-item" id="ex-13">
+            <span class="difficulty bonus">🏆 附加</span>
+            <p class="exercise-question">实现 <strong>A* 搜索算法</strong>——Dijkstra 的启发式扩展。以二维网格为例（可以上下左右移动，某些格子是障碍），使用曼哈顿距离作为启发函数，找到从左上角到右下角的最短路径。分析：在什么条件下 A* 保证找到最优解？</p>
+            <div class="collapsible">
+                <button class="collapsible-trigger">查看答案</button>
+                <div class="collapsible-content">
+                    <p>A* 的核心公式是 <span class="katex-inline">f(n) = g(n) + h(n)</span>，其中 <span class="katex-inline">g(n)</span> 是从起点到 n 的实际代价，<span class="katex-inline">h(n)</span> 是从 n 到目标的启发式估计。</p>
+<pre><code class="language-rust">use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+
+fn manhattan_distance(a: (usize, usize), b: (usize, usize)) -&gt; i64 {
+    ((a.0 as i64) - (b.0 as i64)).abs()
+    + ((a.1 as i64) - (b.1 as i64)).abs()
+}
+
+fn a_star(grid: &amp;Vec&lt;Vec&lt;bool&gt;&gt;, start: (usize, usize), goal: (usize, usize)) -&gt; Option&lt;i64&gt; {
+    let rows = grid.len();
+    let cols = grid[0].len();
+    let mut g_score = vec![vec![i64::MAX; cols]; rows];
+    g_score[start.0][start.1] = 0;
+
+    // (f_score, row, col)
+    let mut heap = BinaryHeap::new();
+    let h = manhattan_distance(start, goal);
+    heap.push(Reverse((h, start.0, start.1)));
+
+    let dirs: [(i64, i64); 4] = [(-1,0),(1,0),(0,-1),(0,1)];
+
+    while let Some(Reverse((_f, r, c))) = heap.pop() {
+        if (r, c) == goal { return Some(g_score[r][c]); }
+        for (dr, dc) in &amp;dirs {
+            let nr = r as i64 + dr;
+            let nc = c as i64 + dc;
+            if nr &lt; 0 || nc &lt; 0 { continue; }
+            let (nr, nc) = (nr as usize, nc as usize);
+            if nr &gt;= rows || nc &gt;= cols || grid[nr][nc] { continue; }
+            let ng = g_score[r][c] + 1;
+            if ng &lt; g_score[nr][nc] {
+                g_score[nr][nc] = ng;
+                let f = ng + manhattan_distance((nr, nc), goal);
+                heap.push(Reverse((f, nr, nc)));
+            }
+        }
+    }
+    None
+}</code></pre>
+                    <p><strong>最优性条件</strong>：当启发函数 <span class="katex-inline">h(n)</span> 是<strong>可容许的</strong>（admissible，即不会高估实际代价）时，A* 保证找到最优解。曼哈顿距离在只能四方向移动的网格中是可容许的。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== Further Reading ==================== -->
+    <section class="further-reading">
+        <h2>📚 延伸阅读</h2>
+        <ul>
+            <li><a href="https://docs.rs/petgraph/latest/petgraph/" target="_blank">petgraph 文档</a> — Rust 生态中最流行的图数据结构和算法库</li>
+            <li><a href="https://visualgo.net/en/graphds" target="_blank">VisuAlgo - Graph Data Structures</a> — 交互式图算法可视化，直观理解 BFS、DFS、Dijkstra 等</li>
+            <li><a href="https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html" target="_blank">Rust std::collections::BinaryHeap</a> — 官方文档，包含使用 Reverse 实现最小堆的示例</li>
+            <li><a href="https://doc.rust-lang.org/std/collections/struct.VecDeque.html" target="_blank">Rust std::collections::VecDeque</a> — 双端队列的官方文档</li>
+            <li><a href="https://en.wikipedia.org/wiki/Graph_theory" target="_blank">Wikipedia: Graph Theory</a> — 图论的全面百科介绍</li>
+            <li>《算法导论》第 22-24 章 — 图算法的经典教材参考</li>
+        </ul>
+    </section>
+
+</main>
+
+<script src="../../assets/js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof initKaTeX === 'function') {
+            initKaTeX();
+        }
+    });
+</script>
+</body>
+</html>
