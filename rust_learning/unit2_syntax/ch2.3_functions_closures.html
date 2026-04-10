@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.3 函数与闭包 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+
+            <li class="unit-title">Unit 2 正式页面</li>
+            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
+            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
+            <li><a href="./ch2.3_functions_closures.html" class="active">2.3 函数与闭包</a></li>
+            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
+            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
+            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">函数签名是在声明边界，不只是写语法</a></li>
+            <li><a href="#kp-2">表达式 vs 语句：最后一行为什么能当返回值？</a></li>
+            <li><a href="#kp-3">闭包：把“逻辑 + 环境”打包在一起</a></li>
+            <li><a href="#kp-4">捕获模式：借用、可变借用、move</a></li>
+            <li><a href="#kp-5">fn / Fn / FnMut / FnOnce：把“怎么调用”看成能力等级</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 2 · 基础语法</span>
+            <h1>Ch 2.3 函数与闭包</h1>
+            <p class="chapter-description">函数让逻辑有边界，闭包让逻辑可以连同环境一起被传递。Rust 在这两者上既强调表达式风格，也强调捕获语义的明确性。本章会把 return、闭包捕获和 Fn / FnMut / FnOnce 的直觉串在一起。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>掌握 Rust 函数签名、参数和返回值的基本规则</li>
+                <li>理解语句与表达式的区别，以及它们如何影响返回值</li>
+                <li>理解闭包如何捕获环境以及何时发生借用、可变借用与移动</li>
+                <li>建立对 fn、Fn、FnMut、FnOnce 的使用直觉</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>默认你已经掌握变量、基本控制流和最小 Rust 程序结构。本章会碰到所有权术语，但重点不是借用检查细节，而是“函数/闭包怎样组织代码与环境”。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>2.3.1 函数签名是在声明边界，不只是写语法</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么 Rust 要你在函数参数和返回值上写得很明确？这是不是只是“类型语言的啰嗦”？</p>
+            </div>
+            <p>函数签名决定了调用者能给什么、会拿回什么，也是编译器推断 API 意图的重要依据。越清晰的签名，越容易看出所有权是否转移、结果是否可失败。</p>
+            <p><strong>正式规则：</strong>使用 fn 定义函数，参数必须写类型；返回值类型在 -> 后声明，如果没有返回值则默认为单位类型 ()。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>function_signature.rs</span></div>
+                <pre><code>fn add_tax(price: f64, rate: f64) -&gt; f64 {
+    price * (1.0 + rate)
+}
+
+fn main() {
+    let final_price = add_tax(100.0, 0.13);
+    println!(&quot;{final_price:.2}&quot;);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>113.00</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>读签名的习惯：</strong>看到函数时，先读参数和返回值，再读函数体。这样你会更快进入“它承诺了什么”的视角。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="A" data-explanation="函数签名是 API 边界的一部分，明确参数与返回值能帮助调用者和编译器理解约束。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于 Rust 函数签名，下列哪项最准确？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="A"> A. 参数类型必须显式写出，返回值也应通过签名说明</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="B"> B. 函数签名只影响格式，不影响语义</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="C"> C. 只要函数体能编译，签名写不写都行</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>2.3.2 表达式 vs 语句：最后一行为什么能当返回值？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么 Rust 函数里最后一行不写分号就能返回，而一旦加分号，类型就可能完全变掉？</p>
+            </div>
+            <p>Rust 区分“会产出值的表达式”和“只执行动作的语句”。函数体、if、match、块表达式都可以靠最后一个表达式产出结果，这让很多逻辑不需要显式 return。</p>
+            <p><strong>正式规则：</strong>块中最后一个无分号表达式会成为该块的值；加上分号后，它就变成语句，值变为 ()。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>expression_return.rs</span></div>
+                <pre><code>fn label(score: i32) -&gt; &amp;&#x27;static str {
+    if score &gt;= 60 {
+        &quot;pass&quot;
+    } else {
+        &quot;retry&quot;
+    }
+}
+
+fn main() {
+    println!(&quot;{}&quot;, label(75));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>pass</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>高频报错来源：</strong>很多“expected i32, found ()”都来自多写了一个分号，让本该返回值的表达式变成了语句。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么 return 仍然存在？</button>
+                <div class="collapsible-content"><code>return</code> 适合提前退出，例如参数校验失败、遇到错误就立刻返回。平稳路径则常用最后一行表达式，让结构更紧凑。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="无分号的最后一行表达式会成为返回值；加分号后该块的值变成 ()。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪个说法正确描述了表达式返回？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="A"> A. Rust 的函数必须显式写 return</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="B"> B. 最后一行有没有分号不会影响返回值</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="C"> C. 块表达式最后一行不写分号时可以直接作为返回值</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>2.3.3 闭包：把“逻辑 + 环境”打包在一起</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么迭代器、回调和排序 API 喜欢接收闭包，而不是只接收普通函数名？</p>
+            </div>
+            <p>普通函数只能依赖参数；闭包还能顺手捕获外部环境中的值，所以它特别适合“当场写一段小逻辑，同时利用当前上下文”的场景。</p>
+            <p><strong>正式规则：</strong>闭包语法通常写作 |args| expr 或 |args| { ... }；编译器会根据使用场景为参数和返回值推断类型，并自动决定捕获方式。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>closure_capture.rs</span></div>
+                <pre><code>fn main() {
+    let prefix = String::from(&quot;item&quot;);
+    let render = |id: u32| format!(&quot;{prefix}-{id}&quot;);
+
+    println!(&quot;{}&quot;, render(7));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>item-7</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>直觉：</strong>闭包最适合“只在本地用一次或几次的小逻辑”；如果一段逻辑值得命名、复用和测试，仍然优先考虑普通函数。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：闭包为什么常能省略类型？</button>
+                <div class="collapsible-content">因为闭包往往直接在调用点被消费，编译器能从上下文推断参数和返回类型。但一旦上下文不清晰，仍然要补注解。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="闭包最大的额外能力是可以捕获定义位置附近的环境，而普通函数只能依赖显式参数。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>闭包和普通函数最关键的差别是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="A"> A. 闭包一定更快</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="B"> B. 闭包可以捕获外部环境</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="C"> C. 普通函数不能有返回值</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>2.3.4 捕获模式：借用、可变借用、move</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>同样是闭包，为什么有时调用完外部变量还能用，有时却提示“value moved into closure”？</p>
+            </div>
+            <p>闭包会根据它对环境值的使用方式自动选择捕获模式：只读时倾向借用，修改时倾向可变借用，需要拿走所有权时则会 move。理解这一点，比死记某个报错更重要。</p>
+            <p><strong>正式规则：</strong>闭包会尽量以最小权限捕获环境；加上 move 关键字会强制把捕获值的所有权移入闭包。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>capture_modes.rs</span></div>
+                <pre><code>fn main() {
+    let mut count = 0;
+    {
+        let mut inc = || {
+            count += 1;
+            println!(&quot;count = {count}&quot;);
+        };
+        inc();
+        inc();
+    }
+
+    let label = String::from(&quot;job&quot;);
+    let take = move || println!(&quot;{label}&quot;);
+    take();
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>count = 1
+count = 2
+job</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>不要把 move 理解成“闭包专用关键字”：</strong>它本质上仍然是所有权转移。在线程、异步任务或需要延长生命周期的场景里，move 闭包尤为常见。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：如何判断闭包会怎么捕获？</button>
+                <div class="collapsible-content">先问闭包对外部值做了什么：只读、修改，还是要在闭包内部长期持有/转移出去。行为决定捕获模式，语法只是表现。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="闭包会根据使用方式决定捕获权限；显式写 move 时会把所有权移入闭包。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于闭包捕获，下列哪项正确？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="A"> A. move 会强制把捕获值移入闭包</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="B"> B. 所有闭包都默认按值复制环境</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="C"> C. 闭包不能修改外部状态</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>2.3.5 fn / Fn / FnMut / FnOnce：把“怎么调用”看成能力等级</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>面对这些看似相似的名字，最容易掉坑的是去死背定义。有没有更直观的理解方式？</p>
+            </div>
+            <p>可以把它们理解成闭包可调用能力的三个层级：<code>Fn</code> 表示只读调用、可反复调用；<code>FnMut</code> 表示调用时可能修改内部状态；<code>FnOnce</code> 表示调用一次就可能消耗掉捕获值。<code>fn</code> 则是函数指针类型，本身不捕获环境。</p>
+            <p>一个闭包如果只需要只读捕获，它通常既满足 Fn，也自动满足 FnMut / FnOnce 的较宽接口需求；反过来则不成立。理解“能力越强，约束越少”会比记表格更有用。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>fn_traits.rs</span></div>
+                <pre><code>fn call_twice&lt;F&gt;(mut f: F)
+where
+    F: FnMut(),
+{
+    f();
+    f();
+}
+
+fn main() {
+    let mut count = 0;
+    call_twice(|| {
+        count += 1;
+        println!(&quot;count = {count}&quot;);
+    });
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>count = 1
+count = 2</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>选接口的经验法则：</strong>如果你只需要读环境，用 <code>Fn</code>；需要多次调用且允许改状态，用 <code>FnMut</code>；要接管资源并允许只调用一次，用 <code>FnOnce</code>。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="C" data-explanation="Fn / FnMut / FnOnce 的差别主要在于闭包调用时对捕获环境的消耗程度，而 fn 是不捕获环境的函数指针。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪项最符合这些调用 trait 的直觉？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="A"> A. FnOnce 一定比 Fn 更严格，因而能接受的闭包更多</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="B"> B. fn 和闭包完全一样，只是写法不同</label>
+                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="C"> C. Fn 表示只读调用，FnMut 允许修改，FnOnce 可能在调用时消耗捕获值</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>函数签名描述的是 API 边界：参数是什么、返回什么，以及结果如何被理解</li>
+                <li>Rust 以表达式为核心，块的最后一行无分号时可以直接成为返回值</li>
+                <li>闭包是在本地把逻辑与环境一起打包的工具，特别适合回调和迭代器 API</li>
+                <li>闭包捕获模式由使用方式决定，move 会显式把所有权转入闭包</li>
+                <li>Fn / FnMut / FnOnce 可以理解成闭包“怎么调用、会不会消耗状态”的能力分级</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 写一个函数 fahrenheit_to_celsius，接收 f64 并返回转换后的 f64，要求使用表达式返回。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 定义一个闭包，把外部字符串前缀和传入编号组合成最终标签；然后解释它为什么能访问前缀。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 比较下面两个闭包：一个只打印外部变量，一个会 push 到外部 Vec。分别推断它们更接近 Fn、FnMut 还是 FnOnce，并说明原因。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设计一个函数 run_with_retry，它接收一个可能失败的操作闭包并最多重试三次。思考参数约束更适合 Fn、FnMut 还是 FnOnce。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch03-03-how-functions-work.html">The Rust Programming Language · Functions</a></li>
+                <li><a href="https://doc.rust-lang.org/book/ch13-01-closures.html">The Rust Programming Language · Closures</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/fn/closures.html">Rust By Example · Closures</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

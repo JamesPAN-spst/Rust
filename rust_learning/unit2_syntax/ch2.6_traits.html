@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.6 Trait 系统 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+
+            <li class="unit-title">Unit 2 正式页面</li>
+            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
+            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
+            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
+            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
+            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
+            <li><a href="./ch2.6_traits.html" class="active">2.6 Trait 系统</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">Trait：描述能力，而不是硬绑具体类型</a></li>
+            <li><a href="#kp-2">impl 与 derive：手写行为，或让编译器帮你生成常见行为</a></li>
+            <li><a href="#kp-3">Trait bound 与 impl Trait：把“需要什么能力”写进函数签名</a></li>
+            <li><a href="#kp-4">默认方法与组合：trait 也可以带来共享实现</a></li>
+            <li><a href="#kp-5">静态分发 vs 动态分发：编译期定形，还是运行时走 trait 对象？</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 2 · 基础语法</span>
+            <h1>Ch 2.6 Trait 系统</h1>
+            <p class="chapter-description">Trait 是 Rust 抽象能力的核心：它让你描述“一个类型能做什么”，而不是只盯着“它是什么”。本章会把 impl、derive、trait bound，以及静态分发和动态分发的直觉串在一起。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 trait 如何表达共享行为，以及 impl 如何为类型实现行为</li>
+                <li>掌握常见 derive 的用途，并知道它们为什么能减少样板代码</li>
+                <li>理解 trait bound、impl Trait 的基本用法与设计意图</li>
+                <li>建立对静态分发与动态分发的直觉，知道何时考虑 trait 对象</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先完成函数、struct、enum 和模式匹配章节。本章默认你已经知道 impl 可以写普通方法，现在会进一步把它提升到“共享行为接口”的层面。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>2.6.1 Trait：描述能力，而不是硬绑具体类型</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>如果日志、配置、网络消息都需要“格式化成一段文本”，为什么不直接给每个类型都写一个同名方法就好了？</p>
+            </div>
+            <p>Trait 的价值在于把“共享行为契约”提炼出来。这样调用方关心的是“你能不能做这件事”，而不是“你是不是某个具体类型”。</p>
+            <p><strong>正式规则：</strong>trait 用来声明一组方法签名；使用 impl TraitName for Type 可以为具体类型实现这组行为。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>trait_intro.rs</span></div>
+                <pre><code>trait Summary {
+    fn summary(&amp;self) -&gt; String;
+}
+
+struct News {
+    title: String,
+}
+
+impl Summary for News {
+    fn summary(&amp;self) -&gt; String {
+        format!(&quot;news: {}&quot;, self.title)
+    }
+}
+
+fn main() {
+    let item = News { title: String::from(&quot;Rust 1.78&quot;) };
+    println!(&quot;{}&quot;, item.summary());
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>news: Rust 1.78</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>抽象顺序：</strong>先从几个具体类型里看出共同动作，再抽 trait；不要为了“用上 trait”而过早抽象。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="B" data-explanation="trait 关注的是行为契约：只要类型实现了该 trait，就能以同一种方式被使用。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>Trait 最核心解决的是什么问题？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.6_traits-q1" value="A"> A. 让所有 struct 自动拥有相同字段</label>
+                    <label><input type="radio" name="ch2.6_traits-q1" value="B"> B. 用统一契约描述不同类型的共享行为</label>
+                    <label><input type="radio" name="ch2.6_traits-q1" value="C"> C. 替代所有函数</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>2.6.2 impl 与 derive：手写行为，或让编译器帮你生成常见行为</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么有些 trait 需要自己 impl，而 Debug、Clone、Default 这类 trait 却经常只要一行 derive？</p>
+            </div>
+            <p>有些行为是业务语义相关的，例如如何生成摘要、如何比较领域对象，这通常需要你自己写 impl。另一些行为是通用且可机械推导的，例如打印调试信息、浅复制、默认值，编译器就能通过 derive 自动生成。</p>
+            <p><strong>正式规则：</strong>derive 是为支持派生的 trait 自动生成实现；只有 trait 设计成可派生时，才能使用 #[derive(...)].</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>derive.rs</span></div>
+                <pre><code>#[derive(Debug, Clone, Default)]
+struct Config {
+    port: u16,
+    debug: bool,
+}
+
+fn main() {
+    let config = Config { port: 8080, debug: true };
+    let copied = config.clone();
+    let fallback = Config::default();
+
+    println!(&quot;{:?}&quot;, copied);
+    println!(&quot;{:?}&quot;, fallback);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Config { port: 8080, debug: true }
+Config { port: 0, debug: false }</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>derive 不是“万能自动化”：</strong>当业务语义需要你自己决定时，例如排序规则、领域等价关系、展示文本，就不要机械依赖 derive。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么 derive 重要？</button>
+                <div class="collapsible-content">因为它把大量重复样板从手写代码里拿掉，让你把精力放在真正有业务含义的实现上。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="derive 适合自动生成那些可以机械推导的常见 trait 实现，而业务语义强的 trait 往往仍需手写 impl。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于 derive，下列哪项最合理？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.6_traits-q2" value="A"> A. 它主要减少通用样板代码</label>
+                    <label><input type="radio" name="ch2.6_traits-q2" value="B"> B. 任何 trait 都能 derive</label>
+                    <label><input type="radio" name="ch2.6_traits-q2" value="C"> C. 用了 derive 就不能再写 impl</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>2.6.3 Trait bound 与 impl Trait：把“需要什么能力”写进函数签名</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>函数到底是该接收具体类型，还是接收“任何实现了某种能力的类型”？</p>
+            </div>
+            <p>当函数真正依赖的是某种行为，而不是某个具体实现时，用 trait bound 会更灵活。调用方只要提供实现了该 trait 的类型即可，函数本身不必知道更多细节。</p>
+            <p><strong>正式规则：</strong>可以用 <code>fn f<T: Trait>(x: T)</code> 或 <code>fn f(x: impl Trait)</code> 表示参数必须实现某个 trait；多个约束可通过 <code>+</code> 或 where 子句组合。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>trait_bounds.rs</span></div>
+                <pre><code>use std::fmt::Display;
+
+fn announce(item: impl Display) {
+    println!(&quot;announcement: {item}&quot;);
+}
+
+fn pair&lt;T&gt;(left: T, right: T)
+where
+    T: Display + PartialOrd,
+{
+    let bigger = if left &gt;= right { left } else { right };
+    println!(&quot;bigger = {bigger}&quot;);
+}
+
+fn main() {
+    announce(&quot;Rust&quot;);
+    pair(3, 5);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>announcement: Rust
+bigger = 5</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>签名思维：</strong>如果你的函数只需要“能打印”，那就别把参数写死成 String；把真正依赖的能力写成约束，会让 API 更可复用。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="C" data-explanation="trait bound 的重点是把函数依赖的能力显式写进签名，而不是把参数硬绑到某个具体类型。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>什么时候 trait bound 最有价值？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.6_traits-q3" value="A"> A. 当你永远只接受一个具体 struct</label>
+                    <label><input type="radio" name="ch2.6_traits-q3" value="B"> B. 当你想隐藏所有类型信息，不让编译器检查</label>
+                    <label><input type="radio" name="ch2.6_traits-q3" value="C"> C. 当函数依赖的是某种行为能力，而不是某个具体类型</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>2.6.4 默认方法与组合：trait 也可以带来共享实现</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>Trait 只是“接口声明”吗？如果多个类型共享一部分默认行为，该怎么办？</p>
+            </div>
+            <p>trait 不只能声明必须实现的方法，也可以提供默认方法。这样类型只需实现最小必要能力，就能自动获得一部分通用行为。</p>
+            <p>这让 trait 成为“契约 + 可复用默认逻辑”的组合体，在库设计里尤其常见。它和传统面向对象继承不同，因为共享的是行为约束和默认实现，而不是字段层次。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>default_methods.rs</span></div>
+                <pre><code>trait Summary {
+    fn headline(&amp;self) -&gt; &amp;str;
+
+    fn preview(&amp;self) -&gt; String {
+        format!(&quot;preview: {}&quot;, self.headline())
+    }
+}
+
+struct Post {
+    title: String,
+}
+
+impl Summary for Post {
+    fn headline(&amp;self) -&gt; &amp;str {
+        &amp;self.title
+    }
+}
+
+fn main() {
+    let post = Post { title: String::from(&quot;Traits&quot;) };
+    println!(&quot;{}&quot;, post.preview());
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>preview: Traits</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>默认实现的边界：</strong>当默认逻辑只依赖 trait 自身已声明的方法时，它会非常自然；如果开始强依赖具体类型细节，就说明抽象层次可能不对。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：默认方法有什么实际收益？</button>
+                <div class="collapsible-content">它能让多个实现共享一部分通用行为，同时仍把关键差异留给各自类型去补足。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="trait 可以提供默认方法，从而让多个类型共享一部分行为实现。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪项最准确描述了 trait 默认方法？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.6_traits-q4" value="A"> A. 有默认方法后，实现者就不能覆盖</label>
+                    <label><input type="radio" name="ch2.6_traits-q4" value="B"> B. 它允许在 trait 内共享一部分可复用逻辑</label>
+                    <label><input type="radio" name="ch2.6_traits-q4" value="C"> C. 默认方法只能返回 ()</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>2.6.5 静态分发 vs 动态分发：编译期定形，还是运行时走 trait 对象？</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>当你听到“泛型更快、trait object 更灵活”时，真正该理解的到底是什么？</p>
+            </div>
+            <p>使用泛型 + trait bound 时，编译器会为具体类型生成对应代码，这通常称为静态分发；使用 <code>&amp;dyn Trait</code> 或 <code>Box&lt;dyn Trait&gt;</code> 时，运行时通过虚表决定调用哪个实现，这就是动态分发。</p>
+            <p>直觉上，静态分发更适合性能敏感且类型在编译期已知的场景；动态分发更适合需要把不同具体类型放进同一容器、并通过统一接口处理的场景。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>dispatch.rs</span></div>
+                <pre><code>trait Draw {
+    fn draw(&amp;self);
+}
+
+struct Button;
+struct Label;
+
+impl Draw for Button {
+    fn draw(&amp;self) { println!(&quot;button&quot;); }
+}
+
+impl Draw for Label {
+    fn draw(&amp;self) { println!(&quot;label&quot;); }
+}
+
+fn render_all(items: &amp;[Box&lt;dyn Draw&gt;]) {
+    for item in items {
+        item.draw();
+    }
+}
+
+fn main() {
+    let items: Vec&lt;Box&lt;dyn Draw&gt;&gt; = vec![Box::new(Button), Box::new(Label)];
+    render_all(&amp;items);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>button
+label</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>不要把“动态分发”直接等同于“坏性能”：</strong>很多应用层场景里，灵活性和接口统一性更重要。关键是理解你为什么需要在同一位置装下多种实现。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：什么时候 trait object 尤其自然？</button>
+                <div class="collapsible-content">当你要把多种实现同一 trait 的不同类型放进同一个集合，例如 UI 组件列表、插件列表、处理器链时，trait object 会很自然。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="静态分发依赖编译期已知具体类型；动态分发则允许通过 trait 对象统一处理多种实现。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪项最符合静态分发与动态分发的区别？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.6_traits-q5" value="A"> A. 泛型更偏静态分发，trait object 更偏运行时多态</label>
+                    <label><input type="radio" name="ch2.6_traits-q5" value="B"> B. trait object 不需要 trait</label>
+                    <label><input type="radio" name="ch2.6_traits-q5" value="C"> C. 动态分发会让 trait 失效</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>trait 用来描述共享行为契约，impl 让具体类型承诺并实现这些行为</li>
+                <li>derive 适合自动生成可机械推导的常见 trait，实现样板代码压缩</li>
+                <li>trait bound 与 impl Trait 让函数按“需要什么能力”而不是“接受什么具体类型”来设计</li>
+                <li>trait 可以提供默认方法，形成“契约 + 默认行为”的组合</li>
+                <li>静态分发强调编译期已知类型，动态分发强调以 trait 对象统一处理不同实现</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 定义一个 trait Greet，包含 greet 方法；为 Person struct 实现它并打印一句问候。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 给一个配置结构体派生 Debug、Clone、Default，并说明这些 derive 在调试和初始化时各自有什么用。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 写一个函数，接收任何实现了 Display 的类型并打印；然后再加一个额外约束，让参数还能比较大小。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设想你在做一个插件系统：插件类型多样，但都要执行 run。请比较“用泛型参数传一个插件”和“把多个插件装进 Vec<Box<dyn Plugin>>”两种方案的适用场景。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch10-02-traits.html">The Rust Programming Language · Traits</a></li>
+                <li><a href="https://doc.rust-lang.org/book/ch18-02-trait-objects.html">The Rust Programming Language · Trait Objects</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/trait.html">Rust By Example · Traits</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

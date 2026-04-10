@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 2.4 Struct 与 Enum - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+
+            <li class="unit-title">Unit 2 正式页面</li>
+            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
+            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
+            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
+            <li><a href="./ch2.4_struct_enum.html" class="active">2.4 Struct 与 Enum</a></li>
+            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
+            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">Struct：把零散数据收束成一个清晰模型</a></li>
+            <li><a href="#kp-2">Tuple struct、unit struct 与 impl：语法不一样，建模语义也不一样</a></li>
+            <li><a href="#kp-3">Enum：让“可能状态”进入类型系统</a></li>
+            <li><a href="#kp-4">Option 与 Result：把“可能没有值”和“可能失败”说清楚</a></li>
+            <li><a href="#kp-5">Struct 还是 Enum？先问“这是一个对象，还是一种状态集合？”</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 2 · 基础语法</span>
+            <h1>Ch 2.4 Struct 与 Enum</h1>
+            <p class="chapter-description">真正的 Rust 建模，不是把字段随手堆成几个变量，而是主动选择“这个状态是固定结构，还是多种可能之一”。本章会用 struct、enum、Option、Result 把这种建模意识建立起来。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解 struct 如何表达稳定的数据形状以及为何比并排变量更清晰</li>
+                <li>掌握 tuple struct、unit-like struct 和基础 impl 的使用直觉</li>
+                <li>理解 enum 如何表达“多种互斥状态”以及每个变体可携带的数据</li>
+                <li>建立对 Option / Result 的直觉，知道它们为什么优于空值和魔法错误码</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先掌握函数、基本类型和控制流。本章会出现 match 风格的预告，但详细拆解将在下一章进行；当前重点是“如何用类型表达领域模型”。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>2.4.1 Struct：把零散数据收束成一个清晰模型</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>用户资料、配置项、坐标信息为什么不该总是拆成一堆平行变量？</p>
+            </div>
+            <p>当几项数据总是一起出现时，把它们放进 struct 能让“这些字段属于同一个实体”变得显式。这样函数签名更清楚，后续扩展字段也不需要不断加参数。</p>
+            <p><strong>正式规则：</strong>struct 定义一组命名字段；实例化时要为字段赋值，读取时使用点号语法。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>struct_model.rs</span></div>
+                <pre><code>struct User {
+    name: String,
+    active: bool,
+    sign_in_count: u32,
+}
+
+fn main() {
+    let user = User {
+        name: String::from(&quot;Ferris&quot;),
+        active: true,
+        sign_in_count: 3,
+    };
+
+    println!(&quot;{} / {} / {}&quot;, user.name, user.active, user.sign_in_count);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Ferris / true / 3</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>建模问题先于语法：</strong>当你发现函数参数开始变成 <code>name, active, sign_in_count, ...</code> 这种长串时，通常就在提醒你该引入 struct 了。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="B" data-explanation="struct 的价值在于把相关字段明确绑定成一个实体模型，而不是让数据继续以平行变量形式散落。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>什么时候引入 struct 往往最合理？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="A"> A. 只要字段数量超过两个</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="B"> B. 当多项数据始终描述同一个实体并需要一起传递</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="C"> C. 当你想让代码变得更长</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>2.4.2 Tuple struct、unit struct 与 impl：语法不一样，建模语义也不一样</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>为什么 Rust 不只提供一种 struct 写法？难道普通命名字段还不够吗？</p>
+            </div>
+            <p>命名字段 struct 适合语义清晰的业务对象；tuple struct 适合“只想包装一个或几个值，但想让类型更有意义”的场景；unit-like struct 则常用作标记类型。</p>
+            <p>与此同时，impl 可以把与数据相关的行为放回类型身上，让“数据”和“对数据的操作”靠得更近。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>tuple_impl.rs</span></div>
+                <pre><code>struct UserId(u64);
+struct AlwaysOn;
+
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn area(&amp;self) -&gt; u32 {
+        self.width * self.height
+    }
+}
+
+fn main() {
+    let id = UserId(7);
+    let rect = Rectangle { width: 3, height: 4 };
+    let _marker = AlwaysOn;
+
+    println!(&quot;id = {}, area = {}&quot;, id.0, rect.area());
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>id = 7, area = 12</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>别把 impl 想成“必须等到 trait 章节才能用”：</strong>即使还没学 trait，<code>impl</code> 也已经能用来组织普通方法和构造逻辑。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：什么时候 tuple struct 很好用？</button>
+                <div class="collapsible-content">当你想把一个原始值包成更有业务意义的类型时，例如 <code>UserId(u64)</code>、<code>Port(u16)</code>。这样能减少把不同整数类型混用的风险。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="tuple struct 适合给原始值增加语义包装，impl 则负责把相关行为组织到类型上。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于 tuple struct 和 impl，下列哪项正确？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="A"> A. tuple struct 常用于给原始值增加语义，而 impl 可以定义与类型相关的方法</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="B"> B. unit struct 不能实例化</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="C"> C. 只有 enum 才能定义方法</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>2.4.3 Enum：让“可能状态”进入类型系统</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>如果一个网络请求可能处于 Loading、Success、Failed 三种状态，用几个布尔字段拼出来真的靠谱吗？</p>
+            </div>
+            <p>enum 最大的价值是把“互斥状态”直接变成类型的一部分。你不再需要靠多个字段手动维护“哪些组合合法”，而是让编译器知道某个值此刻只能是这些变体之一。</p>
+            <p><strong>正式规则：</strong>enum 可以定义多个变体；每个变体既可以只是标签，也可以携带各自不同的数据。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>enum_states.rs</span></div>
+                <pre><code>enum RequestState {
+    Loading,
+    Success(String),
+    Failed(u16),
+}
+
+fn main() {
+    let state = RequestState::Success(String::from(&quot;OK&quot;));
+
+    match state {
+        RequestState::Loading =&gt; println!(&quot;loading&quot;),
+        RequestState::Success(body) =&gt; println!(&quot;success: {body}&quot;),
+        RequestState::Failed(code) =&gt; println!(&quot;failed: {code}&quot;),
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>success: OK</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>建模收益：</strong>和多个布尔值相比，enum 更容易保证状态组合合法，也更方便在后续新增一个变体时让编译器帮你补全处理逻辑。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="C" data-explanation="enum 适合表示多种互斥状态，每个变体还可以携带不同数据。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么 RequestState 更适合用 enum 表示？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="A"> A. 因为 enum 比 struct 占用更少内存</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="B"> B. 因为 enum 才能存字符串</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="C"> C. 因为它能把合法状态集合直接编码进类型里</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>2.4.4 Option 与 Result：把“可能没有值”和“可能失败”说清楚</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>很多语言喜欢用 null、-1、空字符串来表示异常情况。Rust 为什么宁愿让你多写一层 Option / Result？</p>
+            </div>
+            <p>Option<T> 表示“这里可能有一个 T，也可能没有”；Result<T, E> 表示“这里可能成功拿到 T，也可能带着 E 失败”。Rust 把这些不确定性显式放进类型里，避免调用者假装问题不存在。</p>
+            <p>这种设计会让 API 更啰嗦一点，但也让缺失值和错误处理更难被忽略，尤其是在大型代码库里价值很高。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>option_result.rs</span></div>
+                <pre><code>fn find_port(name: &amp;str) -&gt; Option&lt;u16&gt; {
+    if name == &quot;http&quot; {
+        Some(80)
+    } else {
+        None
+    }
+}
+
+fn parse_port(text: &amp;str) -&gt; Result&lt;u16, std::num::ParseIntError&gt; {
+    text.parse::&lt;u16&gt;()
+}
+
+fn main() {
+    println!(&quot;{:?}&quot;, find_port(&quot;http&quot;));
+    println!(&quot;{:?}&quot;, parse_port(&quot;8080&quot;));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Some(80)
+Ok(8080)</pre>
+                </div>
+            </div>
+            <div class="note-box warning">
+                <p><strong>直觉提醒：</strong>Option 不是“简化版 Result”；它表达的是“缺席本身是正常分支”，而不是“这里发生了具体错误”。</p>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：什么时候该用 Option，什么时候该用 Result？</button>
+                <div class="collapsible-content">如果“没有值”本身就是预期状态，例如查找不到缓存项，用 <code>Option</code>；如果你需要告诉调用者为什么失败，用 <code>Result</code>。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="Option 表示可能缺席，Result 表示可能失败并携带错误信息；二者都在类型层面强迫调用者面对不确定性。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>哪项最贴近 Option / Result 的设计目的？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="A"> A. 让代码更像其他语言</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="B"> B. 把空值和失败显式编码到类型中</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="C"> C. 避免写 match</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>2.4.5 Struct 还是 Enum？先问“这是一个对象，还是一种状态集合？”</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>很多建模纠结，其实不是语法不会，而是没先想清楚“我要表达的东西到底是什么”。</p>
+            </div>
+            <p>如果你描述的是一个实体稳定拥有的一组属性，通常选 struct；如果你描述的是“这个值可能处于几种不同形态之一”，通常选 enum。很多真实模型会把两者组合起来使用。</p>
+            <p>例如一个 HTTP 响应可以是 struct，其中 body 字段又可能是 enum；一个订单状态是 enum，而每个状态里又可以携带 struct 数据。类型不是互斥工具，而是建模积木。</p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>model_choice.rs</span></div>
+                <pre><code>struct ServerConfig {
+    host: String,
+    port: u16,
+}
+
+enum StartupState {
+    Idle,
+    Binding(ServerConfig),
+    Failed(String),
+}
+
+fn main() {
+    let state = StartupState::Binding(ServerConfig {
+        host: String::from(&quot;127.0.0.1&quot;),
+        port: 8080,
+    });
+
+    println!(&quot;{}&quot;, matches!(state, StartupState::Binding(_)));
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>true</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>一句判断法：</strong>问自己“这个类型的值，是一直有这些字段，还是只会在几种形态里选一种？”答案通常会指向 struct 或 enum。</p>
+            </div>
+
+            <div class="quick-quiz" data-answer="A" data-explanation="稳定属性集合更像 struct，互斥状态集合更像 enum；真实模型里常常二者组合使用。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如何快速区分 struct 和 enum 的使用倾向？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="A"> A. 稳定字段用 struct，互斥状态用 enum</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="B"> B. 只要有三个字段就必须用 enum</label>
+                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="C"> C. enum 可以完全替代 struct</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>struct 适合表达稳定的实体形状，让相关字段以一个清晰模型出现</li>
+                <li>tuple struct 和 unit-like struct 提供了不同层次的语义包装能力，impl 用来组织与类型相关的行为</li>
+                <li>enum 适合表达多种互斥状态，每个变体都可以携带自己需要的数据</li>
+                <li>Option 与 Result 把“可能缺席”和“可能失败”显式编码进类型，减少空值与错误码带来的歧义</li>
+                <li>建模时先分清“稳定对象”还是“状态集合”，再决定 struct、enum 或二者组合</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 定义一个 Book struct，包含标题、页数、是否已出版三个字段，并实例化一个值打印它。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 把“请求正在加载/成功拿到数据/失败带错误信息”建模成 enum，并说明为什么多个布尔字段更差。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 设计一个函数：根据用户输入的服务名返回端口。如果服务不存在，用 Option 还是 Result 更合适？请给出理由和最小代码。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 为一个 CLI 程序建模：配置文件、运行状态、启动结果分别适合用 struct、enum 还是组合结构？画出你的类型草图。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch05-01-defining-structs.html">The Rust Programming Language · Defining and Instantiating Structs</a></li>
+                <li><a href="https://doc.rust-lang.org/book/ch06-00-enums.html">The Rust Programming Language · Enums and Pattern Matching</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/custom_types.html">Rust By Example · Custom Types</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>

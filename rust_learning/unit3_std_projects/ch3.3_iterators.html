@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 3.3 迭代器 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 3 · 标准库与项目实战</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit2_syntax/ch2.6_traits.html">上一单元：Trait 系统</a></li>
+
+            <li class="unit-title">Unit 3 正式页面</li>
+            <li><a href="./ch3.1_strings.html">3.1 字符串</a></li>
+            <li><a href="./ch3.2_collections.html">3.2 集合</a></li>
+            <li><a href="./ch3.3_iterators.html" class="active">3.3 迭代器</a></li>
+            <li><a href="./ch3.4_error_handling.html">3.4 错误处理</a></li>
+            <li><a href="./ch3.5_modules.html">3.5 模块系统</a></li>
+            <li><a href="./ch3.6_project_practice.html">3.6 实战项目</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">惰性数据管道</a></li>
+            <li><a href="#kp-2">iter / iter_mut / into_iter</a></li>
+            <li><a href="#kp-3">map / filter / collect</a></li>
+            <li><a href="#kp-4">链中的所有权</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 3 · 标准库与项目实战</span>
+            <h1>Ch 3.3 迭代器</h1>
+            <p class="chapter-description">这一章把 Rust 迭代器讲成“带所有权语义的数据管道”：为什么 map/filter 是惰性的、iter/iter_mut/into_iter 到底在表达什么、collect 为什么经常需要类型注解，以及链式处理中 ownership 该怎么读。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解迭代器与 `for` 循环的分工，以及惰性执行的核心含义</li>
+                <li>区分 `iter`、`iter_mut`、`into_iter` 的借用与消费语义</li>
+                <li>掌握 `map` / `filter` / `collect` 的常见组合方式</li>
+                <li>能读懂迭代器链中引用、复制、clone 和 move 的变化</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>建议先掌握集合与闭包基础。若还没建立“借用遍历”和“消费遍历”的区别，迭代器报错会显得非常随机。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>3.3.1 迭代器不是“更花哨的循环”，而是惰性数据管道</h2>
+            <div class="think-box">
+                <div class="think-icon">🔁</div>
+                <p>为什么 Rust 既保留 `for` 循环，又大力推广迭代器适配器？</p>
+            </div>
+            <p><code>for</code> 适合直接表达遍历动作；迭代器则把“如何一步步产生元素”抽象成组合式管道。只有在遇到消费器（如 <code>collect</code>、<code>sum</code>、<code>for_each</code>）时，惰性链条才会真正执行。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong>大多数迭代器适配器都是惰性的：调用 <code>map</code>、<code>filter</code> 不会立即执行，直到后面有消费者触发。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>iterator_lazy.rs</span></div>
+                <pre><code>fn main() {
+    let values = vec![1, 2, 3, 4];
+    let sum: i32 = values.iter()
+        .filter(|&amp;&amp;n| n % 2 == 0)
+        .map(|&amp;n| n * 10)
+        .sum();
+
+    println!(&quot;sum = {sum}&quot;);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>sum = 60</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="map / filter 只是描述变换过程；真正执行通常发生在 sum、collect 等消费者上。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么单写一串 `map().filter()` 往往还看不到任何结果？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-3-q1" value="A"> A. 因为迭代器只能在 debug 模式运行</label>
+                    <label><input type="radio" name="u3-3-q1" value="B"> B. 因为大多数迭代器适配器是惰性的，需要消费者触发</label>
+                    <label><input type="radio" name="u3-3-q1" value="C"> C. 因为 Rust 会自动丢弃所有闭包</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-2">
+            <h2>3.3.2 `iter`、`iter_mut`、`into_iter`：你到底想借用、修改还是消费容器？</h2>
+            <div class="think-box">
+                <div class="think-icon">🧠</div>
+                <p>同样是遍历一个 Vec，为什么 Rust 要给你三个不同入口？</p>
+            </div>
+            <p>因为遍历不仅是“拿到元素”，还隐含 ownership 决策：<code>iter()</code> 产生不可变引用，<code>iter_mut()</code> 产生可变引用，<code>into_iter()</code> 则消费容器并交出元素所有权。</p>
+            <div class="note-box warning">
+                <p><strong>正式规则：</strong>选择哪一种迭代方式，取决于你是否还要继续使用原容器、是否要原地修改元素，以及是否需要拿走元素本身。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>iter_kinds.rs</span></div>
+                <pre><code>fn main() {
+    let mut names = vec![String::from(&quot;rust&quot;), String::from(&quot;cargo&quot;)];
+
+    for name in names.iter_mut() {
+        name.make_ascii_uppercase();
+    }
+
+    println!(&quot;{:?}&quot;, names);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>[&quot;RUST&quot;, &quot;CARGO&quot;]</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么 `into_iter()` 后通常不能再用原 Vec？</button>
+                <div class="collapsible-content">因为 `into_iter()` 会消费容器，把元素所有权逐个交出去；容器本身也就被 move 走了。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="into_iter 交出元素所有权，原容器被消费；iter/iter_mut 只是借用容器。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如果遍历后还要继续使用原 `Vec<String>`，最不该直接使用哪种方式？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-3-q2" value="A"> A. iter()</label>
+                    <label><input type="radio" name="u3-3-q2" value="B"> B. iter_mut()</label>
+                    <label><input type="radio" name="u3-3-q2" value="C"> C. into_iter()</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-3">
+            <h2>3.3.3 `map`、`filter`、`collect`：把变换意图写进链条里</h2>
+            <div class="think-box">
+                <div class="think-icon">🛠️</div>
+                <p>遍历集合并构造新结果时，为什么迭代器链通常比手写临时变量更紧凑？</p>
+            </div>
+            <p>迭代器链把“筛选、映射、收集”的意图串成声明式流程。读代码的人先看到处理步骤，再去看闭包细节，通常更容易把握数据流。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong><code>collect()</code> 需要目标类型上下文，常通过变量类型注解或 turbofish 明确收集到哪种集合。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>collect_vec.rs</span></div>
+                <pre><code>fn main() {
+    let raw = vec![&quot;1&quot;, &quot;20&quot;, &quot;300&quot;];
+    let numbers: Vec&lt;usize&gt; = raw.iter()
+        .map(|text| text.parse::&lt;usize&gt;().unwrap())
+        .collect();
+
+    println!(&quot;{:?}&quot;, numbers);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>[1, 20, 300]</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="collect 可能收集成 Vec、String、HashMap 等多种类型，所以往往需要额外类型信息。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么 `collect()` 经常需要类型注解？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-3-q3" value="A"> A. 因为编译器需要知道最终收集成什么容器</label>
+                    <label><input type="radio" name="u3-3-q3" value="B"> B. 因为 collect 只能返回 Vec</label>
+                    <label><input type="radio" name="u3-3-q3" value="C"> C. 因为 map 会删除所有类型信息</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+        <section class="knowledge-point" id="kp-4">
+            <h2>3.3.4 迭代器链中的所有权：何时借用，何时复制，何时 move</h2>
+            <div class="think-box">
+                <div class="think-icon">📌</div>
+                <p>为什么有些链式代码总要补 `copied()`、`cloned()`，而另一些却不能随便加？</p>
+            </div>
+            <p>迭代器会把元素以“引用”还是“拥有值”的形式往后传递，这直接影响闭包参数类型和后续容器是否还能用。<code>copied()</code> 适合 `Copy` 类型，<code>cloned()</code> 适合需要显式复制拥有型值的场景。</p>
+            <div class="note-box warning">
+                <p><strong>正式规则：</strong>先判断链条里流动的是 <code>&amp;T</code> 还是 <code>T</code>，再决定是否需要 <code>copied</code> / <code>cloned</code> / <code>into_iter</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>iterator_ownership.rs</span></div>
+                <pre><code>fn main() {
+    let values = vec![1, 2, 3];
+    let doubled: Vec&lt;i32&gt; = values.iter()
+        .copied()
+        .map(|n| n * 2)
+        .collect();
+
+    println!(&quot;doubled = {:?}&quot;, doubled);
+    println!(&quot;original = {:?}&quot;, values);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>doubled = [2, 4, 6]
+original = [1, 2, 3]</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="iter() 产生 &amp;i32；copied() 把 Copy 类型从引用变回值，这样 map 闭包就能直接处理 i32。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>上例里 `copied()` 的作用是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u3-3-q4" value="A"> A. 让 Vec 变成可变</label>
+                    <label><input type="radio" name="u3-3-q4" value="B"> B. 把迭代器项目从 `&i32` 转成 `i32`</label>
+                    <label><input type="radio" name="u3-3-q4" value="C"> C. 让 collect 自动选择 HashMap</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>迭代器的价值不只是省代码，而是把数据流和 ownership 决策写得更清楚。</li>
+                <li>`iter` 借用、`iter_mut` 可变借用、`into_iter` 消费容器，这三者不能混着理解。</li>
+                <li>`map`、`filter` 等适配器默认惰性，真正执行依赖 `collect`、`sum` 等消费者。</li>
+                <li>当链条里流动的是引用时，需要明确是否应复制、clone，还是改为消费原容器。</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 解释为什么迭代器适配器常被称为“惰性”的。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 分别举例说明 `iter()`、`iter_mut()`、`into_iter()` 适合什么场景。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 阅读一个 `collect()` 报类型推断错误的例子，并说明应该如何补充上下文。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 把一组日志行处理成“过滤空行 → 提取级别 → 收集成 Vec<String>”的迭代器链，同时说明每一步的 ownership 选择。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch13-02-iterators.html">The Rust Programming Language · Iterators</a></li>
+                <li><a href="https://doc.rust-lang.org/std/iter/">std::iter 模块文档</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/fn/closures/closure_examples/iter_any.html">Rust By Example · Iterator examples</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
