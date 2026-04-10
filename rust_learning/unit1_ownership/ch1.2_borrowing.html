@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 1.2 Borrowing - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 1 · 所有权系统</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../examples/ch1.1_ownership.html">1.1 Ownership 示例页</a></li>
+            <li><a href="./ch1.2_borrowing.html" class="active">1.2 Borrowing</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">为什么要借用</a></li>
+            <li><a href="#kp-2">可变借用</a></li>
+            <li><a href="#kp-3">借用作用域</a></li>
+            <li><a href="#kp-4">函数参数中的引用</a></li>
+            <li><a href="#kp-5">借用检查器心智模型</a></li>
+            <li><a href="#summary">章节总结</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 1 · 所有权系统</span>
+            <h1>Ch 1.2 Borrowing</h1>
+            <p class="chapter-description">
+                Ownership 解决了“谁负责资源”，Borrowing 则解决“我暂时想用它，但不想拿走它”。
+                这一章会把不可变借用、可变借用、借用范围和函数参数设计串成一个实用的 Rust 心智模型。
+            </p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>理解为什么 Rust 用借用而不是默认复制或共享可变状态</li>
+                <li>区分不可变借用与可变借用的规则和使用场景</li>
+                <li>读懂借用作用域与“最后一次使用”对借用检查的影响</li>
+                <li>能为函数参数选择按值、<code>&amp;T</code> 或 <code>&amp;mut T</code> 的合适形式</li>
+                <li>用“多个读者或一个写者”的模型解释常见借用报错</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>
+                默认你已经知道 Ch 1.1 中的 owner、move、scope 和 <code>Drop</code>。
+                如果你还在混淆“值被 move 走了”和“值只是被借出去看一下”，先回顾 Ownership，再来看借用会更顺。
+            </p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>1.2.1 为什么 Rust 需要 Borrowing？先从不可变借用开始</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>你只是想读取一个 <code>String</code> 的长度，为什么还要把所有权整个交出去？函数读完以后，原变量难道不该继续可用吗？</p>
+            </div>
+            <p>
+                Borrowing 的核心价值是：<strong>允许你临时使用某个值，而不接管它的所有权</strong>。
+                最常见的是不可变借用 <code>&amp;T</code>，它表示“我只读，不改，也不负责释放”。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> 同一时刻可以有多个不可变借用，因为多个只读观察者不会改变资源状态。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>immutable_borrow.rs</span></div>
+                <pre><code>fn print_len(text: &amp;String) {
+    println!("len = {}", text.len());
+}
+
+fn main() {
+    let name = String::from("Ferris");
+
+    print_len(&amp;name);
+    println!("owner still usable: {name}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>len = 6
+owner still usable: Ferris</pre>
+                </div>
+            </div>
+            <p>和按值传参不同，这里 <code>name</code> 没有 move 进函数；函数只是暂时拿到对同一份数据的只读访问权。</p>
+            <div class="quick-quiz" data-answer="B" data-explanation="不可变借用只提供读取权限，不会接管所有权，所以原 owner 在函数调用后仍然有效。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>为什么 <code>print_len(&amp;name)</code> 之后还能继续使用 <code>name</code>？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u1-q1" value="A"> A. 因为 <code>String</code> 自动实现了 <code>Copy</code></label>
+                    <label><input type="radio" name="u1-q1" value="B"> B. 因为这里只是不可变借用，没有转移所有权</label>
+                    <label><input type="radio" name="u1-q1" value="C"> C. 因为函数参数总是不会影响所有权</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <p class="transition-text">只读问题解决后，下一个问题是：如果我确实需要修改值呢？</p>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>1.2.2 可变借用：能改，但必须独占</h2>
+            <div class="think-box">
+                <div class="think-icon">✍️</div>
+                <p>如果两段代码同时都能修改同一个 <code>String</code>，你怎么保证修改顺序、状态一致性和引用有效性？</p>
+            </div>
+            <p>
+                Rust 用 <code>&amp;mut T</code> 表示可变借用。它给你写权限，但交换条件是<strong>独占访问</strong>：
+                同一时刻只能有一个可变借用，而且不能同时存在不可变借用。
+            </p>
+            <div class="note-box warning">
+                <p><strong>记忆法：</strong> 借用检查器最常见的直觉不是“编译器很严格”，而是“同一份数据要么很多读者，要么一个写者”。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>mutable_borrow.rs</span></div>
+                <pre><code>fn add_suffix(text: &amp;mut String) {
+    text.push_str(" language");
+}
+
+fn main() {
+    let mut topic = String::from("Rust");
+    add_suffix(&amp;mut topic);
+    println!("{topic}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Rust language</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：为什么两个 <code>&amp;mut</code> 会被禁止？</button>
+                <div class="collapsible-content">
+                    因为两个可写入口意味着状态可能被交错修改，还可能让一个引用观察到另一个引用导致的重分配或失效。Rust 选择在编译期直接禁止这种别名写入。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="可变借用的关键约束是独占写权限；这能阻止数据竞争和别名修改问题。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>下面哪句话最准确地描述了 <code>&amp;mut T</code>？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u1-q2" value="A"> A. 它只是语法糖，和 <code>&amp;T</code> 没有本质区别</label>
+                    <label><input type="radio" name="u1-q2" value="B"> B. 有了它就能永久获得该值的所有权</label>
+                    <label><input type="radio" name="u1-q2" value="C"> C. 它提供临时写权限，但要求这段时间内没有其他借用冲突</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>1.2.3 借用作用域：看最后一次使用，不只看花括号</h2>
+            <div class="think-box">
+                <div class="think-icon">⏱️</div>
+                <p>很多初学者会以为“引用变量写在上面，就会一直借用到函数结束”。可为什么有些代码在后面又能重新拿到 <code>&amp;mut</code>？</p>
+            </div>
+            <p>
+                借用的有效范围要看它<strong>最后一次真正被使用的位置</strong>。这也是很多人第一次接触 borrow scope 时最容易忽略的点。
+                现代 Rust 的非词法生命周期（NLL）会尽量把借用结束点缩到最后一次使用处，而不是死板地拖到整段作用域末尾。
+            </p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong> 借用必须在后续冲突借用发生前结束；实际结束点通常由最后一次使用决定，而不只是变量声明位置。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>borrow_scope.rs</span></div>
+                <pre><code>fn main() {
+    let mut word = String::from("borrow");
+
+    let view = &amp;word;
+    println!("view = {view}");
+
+    let editable = &amp;mut word;
+    editable.push_str(" checker");
+
+    println!("{word}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>view = borrow
+borrow checker</pre>
+                </div>
+            </div>
+            <p>这里先有不可变借用 <code>view</code>，但它在第一次 <code>println!</code> 后就不再被使用，所以后面的可变借用可以成立。</p>
+            <div class="quick-quiz" data-answer="A" data-explanation="关键不是引用变量名是否还存在，而是原来的不可变借用是否还会被继续使用。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>上例中后面的 <code>&amp;mut word</code> 为什么合法？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u1-q3" value="A"> A. 因为 <code>view</code> 的最后一次使用已经结束，冲突借用不再重叠</label>
+                    <label><input type="radio" name="u1-q3" value="B"> B. 因为 <code>String</code> 同时支持任意数量的 <code>&amp;mut</code></label>
+                    <label><input type="radio" name="u1-q3" value="C"> C. 因为 <code>println!</code> 会自动释放所有引用</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>1.2.4 函数参数中的引用：API 在声明“要读、要改，还是要接管”</h2>
+            <div class="think-box">
+                <div class="think-icon">🧩</div>
+                <p>当你设计函数签名时，为什么 Rust 社区经常强调“能借用就先借用”，而不是一上来就收下整个 <code>String</code>？</p>
+            </div>
+            <p>
+                函数签名本质上是在公开你的 ownership 决策：
+                <strong>按值接收</strong>表示你要拿走它，<strong><code>&amp;T</code></strong> 表示只读借用，
+                <strong><code>&amp;mut T</code></strong> 表示临时修改。文本类参数如果只需要读取，优先用 <code>&amp;str</code> 往往更灵活。
+            </p>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>function_refs.rs</span></div>
+                <pre><code>fn shout(text: &amp;str) {
+    println!("{}", text.to_uppercase());
+}
+
+fn add_exclamation(text: &amp;mut String) {
+    text.push('!');
+}
+
+fn main() {
+    let mut message = String::from("rust");
+
+    shout(&amp;message);
+    add_exclamation(&amp;mut message);
+
+    println!("{message}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>RUST
+rust!</pre>
+                </div>
+            </div>
+            <div class="note-box tip">
+                <p><strong>实战建议：</strong> 如果函数只看字符串内容，不关心它是 <code>String</code>、字符串字面量还是切片，签名写成 <code>&amp;str</code> 通常最通用。</p>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="只读文本内容时，&str 最宽松；调用者既可以传 String 的借用，也可以传字符串字面量。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>如果函数只需要读取文本并打印，哪个参数类型最合适？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u1-q4" value="A"> A. <code>String</code></label>
+                    <label><input type="radio" name="u1-q4" value="B"> B. <code>&amp;str</code></label>
+                    <label><input type="radio" name="u1-q4" value="C"> C. <code>&amp;mut String</code></label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>1.2.5 借用检查器的心智模型：多个读者或一个写者</h2>
+            <div class="think-box">
+                <div class="think-icon">🛡️</div>
+                <p>面对“cannot borrow as mutable because it is also borrowed as immutable”时，真正该想的是哪条规则，而不是“编译器为什么又不让我写”？</p>
+            </div>
+            <p>
+                一个实用心智模型是：
+                <strong>owner 持有资源；引用只是临时许可证；许可证分为共享读和独占写；这些许可证不能形成会破坏一致性的重叠。</strong>
+                这样你看到报错时，就能先找“哪个读借用还活着、哪个写借用又想进来”。
+            </p>
+            <div class="note-box warning">
+                <p><strong>常见错误：</strong> 先拿了不可变引用，又在它还会被使用时去做 <code>push</code>、<code>clear</code>、<code>push_str</code> 等可变操作。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>common_mistake.rs</span></div>
+                <pre><code>fn main() {
+    let mut numbers = vec![10, 20, 30];
+    let first = &amp;numbers[0];
+
+    // numbers.push(40);
+    // ^ 如果在这里修改，可能导致底层缓冲区重分配，
+    //   那么 first 就可能指向失效位置，所以编译器会阻止。
+
+    println!("first = {first}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>说明</strong>
+                    <pre>把 push 放在 first 最后一次使用之后，或者改成先修改再取引用，通常就能通过借用检查。</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：这类错误最常见的修复方向是什么？</button>
+                <div class="collapsible-content">
+                    通常不是立刻 <code>clone()</code>，而是先重排代码顺序：让只读借用先结束，再做修改；或者先修改，再重新取得引用。只有在确实需要独立所有权时才考虑 clone。
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="问题本质是共享读借用还活着时又尝试独占写；先结束读借用或调整顺序才是更符合借用模型的修复方式。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>看到“同时存在不可变借用和可变借用”的报错时，最值得先尝试什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u1-q5" value="A"> A. 把所有引用都改成全局变量</label>
+                    <label><input type="radio" name="u1-q5" value="B"> B. 无条件给每个值都加上 <code>clone()</code></label>
+                    <label><input type="radio" name="u1-q5" value="C"> C. 检查借用是否重叠，并重排读取与修改的顺序</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li>Borrowing 让你临时使用值而不接管所有权，是 Ownership 的自然延伸。</li>
+                <li><code>&amp;T</code> 适合共享只读访问，<code>&amp;mut T</code> 适合独占修改。</li>
+                <li>借用冲突是否成立，要看借用是否在时间上真正重叠，而不只是变量声明位置。</li>
+                <li>函数签名是在表达 ownership 决策：读用借用，改用可变借用，接管才按值。</li>
+                <li>面对借用报错时，优先用“多个读者或一个写者”的模型定位冲突。</li>
+            </ul>
+        </section>
+
+        <section class="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 写一个函数 <code>word_count</code>，参数使用借用而不是接管 <code>String</code>，返回文本中的单词数量，并说明你为什么选择这个签名。</li>
+                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个函数接收 <code>&amp;mut Vec&lt;i32&gt;</code>，给所有元素加 1；再解释为什么这里不能用普通的不可变借用。</li>
+                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 构造一个“先取不可变引用，再尝试修改容器”的最小示例，读懂编译器报错后，把它改写成合法版本，并写出你调整了哪一段借用范围。</li>
+                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设计一个小 API：一个函数只读用户名并打印欢迎语，另一个函数负责把用户名标准化（去空格、改大小写等）。请分别选择 <code>String</code>、<code>&amp;str</code>、<code>&amp;mut String</code> 中最合适的参数类型并解释理由。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html">The Rust Programming Language · References and Borrowing</a></li>
+                <li><a href="https://doc.rust-lang.org/rust-by-example/scope/borrow.html">Rust By Example · Borrowing</a></li>
+                <li><a href="https://doc.rust-lang.org/nomicon/references.html">The Rustonomicon · References</a></li>
+                <li><a href="https://doc.rust-lang.org/error_codes/E0502.html">Rust Error Index · E0502</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
