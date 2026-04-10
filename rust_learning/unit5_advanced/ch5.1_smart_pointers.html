@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ch 5.1 智能指针 - Rust Learning</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+
+    <nav class="sidebar">
+        <div class="sidebar-logo">rust_learning</div>
+        <div class="sidebar-subtitle">Unit 5 · 高级特性</div>
+        <ul class="sidebar-nav">
+            <li class="unit-title">入口</li>
+            <li><a href="../index.html">学习首页</a></li>
+            <li><a href="../unit4_concurrency_async/ch4.3_async_ecosystem.html">上一单元：异步生态</a></li>
+
+            <li class="unit-title">Unit 5 正式页面</li>
+            <li><a href="./ch5.1_smart_pointers.html" class="active">5.1 智能指针</a></li>
+            <li><a href="./ch5.2_generics_trait_objects.html">5.2 泛型与 Trait 对象</a></li>
+            <li><a href="./ch5.3_macros.html">5.3 宏系统</a></li>
+            <li><a href="./ch5.4_unsafe_rust.html">5.4 Unsafe Rust</a></li>
+
+            <li class="unit-title">本章导航</li>
+            <li><a href="#kp-1">Box 与堆分配</a></li>
+            <li><a href="#kp-2">Rc 共享所有权</a></li>
+            <li><a href="#kp-3">Arc 线程安全共享</a></li>
+            <li><a href="#kp-4">RefCell 内部可变性</a></li>
+            <li><a href="#kp-5">Cell 与 Cow</a></li>
+            <li><a href="#summary">章节总结</a></li>
+            <li><a href="#exercises">课后测试</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="chapter-header">
+            <span class="unit-label">Unit 5 · 高级特性</span>
+            <h1>Ch 5.1 智能指针</h1>
+            <p class="chapter-description">智能指针不只是"包一层的引用"——它们各自回答了一个所有权问题：谁来分配？谁来共享？谁来决定可变性？理解每种指针的使用时机，是写出地道 Rust 代码的关键。</p>
+        </header>
+
+        <section class="learning-objectives">
+            <h2>🎯 学习目标</h2>
+            <ul>
+                <li>掌握 <code>Box&lt;T&gt;</code> 的堆分配语义与递归类型应用</li>
+                <li>理解 <code>Rc&lt;T&gt;</code> 的共享所有权模型及引用计数开销</li>
+                <li>对比 <code>Arc&lt;T&gt;</code> 与 <code>Rc&lt;T&gt;</code>，明确线程安全边界</li>
+                <li>掌握 <code>RefCell&lt;T&gt;</code> 的内部可变性及运行时借用检查</li>
+                <li>了解 <code>Cell&lt;T&gt;</code> 和 <code>Cow&lt;T&gt;</code> 的适用场景</li>
+            </ul>
+        </section>
+
+        <section class="prerequisites">
+            <h3>📋 前置知识</h3>
+            <p>需要对 Ownership、Borrowing、Lifetime 有清晰理解。智能指针本质上是在所有权模型上做更灵活的安排，如果基础概念不稳，这一章会感觉"到处都是例外"。</p>
+        </section>
+
+        <section class="knowledge-point" id="kp-1">
+            <h2>5.1.1 Box：最简单的堆分配</h2>
+            <div class="think-box">
+                <div class="think-icon">🤔</div>
+                <p>Rust 默认把数据放在栈上，什么时候必须把数据放到堆上？</p>
+            </div>
+            <p><code>Box&lt;T&gt;</code> 是 Rust 中最基础的堆分配智能指针。它把数据从栈搬到堆，栈上只留一个固定大小的指针。最经典的场景是递归类型——编译器无法计算无限嵌套的大小，而 <code>Box</code> 提供了一个间接层让大小变得确定。</p>
+            <div class="note-box tip">
+                <p><strong>正式规则：</strong><code>Box&lt;T&gt;</code> 拥有堆上的 <code>T</code>，当 Box 被 drop 时，堆内存自动释放。它实现了 <code>Deref</code>，所以你可以像使用 <code>&amp;T</code> 一样透明地使用它。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>box_recursive.rs</span></div>
+                <pre><code>// 递归类型必须借助 Box 间接引用
+enum List {
+    Cons(i32, Box&lt;List&gt;),
+    Nil,
+}
+
+fn main() {
+    let list = List::Cons(1,
+        Box::new(List::Cons(2,
+            Box::new(List::Cons(3,
+                Box::new(List::Nil))))));
+
+    // Box 也可以用于大型数据的堆分配
+    let big_array = Box::new([0u8; 1024]);
+    println!("堆上数组长度: {}", big_array.len());
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>堆上数组长度: 1024</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="Box 的核心价值在于把不确定或过大的数据放到堆上，通过一个固定大小的指针让编译器满意。递归类型是典型场景。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>下面哪项是使用 <code>Box</code> 的最直接动机？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u5-1-q1" value="A"> A. 让值自动实现 Clone</label>
+                    <label><input type="radio" name="u5-1-q1" value="B"> B. 为编译器无法确定大小的类型提供固定大小的间接引用</label>
+                    <label><input type="radio" name="u5-1-q1" value="C"> C. 让数据在多个线程间共享</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-2">
+            <h2>5.1.2 Rc：单线程下的共享所有权</h2>
+            <div class="think-box">
+                <div class="think-icon">🧠</div>
+                <p>如果一个值需要被多个地方"同时拥有"，Rust 的单一所有权怎么办？</p>
+            </div>
+            <p><code>Rc&lt;T&gt;</code>（Reference Counted）通过引用计数让多个变量共享同一份堆上数据的所有权。每次 <code>Rc::clone</code> 只增加计数器，不做深拷贝。当最后一个 Rc 被 drop 时，数据才被释放。</p>
+            <div class="note-box warning">
+                <p><strong>关键限制：</strong><code>Rc</code> 不是线程安全的——引用计数的加减不是原子操作。如果你需要跨线程共享，必须使用 <code>Arc</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>rc_sharing.rs</span></div>
+                <pre><code>use std::rc::Rc;
+
+fn main() {
+    let data = Rc::new(vec![1, 2, 3]);
+    let a = Rc::clone(&amp;data);
+    let b = Rc::clone(&amp;data);
+
+    println!("引用计数: {}", Rc::strong_count(&amp;data));
+    println!("a = {:?}", a);
+    println!("b = {:?}", b);
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>引用计数: 3
+a = [1, 2, 3]
+b = [1, 2, 3]</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：Rc::clone 和普通 clone 有什么区别？</button>
+                <div class="collapsible-content"><code>Rc::clone(&amp;rc)</code> 只增加引用计数（成本极低），不会复制堆上数据。而 <code>T::clone()</code> 通常会执行深拷贝。社区习惯用 <code>Rc::clone</code> 来明确表示"这只是增加一个引用"。</div>
+            </div>
+            <div class="quick-quiz" data-answer="C" data-explanation="Rc 不是线程安全的（没有原子操作），不能在多线程间使用。这是 Rc 和 Arc 的核心区别。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>以下关于 <code>Rc</code> 的说法，哪一项是正确的？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u5-1-q2" value="A"> A. Rc::clone 会深拷贝内部数据</label>
+                    <label><input type="radio" name="u5-1-q2" value="B"> B. Rc 可以安全地跨线程传递</label>
+                    <label><input type="radio" name="u5-1-q2" value="C"> C. Rc 仅适用于单线程场景</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-3">
+            <h2>5.1.3 Arc：跨线程的共享所有权</h2>
+            <div class="think-box">
+                <div class="think-icon">🔒</div>
+                <p>多个线程需要读同一份配置数据，不需要修改，最轻量的方案是什么？</p>
+            </div>
+            <p><code>Arc&lt;T&gt;</code>（Atomically Reference Counted）与 <code>Rc</code> 功能类似，但引用计数操作使用原子指令，因此可以安全地在线程间共享。原子操作有一定性能开销，所以如果确定不跨线程，优先用 <code>Rc</code>。</p>
+            <div class="note-box tip">
+                <p><strong>组合模式：</strong><code>Arc&lt;T&gt;</code> 只提供共享的不可变访问。如果需要跨线程修改内部数据，搭配 <code>Mutex</code> 或 <code>RwLock</code> 使用：<code>Arc&lt;Mutex&lt;T&gt;&gt;</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>arc_threads.rs</span></div>
+                <pre><code>use std::sync::Arc;
+use std::thread;
+
+fn main() {
+    let config = Arc::new(String::from("production"));
+    let mut handles = vec![];
+
+    for i in 0..3 {
+        let cfg = Arc::clone(&amp;config);
+        handles.push(thread::spawn(move || {
+            println!("线程 {i} 读取配置: {cfg}");
+        }));
+    }
+
+    for h in handles {
+        h.join().unwrap();
+    }
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>线程 0 读取配置: production
+线程 1 读取配置: production
+线程 2 读取配置: production</pre>
+                </div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="Arc 使用原子操作保证引用计数的线程安全，这正是它比 Rc 多出的能力，也是其性能开销的来源。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p><code>Arc</code> 相比 <code>Rc</code> 的核心区别是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u5-1-q3" value="A"> A. Arc 的引用计数使用原子操作，线程安全</label>
+                    <label><input type="radio" name="u5-1-q3" value="B"> B. Arc 自动提供内部可变性</label>
+                    <label><input type="radio" name="u5-1-q3" value="C"> C. Arc 不需要调用 clone</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-4">
+            <h2>5.1.4 RefCell：编译期借不了，运行时再借</h2>
+            <div class="think-box">
+                <div class="think-icon">🔓</div>
+                <p>如果你持有一个 <code>&amp;self</code> 的不可变引用，却需要修改内部某个字段，怎么办？</p>
+            </div>
+            <p><code>RefCell&lt;T&gt;</code> 把借用检查从编译期推迟到运行时。通过 <code>borrow()</code> 获取不可变引用，通过 <code>borrow_mut()</code> 获取可变引用——如果违反借用规则，程序会在运行时 panic 而不是编译失败。这就是所谓"内部可变性"模式。</p>
+            <div class="note-box warning">
+                <p><strong>风险提醒：</strong>运行时 panic 比编译错误更危险。只在编译器的静态分析确实无法满足你的合理需求时才使用 <code>RefCell</code>，比如在 <code>Rc&lt;RefCell&lt;T&gt;&gt;</code> 中实现图结构的共享可变节点。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>refcell_interior.rs</span></div>
+                <pre><code>use std::cell::RefCell;
+
+fn main() {
+    let data = RefCell::new(vec![1, 2, 3]);
+
+    // 不可变借用
+    println!("读取: {:?}", data.borrow());
+
+    // 可变借用——即使 data 本身不是 mut
+    data.borrow_mut().push(4);
+
+    println!("修改后: {:?}", data.borrow());
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>读取: [1, 2, 3]
+修改后: [1, 2, 3, 4]</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：Rc&lt;RefCell&lt;T&gt;&gt; 组合有什么用？</button>
+                <div class="collapsible-content"><code>Rc</code> 让多个地方共享所有权，<code>RefCell</code> 允许通过共享引用来修改内部值。两者组合在构建树、图等需要共享可变节点的数据结构时非常常见。但要注意：运行时借用冲突会导致 panic。</div>
+            </div>
+            <div class="quick-quiz" data-answer="B" data-explanation="RefCell 的核心能力是把借用检查推迟到运行时，从而实现内部可变性——但违规时会 panic。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p>关于 <code>RefCell</code>，哪项最准确？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u5-1-q4" value="A"> A. RefCell 完全跳过借用检查</label>
+                    <label><input type="radio" name="u5-1-q4" value="B"> B. RefCell 把借用检查推迟到运行时</label>
+                    <label><input type="radio" name="u5-1-q4" value="C"> C. RefCell 让所有操作自动变成线程安全的</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="knowledge-point" id="kp-5">
+            <h2>5.1.5 Cell 与 Cow：轻量级的灵活性</h2>
+            <div class="think-box">
+                <div class="think-icon">💡</div>
+                <p>每次都用 RefCell 会不会太重了？有没有更轻量的方案？</p>
+            </div>
+            <p><code>Cell&lt;T&gt;</code> 适用于 <code>Copy</code> 类型的内部可变性——它通过整体替换值而非返回引用来避免借用冲突，没有运行时借用检查的开销。<code>Cow&lt;T&gt;</code>（Clone on Write）则是一种延迟克隆策略：只在需要修改时才把借用的数据克隆一份，读多写少时非常高效。</p>
+            <div class="note-box tip">
+                <p><strong>选择指南：</strong>Copy 小类型用 <code>Cell</code>；需要共享引用+运行时可变用 <code>RefCell</code>；读多写少且想避免无谓复制用 <code>Cow</code>；跨线程共享用 <code>Arc</code>；单线程共享所有权用 <code>Rc</code>；简单堆分配用 <code>Box</code>。</p>
+            </div>
+            <div class="code-playground">
+                <div class="code-header"><span>Rust</span><span>cell_cow.rs</span></div>
+                <pre><code>use std::cell::Cell;
+use std::borrow::Cow;
+
+fn main() {
+    // Cell：Copy 类型的内部可变性
+    let counter = Cell::new(0u32);
+    counter.set(counter.get() + 1);
+    counter.set(counter.get() + 1);
+    println!("Cell counter: {}", counter.get());
+
+    // Cow：读时借用，写时克隆
+    let input: Cow&lt;str&gt; = Cow::Borrowed("hello");
+    // 不修改，零拷贝
+    println!("原始: {input}");
+
+    let mut owned: Cow&lt;str&gt; = Cow::Borrowed("hello");
+    // 修改时自动克隆为 Owned
+    owned.to_mut().push_str(" world");
+    println!("修改后: {owned}");
+}</code></pre>
+                <div class="code-output">
+                    <strong>输出</strong>
+                    <pre>Cell counter: 2
+原始: hello
+修改后: hello world</pre>
+                </div>
+            </div>
+            <div class="collapsible">
+                <button class="collapsible-trigger">💡 点击展开：什么时候用 Cell 而不用 RefCell？</button>
+                <div class="collapsible-content">如果类型实现了 <code>Copy</code>（如 i32、bool、f64），<code>Cell</code> 更轻量——它直接替换值而非借用，所以根本不需要运行时借用检查。而 <code>RefCell</code> 适合非 Copy 类型或者需要返回引用的场景。</div>
+            </div>
+            <div class="quick-quiz" data-answer="A" data-explanation="Cow 的设计哲学就是延迟克隆：只读时借用零拷贝，需要修改时才克隆一份。适合读多写少的场景。">
+                <span class="quiz-badge">⚡ 快速测试</span>
+                <p><code>Cow</code> 的核心设计思想是什么？</p>
+                <div class="quiz-options">
+                    <label><input type="radio" name="u5-1-q5" value="A"> A. 读时借用，写时才克隆</label>
+                    <label><input type="radio" name="u5-1-q5" value="B"> B. 自动把所有借用变成所有权</label>
+                    <label><input type="radio" name="u5-1-q5" value="C"> C. 禁止对数据进行修改</label>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+
+        <section class="chapter-summary" id="summary">
+            <h2>📌 章节总结</h2>
+            <ul>
+                <li><code>Box&lt;T&gt;</code> 是最简单的堆分配，适合递归类型和大数据。</li>
+                <li><code>Rc&lt;T&gt;</code> 提供单线程共享所有权，引用计数开销极低。</li>
+                <li><code>Arc&lt;T&gt;</code> 是 Rc 的线程安全版本，使用原子操作。</li>
+                <li><code>RefCell&lt;T&gt;</code> 提供运行时借用检查的内部可变性，违规时 panic。</li>
+                <li><code>Cell&lt;T&gt;</code> 适合 Copy 类型的轻量内部可变性；<code>Cow&lt;T&gt;</code> 实现延迟克隆。</li>
+                <li>选择智能指针时，先问"谁拥有？谁能改？要不要跨线程？"</li>
+            </ul>
+        </section>
+
+        <section class="exercises" id="exercises">
+            <h2>🧪 课后测试</h2>
+            <ol>
+                <li><span class="exercise-level">⭐ 基础：</span> 用 <code>Box</code> 实现一个简单的递归链表，并遍历打印所有元素。</li>
+                <li><span class="exercise-level">⭐⭐ 进阶：</span> 用 <code>Rc&lt;RefCell&lt;T&gt;&gt;</code> 构建一棵二叉树，让父节点可以修改子节点的值。</li>
+                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 对比 <code>Rc&lt;RefCell&lt;Vec&lt;T&gt;&gt;&gt;</code> 和 <code>Arc&lt;Mutex&lt;Vec&lt;T&gt;&gt;&gt;</code>，说明各自适合什么场景，以及误用时会发生什么。</li>
+                <li><span class="exercise-level">🏆 附加：</span> 设计一个函数，接收 <code>Cow&lt;str&gt;</code> 参数，当输入包含敏感词时替换，否则零拷贝返回。测量两种路径的性能差异。</li>
+            </ol>
+        </section>
+
+        <section class="further-reading">
+            <h2>📚 延伸阅读</h2>
+            <ul>
+                <li><a href="https://doc.rust-lang.org/book/ch15-00-smart-pointers.html">The Rust Programming Language · Smart Pointers</a></li>
+                <li><a href="https://doc.rust-lang.org/std/boxed/">std::boxed::Box 文档</a></li>
+                <li><a href="https://doc.rust-lang.org/std/rc/">std::rc 文档</a></li>
+                <li><a href="https://doc.rust-lang.org/std/cell/">std::cell 文档</a></li>
+                <li><a href="https://doc.rust-lang.org/std/borrow/enum.Cow.html">std::borrow::Cow 文档</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+</body>
+</html>
