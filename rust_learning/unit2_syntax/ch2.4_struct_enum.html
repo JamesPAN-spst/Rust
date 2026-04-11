@@ -478,7 +478,7 @@ fn main() {
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt"><code>Rectangle::new(10.0, 5.0)</code> 中的 <code>new</code> 是什么？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp2', this, false, '方法的第一个参数是 self/&self/&mut self。')">A. 方法</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '方法的第一个参数是 self/&amp;self/&amp;mut self。')">A. 方法</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, true, '没有 self 参数的 impl 中的函数是关联函数，用 Type::func() 调用。')">B. 关联函数</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, 'Rust 中不需要 new 关键字（不像 Java/C++）。')">C. 构造器关键字</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '静态方法是其他语言的概念，Rust 叫关联函数。')">D. 静态方法</button>

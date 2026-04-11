@@ -348,8 +348,8 @@ map2.insert("name", "Bob");   // &str 实现了 Copy</code></pre>
         <div class="iq-prompt">entry("key").or_insert(default) 在 key 已存在时会怎样？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '不会覆盖已有值。')">A. 用 default 覆盖旧值</button>
-          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！key 存在时直接返回已有值的 &mut V，不插入。')">B. 什么都不插入，返回已有值的可变引用</button>
-          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不返回 Option，而是 &mut V。')">C. 返回 None</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！key 存在时直接返回已有值的 &amp;mut V，不插入。')">B. 什么都不插入，返回已有值的可变引用</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不返回 Option，而是 &amp;mut V。')">C. 返回 None</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '不会 panic。')">D. panic</button>
         </div>
       </div>
@@ -774,7 +774,7 @@ let count = words.iter()
         <div class="iq-prompt">for x in v 和 for x in &amp;v 的核心区别是什么？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp5', this, false, '顺序没有区别。')">A. 遍历顺序不同</button>
-          <button onclick="checkInlineQuiz('iq-kp5', this, true, '正确！for x in v 消耗 v（into_iter），for x in &v 只借用（iter）。')">B. for x in v 消耗集合所有权，for x in &amp;v 只借用</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '正确！for x in v 消耗 v（into_iter），for x in &amp;v 只借用（iter）。')">B. for x in v 消耗集合所有权，for x in &amp;v 只借用</button>
           <button onclick="checkInlineQuiz('iq-kp5', this, false, '性能差异不大。')">C. &amp;v 版本更快</button>
           <button onclick="checkInlineQuiz('iq-kp5', this, false, '两者都遍历同样的数据。')">D. for x in v 只遍历一半</button>
         </div>

@@ -636,7 +636,7 @@ fn main() {
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'mut 只允许改变值，不允许改变类型。')">A. 可以，mut 允许修改</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, true, 'mut 不能改变绑定类型。需要 let x = x.len(); 进行 shadowing。')">B. 不行，mut 不能改变类型</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '这是编译错误，不会到运行时。')">C. 可以运行但会 panic</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&str 可以赋给 let mut，问题不在这里。')">D. 不行，&amp;str 不能赋值给 mut</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&amp;str 可以赋给 let mut，问题不在这里。')">D. 不行，&amp;str 不能赋值给 mut</button>
         </div>
       </div>
     </section>

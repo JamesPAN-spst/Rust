@@ -819,8 +819,8 @@ HELLO WORLD HELLO</pre></div>
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">以下函数签名暗示了什么？ <code>fn process(data: String) -> Result&lt;Output, Error&gt;</code></div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&String 才是借用。String 参数获取所有权。')">A. process 只是借用 data</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！参数类型是 String（不是 &str 或 &String），说明 process 获取 data 的所有权。调用后调用者不能再使用 data。')">B. process 获取了 data 的所有权，调用后 data 不可用</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&amp;String 才是借用。String 参数获取所有权。')">A. process 只是借用 data</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！参数类型是 String（不是 &amp;str 或 &amp;String），说明 process 获取 data 的所有权。调用后调用者不能再使用 data。')">B. process 获取了 data 的所有权，调用后 data 不可用</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '签名不暗示 clone。调用者可以选择 clone 后传入，但签名本身表达的是所有权转移。')">C. process 会 clone data</button>
         </div>
       </div>

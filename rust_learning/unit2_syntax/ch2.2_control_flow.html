@@ -698,7 +698,7 @@ chunk: [7]
         <div class="iq-prompt"><code>for x in vec</code> 之后，<code>vec</code> 还能使用吗？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'for x in vec 调用 into_iter()，消耗了 vec。')">A. 可以，for 只是借用</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'into_iter() 获取所有权，vec 被 move。用 &vec 才是借用。')">B. 不能，vec 已被 move（消耗）</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'into_iter() 获取所有权，vec 被 move。用 &amp;vec 才是借用。')">B. 不能，vec 已被 move（消耗）</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'vec 被 move 后不能使用，这是编译错误不是 panic。')">C. 可以但可能 panic</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '内容会被消耗，不会变空。')">D. 可以但内容为空</button>
         </div>

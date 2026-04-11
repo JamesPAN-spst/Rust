@@ -321,9 +321,9 @@ fn bad_longest<'a>(a: &'a str, b: &'a str) -> &'a str {
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt"><code>fn foo&lt;'a&gt;(x: &'a str, y: &'a str) -> &'a str</code> 中 <code>'a</code> 的值是？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不一定是 x 的生命周期。如果 y 更短，'a 会是 y 的。')">A. x 的生命周期</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！'a 被约束为 x 和 y 生命周期的交集——即较短的那个。')">B. x 和 y 生命周期中较短的那个</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, false, ''a 是约束变量，不是字面上的「一秒」。')">C. 字面意思：一秒钟</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不一定是 x 的生命周期。如果 y 更短，\x27a 会是 y 的。')">A. x 的生命周期</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！\x27a 被约束为 x 和 y 生命周期的交集——即较短的那个。')">B. x 和 y 生命周期中较短的那个</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '\x27a 是约束变量，不是字面上的「一秒」。')">C. 字面意思：一秒钟</button>
         </div>
       </div>
     </section>
@@ -457,8 +457,8 @@ beta</pre></div>
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">省略规则第 3 条适用于哪种场景？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp2', this, false, '普通函数没有 &self 参数，第 3 条不适用。')">A. 普通函数有两个引用参数</button>
-          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！第 3 条：方法参数中有 &self 时，self 的生命周期赋给返回值。')">B. 方法（参数中有 &self 或 &mut self）返回引用</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '普通函数没有 &amp;self 参数，第 3 条不适用。')">A. 普通函数有两个引用参数</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！第 3 条：方法参数中有 &amp;self 时，self 的生命周期赋给返回值。')">B. 方法（参数中有 &self 或 &mut self）返回引用</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '没有引用参数时不需要生命周期，三条规则都不需要。')">C. 函数没有引用参数</button>
         </div>
       </div>
@@ -763,7 +763,7 @@ fn main() {
         <div class="iq-prompt"><code>struct Foo { data: &str }</code> 能编译吗？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '结构体中的引用字段必须有生命周期参数，这段代码缺少 <\'a>。')">A. 能，编译器自动推断生命周期</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！必须写成 struct Foo<\'a> { data: &\'a str }。编译器需要知道引用的约束。')">B. 不能，缺少生命周期参数</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！必须写成 struct Foo<\'a> { data: &amp;\'a str }。编译器需要知道引用的约束。')">B. 不能，缺少生命周期参数</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '不是只有 nightly，这是基本语法要求。')">C. 只在 nightly 中能编译</button>
         </div>
       </div>

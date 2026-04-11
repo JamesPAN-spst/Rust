@@ -225,7 +225,7 @@ mod tests {
         <div class="iq-prompt">为什么函数参数推荐用 impl Read 而不是 File？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp1', this, false, 'impl Read 不影响性能。')">A. 性能更好</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！使用 trait 抽象可以接受任何数据源，测试时可传入 Vec 或 &[u8]。')">B. 更通用——接受文件、网络、内存缓冲区等任何 Read 实现</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！使用 trait 抽象可以接受任何数据源，测试时可传入 Vec 或 &amp;[u8]。')">B. 更通用——接受文件、网络、内存缓冲区等任何 Read 实现</button>
           <button onclick="checkInlineQuiz('iq-kp1', this, false, 'File 也是安全的。')">C. File 不安全</button>
           <button onclick="checkInlineQuiz('iq-kp1', this, false, '编译速度差异可忽略。')">D. 编译更快</button>
         </div>
@@ -668,7 +668,7 @@ assert_eq!(base.join(sub), Path::new("/etc/config"));
         <div class="iq-prompt">Path 和 PathBuf 的关系类似于？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Vec 和 VecDeque 是不同的数据结构。')">A. Vec 和 VecDeque</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！Path 是不拥有所有权的切片（类似 &str），PathBuf 拥有所有权（类似 String）。')">B. &amp;str 和 String</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！Path 是不拥有所有权的切片（类似 &amp;str），PathBuf 拥有所有权（类似 String）。')">B. &amp;str 和 String</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'HashMap 和 BTreeMap 解决不同问题。')">C. HashMap 和 BTreeMap</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Box 和 Rc 是不同的智能指针。')">D. Box 和 Rc</button>
         </div>

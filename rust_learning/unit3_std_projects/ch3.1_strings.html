@@ -180,8 +180,8 @@ fn greeting_static() -> &'static str {
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">下列关于 String 和 &amp;str 的说法，哪个是正确的？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&str 是胖指针，不仅仅是普通指针。')">A. &amp;str 和普通的 &amp;T 引用完全一样</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！String 在栈上存 ptr+len+cap，&str 在栈上存 ptr+len。')">B. String 在栈上占 24 字节（64位系统），&amp;str 占 16 字节</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&amp;str 是胖指针，不仅仅是普通指针。')">A. &amp;str 和普通的 &amp;T 引用完全一样</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！String 在栈上存 ptr+len+cap，&amp;str 在栈上存 ptr+len。')">B. String 在栈上占 24 字节（64位系统），&amp;str 占 16 字节</button>
           <button onclick="checkInlineQuiz('iq-kp1', this, false, 'String 总是堆分配的。')">C. String 可以完全存储在栈上</button>
           <button onclick="checkInlineQuiz('iq-kp1', this, false, '需要分配堆内存，有运行时开销。')">D. &amp;str 转 String 是零成本的</button>
         </div>
@@ -318,7 +318,7 @@ let result = format!("{}{}{}", s1, s2, s3);
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '+ 运算符消耗左侧 String 的所有权。')">A. let r = s1 + &amp;s2;</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！format! 通过引用借用所有参数，不消耗所有权。')">B. let r = format!(&quot;{}{}&quot;, s1, s2);</button>
-          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'push_str 需要 &mut String，虽不消耗所有权但需要可变借用。')">C. s1.push_str(&amp;s2);</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'push_str 需要 &amp;mut String，虽不消耗所有权但需要可变借用。')">C. s1.push_str(&amp;s2);</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, 'into_bytes 消耗 String 的所有权。')">D. let r = s1.into_bytes();</button>
         </div>
       </div>
@@ -644,7 +644,7 @@ fn first_word(s: &str) -> &str {
         <div class="iq-prompt">函数签名 fn greet(name: &amp;str) 相比 fn greet(name: &amp;String) 的优势是？</div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者性能几乎一样。')">A. 更快</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！&str 同时接受 &String（Deref coercion）和字符串字面值。')">B. 更通用——同时接受 &amp;String 和字符串字面值</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！&amp;str 同时接受 &amp;String（Deref coercion）和字符串字面值。')">B. 更通用——同时接受 &amp;String 和字符串字面值</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者都不获取所有权。')">C. 不需要所有权</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '胖指针大小差异可忽略。')">D. 使用更少的内存</button>
         </div>

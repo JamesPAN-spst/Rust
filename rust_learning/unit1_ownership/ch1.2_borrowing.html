@@ -326,9 +326,9 @@ Hello, Bob!</pre></div>
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">函数签名 <code>fn foo(s: &String)</code> 中，foo 能修改 s 吗？foo 返回后调用者还能用原 String 吗？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&T 是不可变引用，不能通过它修改数据。')">A. 能修改，但调用者不能再用</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！&T 只读借用：不能修改，所有权不转移，调用者仍可使用。')">B. 不能修改，调用者仍可使用</button>
-          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&T 不转移所有权，调用者一定还能用。')">C. 不能修改，调用者也不能再用</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&amp;T 是不可变引用，不能通过它修改数据。')">A. 能修改，但调用者不能再用</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！&amp;T 只读借用：不能修改，所有权不转移，调用者仍可使用。')">B. 不能修改，调用者仍可使用</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&amp;T 不转移所有权，调用者一定还能用。')">C. 不能修改，调用者也不能再用</button>
         </div>
       </div>
     </section>
@@ -590,9 +590,9 @@ fn main() {
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">以下哪个组合在同一时刻是合法的？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！多个 &T 允许共存（aliasing without mutation）。')">A. 三个 &T 同时存在</button>
-          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不行。有 &mut T 时不能有 &T，否则违反 aliasing XOR mutability。')">B. 一个 &T 和一个 &mut T</button>
-          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不行。同一时刻最多一个 &mut T。')">C. 两个 &mut T</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！多个 &amp;T 允许共存（aliasing without mutation）。')">A. 三个 &T 同时存在</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不行。有 &amp;mut T 时不能有 &amp;T，否则违反 aliasing XOR mutability。')">B. 一个 &T 和一个 &mut T</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不行。同一时刻最多一个 &amp;mut T。')">C. 两个 &mut T</button>
         </div>
       </div>
     </section>
@@ -730,7 +730,7 @@ Hello, Alice!</pre></div>
         <div class="iq-prompt">为什么以下函数不能编译？<br><code>fn bad() -> &String { let s = String::from("x"); &s }</code></div>
         <div class="iq-options">
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '语法是合法的（除了缺少生命周期标注），问题出在语义上。')">A. 语法错误</button>
-          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！s 在函数结束时 drop，返回 &s 就是悬垂引用。编译器拒绝这种代码。')">B. s 在函数结束时被释放，返回的引用会悬垂</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！s 在函数结束时 drop，返回 &amp;s 就是悬垂引用。编译器拒绝这种代码。')">B. s 在函数结束时被释放，返回的引用会悬垂</button>
           <button onclick="checkInlineQuiz('iq-kp4', this, false, '函数可以返回引用，但必须保证引用的数据活得够久。这里 s 是局部变量，函数结束就没了。')">C. Rust 不允许函数返回引用</button>
         </div>
       </div>

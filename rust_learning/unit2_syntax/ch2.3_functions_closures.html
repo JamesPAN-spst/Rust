@@ -414,8 +414,8 @@ s = hello world</pre></div>
         <div class="iq-header">⚡ 快速检测</div>
         <div class="iq-prompt">闭包 <code>|| println!("{}", x)</code> 会以什么方式捕获 <code>x</code>？</div>
         <div class="iq-options">
-          <button onclick="checkInlineQuiz('iq-kp2', this, true, 'println! 只需要 &x，所以闭包以不可变引用捕获。')">A. 不可变引用 &amp;x</button>
-          <button onclick="checkInlineQuiz('iq-kp2', this, false, '只有修改 x 时才需要 &mut x。')">B. 可变引用 &amp;mut x</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, 'println! 只需要 &amp;x，所以闭包以不可变引用捕获。')">A. 不可变引用 &amp;x</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '只有修改 x 时才需要 &amp;mut x。')">B. 可变引用 &amp;mut x</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '没有 move 关键字且只需读取，不会转移所有权。')">C. 转移所有权</button>
           <button onclick="checkInlineQuiz('iq-kp2', this, false, '编译器会自动选择捕获方式。')">D. 不捕获</button>
         </div>
