@@ -1,342 +1,913 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.4 Struct 与 Enum - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.4 Struct 与 Enum — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch24-q1",
+        "question": "Rust 有几种 struct 形式？",
+        "options": ["A. 1 种", "B. 2 种", "C. 3 种（命名字段、元组、单元）", "D. 4 种"],
+        "answer": 2,
+        "explanation": "命名字段 struct（struct Point { x: f64, y: f64 }）、元组 struct（struct Meters(f64)）、单元 struct（struct Unit;）。"
+      },
+      {
+        "id": "u2-ch24-q2",
+        "question": "以下代码能编译吗？\nstruct User { name: String, age: u32 }\nlet u = User { name: \"Alice\".into(), age: 30 };\nu.age = 31;",
+        "options": ["A. 可以", "B. 不行，u 不可变", "C. 可以，struct 字段默认可变", "D. 不行，age 类型错误"],
+        "answer": 1,
+        "explanation": "u 是不可变绑定，不能修改任何字段。需要 let mut u = ... 才能修改。Rust 的可变性是"全有或全无"——不能只让一个字段可变。"
+      },
+      {
+        "id": "u2-ch24-q3",
+        "question": "impl 块中 &self 和 &mut self 的区别？",
+        "options": ["A. &self 可以修改字段", "B. &self 只读，&mut self 可以修改字段", "C. 没有区别", "D. &mut self 只能用在 unsafe 中"],
+        "answer": 1,
+        "explanation": "&self 是不可变借用，只能读取字段。&mut self 是可变借用，可以修改字段。"
+      },
+      {
+        "id": "u2-ch24-q4",
+        "question": "没有 self 参数的方法叫什么？",
+        "options": ["A. 静态方法", "B. 关联函数（associated function）", "C. 类方法", "D. 构造器"],
+        "answer": 1,
+        "explanation": "impl 块中不以 self 作参数的函数叫"关联函数"，用 Type::func() 调用。String::new()、Vec::with_capacity(10) 都是例子。"
+      },
+      {
+        "id": "u2-ch24-q5",
+        "question": "enum 的变体可以携带数据吗？",
+        "options": ["A. 不能，enum 只是常量集合", "B. 可以，每个变体可以有不同的数据结构", "C. 只能携带基本类型", "D. 只通过 impl 添加数据"],
+        "answer": 1,
+        "explanation": "Rust 的 enum 是代数数据类型（ADT），变体可以携带命名字段、元组字段或无字段。例如 enum Shape { Circle(f64), Rect { w: f64, h: f64 } }。"
+      },
+      {
+        "id": "u2-ch24-q6",
+        "question": "Option<T> 有哪些变体？",
+        "options": ["A. Ok(T) 和 Err(E)", "B. Some(T) 和 None", "C. Just(T) 和 Nothing", "D. Value(T) 和 Null"],
+        "answer": 1,
+        "explanation": "Option<T> = Some(T) | None。它是 Rust 中替代 null 的安全方式。"
+      },
+      {
+        "id": "u2-ch24-q7",
+        "question": "Result<T, E> 用于什么场景？",
+        "options": ["A. 表示可选值", "B. 表示可能成功或失败的操作", "C. 表示异步操作", "D. 表示集合"],
+        "answer": 1,
+        "explanation": "Result<T, E> = Ok(T) | Err(E)。用于可能失败的操作，如文件读写、网络请求、解析等。"
+      },
+      {
+        "id": "u2-ch24-q8",
+        "question": "struct update syntax \"..\" 的作用是？",
+        "options": ["A. 展开运算符", "B. 用另一个 struct 实例的字段填充剩余字段", "C. 继承", "D. 解构"],
+        "answer": 1,
+        "explanation": "struct update syntax: let u2 = User { name: \"Bob\".into(), ..u1 }; 从 u1 复制未显式设置的字段。"
+      },
+      {
+        "id": "u2-ch24-q9",
+        "question": "以下代码中 self 的所有权会怎样？\nfn into_name(self) -> String { self.name }",
+        "options": ["A. self 被借用", "B. self 被 move，调用后原实例不可用", "C. self 被复制", "D. 编译错误"],
+        "answer": 1,
+        "explanation": "方法参数为 self（不是 &self 或 &mut self）时，调用会 move 实例。之后原变量不再可用。"
+      },
+      {
+        "id": "u2-ch24-q10",
+        "question": "单元 struct 有什么用？",
+        "options": ["A. 没有用处", "B. 用于不需要数据、只需要类型标记或实现 trait 的场景", "C. 只能做泛型参数", "D. 只在 unsafe 中使用"],
+        "answer": 1,
+        "explanation": "单元 struct（struct Marker;）不占空间，常用于类型标记、空实现 trait 等场景。比如标记类型状态（typestate 模式）。"
+      },
+      {
+        "id": "u2-ch24-q11",
+        "question": "enum 变体的内存布局是什么？",
+        "options": ["A. 每个变体独立分配内存", "B. 所有变体共享内存，大小 = tag + 最大变体", "C. 变体在堆上", "D. 和 C union 完全相同"],
+        "answer": 1,
+        "explanation": "Rust enum 是 tagged union：一个判别值（tag）+ 足够容纳最大变体的空间。编译器可能做空间优化（如 Option<&T> 和 &T 一样大）。"
+      },
+      {
+        "id": "u2-ch24-q12",
+        "question": "Option<&T> 的大小等于什么？",
+        "options": ["A. 2 × size_of::<&T>()", "B. size_of::<&T>()（利用 null pointer optimization）", "C. size_of::<T>()", "D. 0"],
+        "answer": 1,
+        "explanation": "因为引用不能为 null，编译器用 null 表示 None——所以 Option<&T> 和 &T 大小相同。这是零开销抽象的经典示例。"
+      },
+      {
+        "id": "u2-ch24-q13",
+        "question": "以下写法叫什么？\nlet point = Point { x: 1.0, y: 2.0 };\nlet Point { x, y } = point;",
+        "options": ["A. 构造", "B. 解构（destructuring）", "C. 序列化", "D. 克隆"],
+        "answer": 1,
+        "explanation": "解构是把 struct/enum/tuple 的字段提取到局部变量。let Point { x, y } = point 将 x 和 y 绑定为独立变量。"
+      },
+      {
+        "id": "u2-ch24-q14",
+        "question": "多个 impl 块可以用于同一个类型吗？",
+        "options": ["A. 不能，只能有一个 impl 块", "B. 可以，impl 块可以分散在多处", "C. 只能有两个", "D. 需要 unsafe"],
+        "answer": 1,
+        "explanation": "一个类型可以有任意多个 impl 块（同一个 crate 中）。常见做法是按功能分组 impl 块。"
+      },
+      {
+        "id": "u2-ch24-q15",
+        "question": "以下代码的 area 方法属于什么？\nimpl Rectangle {\n    fn area(&self) -> f64 { ... }\n}",
+        "options": ["A. 自由函数", "B. Rectangle 的方法（method）", "C. trait 实现", "D. 闭包"],
+        "answer": 1,
+        "explanation": "在 impl Type { } 中定义的、以 self/&self/&mut self 为第一个参数的函数是方法，用 instance.method() 调用。"
+      },
+      {
+        "id": "u2-ch24-q16",
+        "question": "unwrap() 在 None 上调用会怎样？",
+        "options": ["A. 返回默认值", "B. panic", "C. 返回空字符串", "D. 静默忽略"],
+        "answer": 1,
+        "explanation": "Option::unwrap() 在 Some(x) 时返回 x，在 None 时 panic。生产代码应避免 unwrap，用 match/if let/unwrap_or 替代。"
+      },
+      {
+        "id": "u2-ch24-q17",
+        "question": "? 运算符在 Option 中的作用？",
+        "options": ["A. 语法错误", "B. Some(x) 时提取 x，None 时提前返回 None", "C. 转成 Result", "D. 忽略错误"],
+        "answer": 1,
+        "explanation": "? 用于 Option 和 Result：Some(x)/Ok(x) 时继续，None/Err(e) 时提前返回。函数返回类型必须匹配。"
+      },
+      {
+        "id": "u2-ch24-q18",
+        "question": "元组 struct 和命名字段 struct 的主要区别？",
+        "options": ["A. 性能不同", "B. 元组 struct 的字段通过 .0 .1 访问，没有名字", "C. 元组 struct 在堆上", "D. 没有区别"],
+        "answer": 1,
+        "explanation": "元组 struct 的字段没有名称，用 .0 .1 访问。适合 newtype 模式（struct Meters(f64)）。命名字段 struct 的字段有名字，更可读。"
+      },
+      {
+        "id": "u2-ch24-q19",
+        "question": "以下代码能编译吗？\nenum Coin {\n    Penny,\n    Quarter(UsState),\n}\nlet c = Coin::Penny;",
+        "options": ["A. 可以（假设 UsState 已定义）", "B. 不行，enum 变体不能有不同形式", "C. 不行，Penny 缺少数据", "D. 只在 nightly 可以"],
+        "answer": 0,
+        "explanation": "enum 变体可以混合：有的无数据（Penny），有的有数据（Quarter(UsState)）。这正是 Rust enum 的强大之处。"
+      },
+      {
+        "id": "u2-ch24-q20",
+        "question": "Newtype 模式是什么？",
+        "options": ["A. 创建新的基本类型", "B. 用元组 struct 包裹已有类型来创建新类型", "C. 用 type alias 创建别名", "D. 用 macro 创建类型"],
+        "answer": 1,
+        "explanation": "Newtype 模式：struct Meters(f64)。虽然内部是 f64，但 Meters 和 f64 是不同类型，编译器不允许混用——提供了类型安全。"
+      },
+      {
+        "id": "u2-ch24-q21",
+        "question": "为什么 Rust 用 Option 而不是 null？",
+        "options": ["A. 性能原因", "B. 编译器强制你处理 None 的情况，避免空指针异常", "C. 历史原因", "D. 语法更简洁"],
+        "answer": 1,
+        "explanation": "Option<T> 让"可能为空"成为类型系统的一部分。编译器强制你用 match/if let 处理 None，消除了空指针异常的可能。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.4 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 struct 三种形式</a></li>
+      <li><a href="#kp2">02 impl 块与方法</a></li>
+      <li><a href="#kp3">03 enum 与代数数据类型</a></li>
+      <li><a href="#kp4">04 Option&lt;T&gt;</a></li>
+      <li><a href="#kp5">05 Result&lt;T, E&gt;</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html" class="active">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>Struct 与 Enum</h1>
+      <p class="chapter-intro">Struct 和 Enum 是 Rust 的复合类型基石。Struct 让你组合相关数据，Enum 让你表达"多选一"的状态。标准库的 Option 和 Result 就是 enum 的经典应用——它们让错误处理成为类型系统的一部分。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">Struct：把零散数据收束成一个清晰模型</a></li>
-            <li><a href="#kp-2">Tuple struct、unit struct 与 impl：语法不一样，建模语义也不一样</a></li>
-            <li><a href="#kp-3">Enum：让“可能状态”进入类型系统</a></li>
-            <li><a href="#kp-4">Option 与 Result：把“可能没有值”和“可能失败”说清楚</a></li>
-            <li><a href="#kp-5">Struct 还是 Enum？先问“这是一个对象，还是一种状态集合？”</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.4 Struct 与 Enum</h1>
-            <p class="chapter-description">真正的 Rust 建模，不是把字段随手堆成几个变量，而是主动选择“这个状态是固定结构，还是多种可能之一”。本章会用 struct、enum、Option、Result 把这种建模意识建立起来。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解 struct 如何表达稳定的数据形状以及为何比并排变量更清晰</li>
-                <li>掌握 tuple struct、unit-like struct 和基础 impl 的使用直觉</li>
-                <li>理解 enum 如何表达“多种互斥状态”以及每个变体可携带的数据</li>
-                <li>建立对 Option / Result 的直觉，知道它们为什么优于空值和魔法错误码</li>
-            </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先掌握函数、基本类型和控制流。本章会出现 match 风格的预告，但详细拆解将在下一章进行；当前重点是“如何用类型表达领域模型”。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.4.1 Struct：把零散数据收束成一个清晰模型</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>用户资料、配置项、坐标信息为什么不该总是拆成一堆平行变量？</p>
-            </div>
-            <p>当几项数据总是一起出现时，把它们放进 struct 能让“这些字段属于同一个实体”变得显式。这样函数签名更清楚，后续扩展字段也不需要不断加参数。</p>
-            <p><strong>正式规则：</strong>struct 定义一组命名字段；实例化时要为字段赋值，读取时使用点号语法。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>struct_model.rs</span></div>
-                <pre><code>struct User {
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>struct 三种形式 — 命名、元组、单元</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>当基本类型不够用时，你需要自定义类型来组合数据。Rust 的 struct 提供了三种形式，各有适用场景。理解它们的差异，是设计清晰数据模型的第一步。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>形式</th><th>语法</th><th>适用场景</th></tr></thead>
+              <tbody>
+                <tr><td>命名字段</td><td><code>struct User { name: String, age: u32 }</code></td><td>多字段数据，可读性最好</td></tr>
+                <tr><td>元组 struct</td><td><code>struct Meters(f64)</code></td><td>Newtype 模式、少量无名字段</td></tr>
+                <tr><td>单元 struct</td><td><code>struct Marker;</code></td><td>类型标记、空 trait 实现</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>structs.rs</span></div>
+              <pre><code>// 1. 命名字段 struct
+struct User {
     name: String,
+    email: String,
+    age: u32,
     active: bool,
-    sign_in_count: u32,
+}
+
+// 2. 元组 struct（Newtype 模式）
+struct Meters(f64);
+struct Seconds(f64);
+struct Color(u8, u8, u8);
+
+// 3. 单元 struct
+struct Marker;
+
+fn main() {
+    // 命名字段——必须指定所有字段
+    let user = User {
+        name: String::from("Alice"),
+        email: String::from("alice@example.com"),
+        age: 30,
+        active: true,
+    };
+    println!("{} is {} years old", user.name, user.age);
+
+    // struct update syntax——从另一个实例复制未指定的字段
+    let user2 = User {
+        name: String::from("Bob"),
+        ..user  // 注意：user.email 被 move 了！
+    };
+    // println!("{}", user.email); // ❌ email 被 move
+    println!("{}", user.age);     // ✅ u32 是 Copy
+
+    // 元组 struct
+    let distance = Meters(100.0);
+    let duration = Seconds(9.58);
+    println!("{} meters in {} seconds", distance.0, duration.0);
+    // Meters 和 Seconds 是不同类型，不能混用！
+
+    // 单元 struct
+    let _m = Marker;
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Alice is 30 years old
+30
+100 meters in 9.58 seconds</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>Newtype 模式</strong>——<code>struct UserId(u64)</code> 防止把 user_id 和 order_id 搞混。编译期类型安全，零运行时开销。</li>
+              <li><strong>字段可见性</strong>——struct 字段默认私有。跨模块访问需要 <code>pub</code>：<code>pub struct Config { pub timeout: u64, ... }</code>。</li>
+              <li><strong>builder 模式</strong>——字段多且有默认值时，用 builder 模式替代冗长的构造。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>newtype.rs</span></div>
+              <pre><code>struct UserId(u64);
+struct OrderId(u64);
+
+fn get_user(id: UserId) {
+    println!("Getting user #{}", id.0);
 }
 
 fn main() {
-    let user = User {
-        name: String::from(&quot;Ferris&quot;),
-        active: true,
-        sign_in_count: 3,
-    };
+    let uid = UserId(42);
+    let oid = OrderId(100);
 
-    println!(&quot;{} / {} / {}&quot;, user.name, user.active, user.sign_in_count);
+    get_user(uid);
+    // get_user(oid); // ❌ 编译错误：expected UserId, found OrderId
+    // 即使底层都是 u64，类型系统也不允许混用！
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Ferris / true / 3</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Getting user #42</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>建模问题先于语法：</strong>当你发现函数参数开始变成 <code>name, active, sign_in_count, ...</code> 这种长串时，通常就在提醒你该引入 struct 了。</p>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>..other</code> struct update 语法会 move 非 Copy 字段。如果 other 有 String 字段被 move，后续不能再访问那些字段。Copy 字段（如 i32、bool）不受影响。
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>struct Meters(f64)</code> 是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '这不是普通函数。')">A. 一个函数定义</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '元组 struct 是 Newtype 模式的典型用法，字段通过 .0 访问。')">B. 元组 struct（Newtype 模式）</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'type Meters = f64 才是类型别名。')">C. 类型别名</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '这是 struct 定义，不是变量声明。')">D. 变量声明</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-            <div class="quick-quiz" data-answer="B" data-explanation="struct 的价值在于把相关字段明确绑定成一个实体模型，而不是让数据继续以平行变量形式散落。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>什么时候引入 struct 往往最合理？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="A"> A. 只要字段数量超过两个</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="B"> B. 当多项数据始终描述同一个实体并需要一起传递</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q1" value="C"> C. 当你想让代码变得更长</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.4.2 Tuple struct、unit struct 与 impl：语法不一样，建模语义也不一样</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 不只提供一种 struct 写法？难道普通命名字段还不够吗？</p>
-            </div>
-            <p>命名字段 struct 适合语义清晰的业务对象；tuple struct 适合“只想包装一个或几个值，但想让类型更有意义”的场景；unit-like struct 则常用作标记类型。</p>
-            <p>与此同时，impl 可以把与数据相关的行为放回类型身上，让“数据”和“对数据的操作”靠得更近。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>tuple_impl.rs</span></div>
-                <pre><code>struct UserId(u64);
-struct AlwaysOn;
-
-struct Rectangle {
-    width: u32,
-    height: u32,
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>impl 块与方法 — 给类型添加行为</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Struct 只定义数据。要让类型"会做事"，需要在 <code>impl</code> 块中定义方法和关联函数。<code>impl</code> 是 Rust 中"数据 + 行为"的组合方式，类似其他语言中的方法定义，但没有继承。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>self 参数</th><th>含义</th><th>调用后原变量</th></tr></thead>
+              <tbody>
+                <tr><td><code>&amp;self</code></td><td>不可变借用</td><td>仍可用</td></tr>
+                <tr><td><code>&amp;mut self</code></td><td>可变借用</td><td>仍可用</td></tr>
+                <tr><td><code>self</code></td><td>获取所有权</td><td>不可用（被 move）</td></tr>
+                <tr><td>（无 self）</td><td>关联函数</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>impl_block.rs</span></div>
+              <pre><code>struct Rectangle {
+    width: f64,
+    height: f64,
 }
 
 impl Rectangle {
-    fn area(&amp;self) -&gt; u32 {
+    // 关联函数（没有 self）——类似"构造器"
+    fn new(w: f64, h: f64) -&gt; Self {
+        Rectangle { width: w, height: h }
+    }
+
+    fn square(size: f64) -&gt; Self {
+        Rectangle { width: size, height: size }
+    }
+
+    // 方法——&amp;self 只读
+    fn area(&amp;self) -&gt; f64 {
         self.width * self.height
     }
-}
 
-fn main() {
-    let id = UserId(7);
-    let rect = Rectangle { width: 3, height: 4 };
-    let _marker = AlwaysOn;
-
-    println!(&quot;id = {}, area = {}&quot;, id.0, rect.area());
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>id = 7, area = 12</pre>
-                </div>
-            </div>
-            <div class="note-box warning">
-                <p><strong>别把 impl 想成“必须等到 trait 章节才能用”：</strong>即使还没学 trait，<code>impl</code> 也已经能用来组织普通方法和构造逻辑。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：什么时候 tuple struct 很好用？</button>
-                <div class="collapsible-content">当你想把一个原始值包成更有业务意义的类型时，例如 <code>UserId(u64)</code>、<code>Port(u16)</code>。这样能减少把不同整数类型混用的风险。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="tuple struct 适合给原始值增加语义包装，impl 则负责把相关行为组织到类型上。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于 tuple struct 和 impl，下列哪项正确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="A"> A. tuple struct 常用于给原始值增加语义，而 impl 可以定义与类型相关的方法</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="B"> B. unit struct 不能实例化</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q2" value="C"> C. 只有 enum 才能定义方法</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.4.3 Enum：让“可能状态”进入类型系统</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果一个网络请求可能处于 Loading、Success、Failed 三种状态，用几个布尔字段拼出来真的靠谱吗？</p>
-            </div>
-            <p>enum 最大的价值是把“互斥状态”直接变成类型的一部分。你不再需要靠多个字段手动维护“哪些组合合法”，而是让编译器知道某个值此刻只能是这些变体之一。</p>
-            <p><strong>正式规则：</strong>enum 可以定义多个变体；每个变体既可以只是标签，也可以携带各自不同的数据。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>enum_states.rs</span></div>
-                <pre><code>enum RequestState {
-    Loading,
-    Success(String),
-    Failed(u16),
-}
-
-fn main() {
-    let state = RequestState::Success(String::from(&quot;OK&quot;));
-
-    match state {
-        RequestState::Loading =&gt; println!(&quot;loading&quot;),
-        RequestState::Success(body) =&gt; println!(&quot;success: {body}&quot;),
-        RequestState::Failed(code) =&gt; println!(&quot;failed: {code}&quot;),
+    fn perimeter(&amp;self) -&gt; f64 {
+        2.0 * (self.width + self.height)
     }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>success: OK</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>建模收益：</strong>和多个布尔值相比，enum 更容易保证状态组合合法，也更方便在后续新增一个变体时让编译器帮你补全处理逻辑。</p>
-            </div>
 
-            <div class="quick-quiz" data-answer="C" data-explanation="enum 适合表示多种互斥状态，每个变体还可以携带不同数据。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 RequestState 更适合用 enum 表示？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="A"> A. 因为 enum 比 struct 占用更少内存</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="B"> B. 因为 enum 才能存字符串</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q3" value="C"> C. 因为它能把合法状态集合直接编码进类型里</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    // 方法——&amp;mut self 修改
+    fn scale(&amp;mut self, factor: f64) {
+        self.width *= factor;
+        self.height *= factor;
+    }
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.4.4 Option 与 Result：把“可能没有值”和“可能失败”说清楚</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>很多语言喜欢用 null、-1、空字符串来表示异常情况。Rust 为什么宁愿让你多写一层 Option / Result？</p>
-            </div>
-            <p>Option<T> 表示“这里可能有一个 T，也可能没有”；Result<T, E> 表示“这里可能成功拿到 T，也可能带着 E 失败”。Rust 把这些不确定性显式放进类型里，避免调用者假装问题不存在。</p>
-            <p>这种设计会让 API 更啰嗦一点，但也让缺失值和错误处理更难被忽略，尤其是在大型代码库里价值很高。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>option_result.rs</span></div>
-                <pre><code>fn find_port(name: &amp;str) -&gt; Option&lt;u16&gt; {
-    if name == &quot;http&quot; {
-        Some(80)
-    } else {
-        None
+    // 方法——self 获取所有权
+    fn into_square(self) -&gt; Rectangle {
+        let side = (self.width * self.height).sqrt();
+        Rectangle { width: side, height: side }
     }
 }
 
-fn parse_port(text: &amp;str) -&gt; Result&lt;u16, std::num::ParseIntError&gt; {
-    text.parse::&lt;u16&gt;()
-}
-
 fn main() {
-    println!(&quot;{:?}&quot;, find_port(&quot;http&quot;));
-    println!(&quot;{:?}&quot;, parse_port(&quot;8080&quot;));
+    let mut rect = Rectangle::new(10.0, 5.0);  // 关联函数
+    println!("area = {}", rect.area());          // 方法
+    println!("perimeter = {}", rect.perimeter());
+
+    rect.scale(2.0);                             // &amp;mut self
+    println!("scaled area = {}", rect.area());
+
+    let sq = rect.into_square();                 // self (move)
+    println!("square side = {}", sq.width);
+    // println!("{}", rect.area()); // ❌ rect 已被 move
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Some(80)
-Ok(8080)</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>area = 50
+perimeter = 30
+scaled area = 200
+square side = 14.142135623730951</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>直觉提醒：</strong>Option 不是“简化版 Result”；它表达的是“缺席本身是正常分支”，而不是“这里发生了具体错误”。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：什么时候该用 Option，什么时候该用 Result？</button>
-                <div class="collapsible-content">如果“没有值”本身就是预期状态，例如查找不到缓存项，用 <code>Option</code>；如果你需要告诉调用者为什么失败，用 <code>Result</code>。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="Option 表示可能缺席，Result 表示可能失败并携带错误信息；二者都在类型层面强迫调用者面对不确定性。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪项最贴近 Option / Result 的设计目的？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="A"> A. 让代码更像其他语言</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="B"> B. 把空值和失败显式编码到类型中</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q4" value="C"> C. 避免写 match</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.4.5 Struct 还是 Enum？先问“这是一个对象，还是一种状态集合？”</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>很多建模纠结，其实不是语法不会，而是没先想清楚“我要表达的东西到底是什么”。</p>
-            </div>
-            <p>如果你描述的是一个实体稳定拥有的一组属性，通常选 struct；如果你描述的是“这个值可能处于几种不同形态之一”，通常选 enum。很多真实模型会把两者组合起来使用。</p>
-            <p>例如一个 HTTP 响应可以是 struct，其中 body 字段又可能是 enum；一个订单状态是 enum，而每个状态里又可以携带 struct 数据。类型不是互斥工具，而是建模积木。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>model_choice.rs</span></div>
-                <pre><code>struct ServerConfig {
-    host: String,
-    port: u16,
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>new() 命名约定</strong>——关联函数 <code>Type::new(...)</code> 是 Rust 社区的构造器惯例。</li>
+              <li><strong>方法链</strong>——返回 <code>&amp;mut Self</code> 支持链式调用：<code>builder.set_name("x").set_age(20).build()</code>。</li>
+              <li><strong>多个 impl 块</strong>——同一类型可以有多个 impl 块，按功能分组（如泛型 impl 和普通 impl 分开）。</li>
+              <li><strong>Self 关键字</strong>——在 impl 块内，<code>Self</code> 是当前类型的别名。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>method_chain.rs</span></div>
+              <pre><code>struct QueryBuilder {
+    table: String,
+    conditions: Vec&lt;String&gt;,
+    limit: Option&lt;usize&gt;,
 }
 
-enum StartupState {
-    Idle,
-    Binding(ServerConfig),
-    Failed(String),
+impl QueryBuilder {
+    fn new(table: &amp;str) -&gt; Self {
+        QueryBuilder {
+            table: table.to_string(),
+            conditions: Vec::new(),
+            limit: None,
+        }
+    }
+
+    fn where_clause(&amp;mut self, cond: &amp;str) -&gt; &amp;mut Self {
+        self.conditions.push(cond.to_string());
+        self  // 返回 &amp;mut Self 实现链式调用
+    }
+
+    fn limit(&amp;mut self, n: usize) -&gt; &amp;mut Self {
+        self.limit = Some(n);
+        self
+    }
+
+    fn build(&amp;self) -&gt; String {
+        let mut q = format!("SELECT * FROM {}", self.table);
+        if !self.conditions.is_empty() {
+            q.push_str(&amp;format!(" WHERE {}", self.conditions.join(" AND ")));
+        }
+        if let Some(n) = self.limit {
+            q.push_str(&amp;format!(" LIMIT {}", n));
+        }
+        q
+    }
 }
 
 fn main() {
-    let state = StartupState::Binding(ServerConfig {
-        host: String::from(&quot;127.0.0.1&quot;),
-        port: 8080,
+    let query = QueryBuilder::new("users")
+        .where_clause("age > 18")
+        .where_clause("active = true")
+        .limit(10)
+        .build();
+    println!("{}", query);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>SELECT * FROM users WHERE age > 18 AND active = true LIMIT 10</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>self</code> 方法会消耗实例。如果你不想转移所有权，用 <code>&amp;self</code> 或 <code>&amp;mut self</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>Rectangle::new(10.0, 5.0)</code> 中的 <code>new</code> 是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '方法的第一个参数是 self/&self/&mut self。')">A. 方法</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '没有 self 参数的 impl 中的函数是关联函数，用 Type::func() 调用。')">B. 关联函数</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'Rust 中不需要 new 关键字（不像 Java/C++）。')">C. 构造器关键字</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '静态方法是其他语言的概念，Rust 叫关联函数。')">D. 静态方法</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>enum 与代数数据类型</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>C/Java 的 enum 只是命名整数。Rust 的 enum 是<strong>代数数据类型</strong>（ADT）——每个变体可以携带不同数据。这让你能精确建模"多种可能之一"的状态，配合模式匹配，编译器保证你处理所有情况。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 的 enum = sum type（和类型）。变体可以是：</p>
+            <ul>
+              <li><strong>无数据</strong>：<code>Quit</code></li>
+              <li><strong>元组数据</strong>：<code>Move(i32, i32)</code></li>
+              <li><strong>命名字段</strong>：<code>Resize { w: u32, h: u32 }</code></li>
+            </ul>
+            <p>内存布局：tag（判别值）+ 最大变体的空间。编译器会做优化（如 null pointer optimization）。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>enums.rs</span></div>
+              <pre><code>// 变体可以携带不同类型的数据
+enum Message {
+    Quit,                          // 无数据
+    Echo(String),                  // 元组数据
+    Move { x: i32, y: i32 },      // 命名字段
+    ChangeColor(u8, u8, u8),      // 多个元组字段
+}
+
+impl Message {
+    fn process(&amp;self) {
+        match self {
+            Message::Quit =&gt; println!("退出"),
+            Message::Echo(text) =&gt; println!("回显: {}", text),
+            Message::Move { x, y } =&gt; println!("移动到 ({}, {})", x, y),
+            Message::ChangeColor(r, g, b) =&gt; println!("颜色: ({},{},{})", r, g, b),
+        }
+    }
+}
+
+fn main() {
+    let msgs = vec![
+        Message::Echo("hello".into()),
+        Message::Move { x: 10, y: 20 },
+        Message::ChangeColor(255, 0, 128),
+        Message::Quit,
+    ];
+
+    for msg in &amp;msgs {
+        msg.process();
+    }
+
+    // enum 也可以有 impl
+    println!("size: {} bytes", std::mem::size_of::&lt;Message&gt;());
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>回显: hello
+移动到 (10, 20)
+颜色: (255,0,128)
+退出
+size: 32 bytes</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>状态机建模</strong>——<code>enum State { Idle, Running(Progress), Done(Result) }</code>，每种状态携带不同数据。</li>
+              <li><strong>消息/命令模式</strong>——<code>enum Command { Start, Stop, SetSpeed(f64) }</code>。</li>
+              <li><strong>替代 trait 对象</strong>——当变体有限时，enum dispatch 比 dyn trait 更高效（无虚表开销）。</li>
+              <li><strong>注意大小</strong>——enum 大小 = 最大变体 + tag。如果一个变体特别大，考虑 Box 它：<code>LargeVariant(Box&lt;[u8; 1024]&gt;)</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>shape.rs</span></div>
+              <pre><code>enum Shape {
+    Circle(f64),                     // 半径
+    Rectangle { width: f64, height: f64 },
+    Triangle(f64, f64, f64),         // 三条边
+}
+
+impl Shape {
+    fn area(&amp;self) -&gt; f64 {
+        match self {
+            Shape::Circle(r) =&gt; std::f64::consts::PI * r * r,
+            Shape::Rectangle { width, height } =&gt; width * height,
+            Shape::Triangle(a, b, c) =&gt; {
+                let s = (a + b + c) / 2.0;
+                (s * (s - a) * (s - b) * (s - c)).sqrt()
+            }
+        }
+    }
+}
+
+fn main() {
+    let shapes: Vec&lt;Shape&gt; = vec![
+        Shape::Circle(5.0),
+        Shape::Rectangle { width: 10.0, height: 3.0 },
+        Shape::Triangle(3.0, 4.0, 5.0),
+    ];
+    for shape in &amp;shapes {
+        println!("area = {:.2}", shape.area());
+    }
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>area = 78.54
+area = 30.00
+area = 6.00</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：enum 的大小由最大变体决定。如果有一个变体特别大（如携带大数组），整个 enum 都会变大。可以用 <code>Box</code> 包裹大数据来减小 enum 体积。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">Rust 的 enum 和 C 的 enum 有什么核心区别？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '两者都能命名变体。')">A. 没有区别</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, 'Rust enum 是代数数据类型，每个变体可以携带不同结构的数据。C enum 只是命名整数。')">B. Rust enum 的变体可以携带数据</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '两者都可以用 match/switch 匹配。')">C. C enum 不能用 switch</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'Rust enum 可以有 impl 块添加方法。')">D. Rust enum 不能有方法</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>Option&lt;T&gt; — 空值的安全替代</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Tony Hoare 称 null 是"十亿美元的错误"。Java 的 NullPointerException、C 的 segfault，都源于未检查的空值。Rust 没有 null——取而代之的是 <code>Option&lt;T&gt;</code>，它让"可能为空"成为类型的一部分，编译器<strong>强制</strong>你处理空值情况。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>option_def.rs</span></div>
+              <pre><code>// 标准库定义（简化）
+enum Option&lt;T&gt; {
+    Some(T),  // 有值
+    None,     // 无值
+}</code></pre>
+            </div>
+            <p><strong>核心优势</strong>：如果函数返回 <code>Option&lt;T&gt;</code>，调用者<em>必须</em>处理 <code>None</code>——编译器不让你假装值一定存在。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>option_usage.rs</span></div>
+              <pre><code>fn find_first_even(nums: &amp;[i32]) -&gt; Option&lt;i32&gt; {
+    for &amp;n in nums {
+        if n % 2 == 0 {
+            return Some(n);
+        }
+    }
+    None
+}
+
+fn main() {
+    let data = vec![1, 3, 5, 4, 7];
+
+    // 1. match——最完整
+    match find_first_even(&amp;data) {
+        Some(n) =&gt; println!("found: {}", n),
+        None =&gt; println!("no even numbers"),
+    }
+
+    // 2. if let——只关心 Some
+    if let Some(n) = find_first_even(&amp;data) {
+        println!("first even: {}", n);
+    }
+
+    // 3. unwrap_or——提供默认值
+    let val = find_first_even(&amp;[1, 3, 5]).unwrap_or(0);
+    println!("value or default: {}", val);
+
+    // 4. map——变换内部值
+    let doubled = find_first_even(&amp;data).map(|n| n * 2);
+    println!("doubled: {:?}", doubled);
+
+    // 5. ?——在返回 Option 的函数中使用
+    fn half_of_even(nums: &amp;[i32]) -&gt; Option&lt;i32&gt; {
+        let n = find_first_even(nums)?;  // None 则提前返回 None
+        Some(n / 2)
+    }
+    println!("half: {:?}", half_of_even(&amp;data));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>found: 4
+first even: 4
+value or default: 0
+doubled: Some(8)
+half: Some(2)</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>避免 <code>unwrap()</code></strong>——在生产代码中用 <code>match</code>/<code>if let</code>/<code>unwrap_or</code>/<code>?</code> 替代。<code>unwrap()</code> 在 None 时 panic。</li>
+              <li><strong>链式方法</strong>——<code>opt.map(f).and_then(g).unwrap_or(default)</code> 构建处理管道。</li>
+              <li><strong>零开销</strong>——<code>Option&lt;&amp;T&gt;</code> 和 <code>&amp;T</code> 大小相同（null pointer optimization）。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>option_chain.rs</span></div>
+              <pre><code>fn parse_port(config: &amp;str) -&gt; Option&lt;u16&gt; {
+    config
+        .split(':')           // "host:8080" → ["host", "8080"]
+        .nth(1)               // Option&lt;&amp;str&gt; → Some("8080")
+        .and_then(|s| s.parse().ok())  // Option&lt;u16&gt;
+}
+
+fn main() {
+    println!("{:?}", parse_port("localhost:8080")); // Some(8080)
+    println!("{:?}", parse_port("localhost"));       // None
+    println!("{:?}", parse_port("localhost:abc"));   // None
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Some(8080)
+None
+None</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>Option&lt;T&gt;</code> 和 <code>T</code> 是不同类型！不能直接把 <code>Option&lt;i32&gt;</code> 当 <code>i32</code> 用——必须先"拆包"。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>None.unwrap()</code> 会怎样？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'unwrap 在 None 时不会返回默认值。')">A. 返回默认值</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'unwrap() 在 None 时 panic 并终止程序。生产代码应避免使用。')">B. panic 并终止程序</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '这是运行时行为，不是编译错误。')">C. 编译错误</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Rust 没有 null。')">D. 返回 null</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>Result&lt;T, E&gt; — 错误处理基础</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>异常（exception）的问题是看不出哪个函数会抛——你不知道什么时候需要 try/catch。Rust 没有异常，用 <code>Result&lt;T, E&gt;</code> 把"成功或失败"编码到返回类型中。调用者<strong>必须</strong>处理失败情况，否则编译不过。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_def.rs</span></div>
+              <pre><code>// 标准库定义（简化）
+enum Result&lt;T, E&gt; {
+    Ok(T),   // 成功，携带值
+    Err(E),  // 失败，携带错误信息
+}</code></pre>
+            </div>
+            <p><code>Option</code> 表示"有或没有"，<code>Result</code> 表示"成功或失败（附带原因）"。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_usage.rs</span></div>
+              <pre><code>use std::num::ParseIntError;
+
+fn parse_number(s: &amp;str) -&gt; Result&lt;i32, ParseIntError&gt; {
+    s.trim().parse::&lt;i32&gt;()
+}
+
+fn double_parse(s: &amp;str) -&gt; Result&lt;i32, ParseIntError&gt; {
+    let n = parse_number(s)?;   // ? 直接传播错误
+    Ok(n * 2)
+}
+
+fn main() {
+    // 1. match
+    match parse_number("42") {
+        Ok(n) =&gt; println!("parsed: {}", n),
+        Err(e) =&gt; println!("error: {}", e),
+    }
+
+    // 2. unwrap_or_else
+    let val = parse_number("abc").unwrap_or_else(|e| {
+        println!("fallback due to: {}", e);
+        0
     });
+    println!("val = {}", val);
 
-    println!(&quot;{}&quot;, matches!(state, StartupState::Binding(_)));
+    // 3. ? 运算符
+    match double_parse("21") {
+        Ok(n) =&gt; println!("doubled: {}", n),
+        Err(e) =&gt; println!("error: {}", e),
+    }
+
+    match double_parse("xyz") {
+        Ok(n) =&gt; println!("doubled: {}", n),
+        Err(e) =&gt; println!("error: {}", e),
+    }
+
+    // 4. map / and_then
+    let result = parse_number("10")
+        .map(|n| n * 3)
+        .map(|n| format!("value is {}", n));
+    println!("{:?}", result);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>true</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>parsed: 42
+fallback due to: invalid digit found in string
+val = 0
+doubled: 42
+error: invalid digit found in string
+Ok("value is 30")</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>一句判断法：</strong>问自己“这个类型的值，是一直有这些字段，还是只会在几种形态里选一种？”答案通常会指向 struct 或 enum。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="A" data-explanation="稳定属性集合更像 struct，互斥状态集合更像 enum；真实模型里常常二者组合使用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>如何快速区分 struct 和 enum 的使用倾向？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="A"> A. 稳定字段用 struct，互斥状态用 enum</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="B"> B. 只要有三个字段就必须用 enum</label>
-                    <label><input type="radio" name="ch2.4_struct_enum-q5" value="C"> C. enum 可以完全替代 struct</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>struct 适合表达稳定的实体形状，让相关字段以一个清晰模型出现</li>
-                <li>tuple struct 和 unit-like struct 提供了不同层次的语义包装能力，impl 用来组织与类型相关的行为</li>
-                <li>enum 适合表达多种互斥状态，每个变体都可以携带自己需要的数据</li>
-                <li>Option 与 Result 把“可能缺席”和“可能失败”显式编码进类型，减少空值与错误码带来的歧义</li>
-                <li>建模时先分清“稳定对象”还是“状态集合”，再决定 struct、enum 或二者组合</li>
+              <li><strong><code>?</code> 是最常用的错误传播方式</strong>——自动将 Err 返回给调用者。函数返回类型必须是 <code>Result</code>。</li>
+              <li><strong>main 也可以返回 Result</strong>——<code>fn main() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt;</code>。</li>
+              <li><strong>自定义错误类型</strong>——大项目用 <code>thiserror</code> 或 <code>anyhow</code> crate。</li>
+              <li><strong>避免 <code>.unwrap()</code></strong>——只在确定不会失败时使用（如字面量 parse）。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_chain.rs</span></div>
+              <pre><code>use std::fs;
+use std::io;
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 定义一个 Book struct，包含标题、页数、是否已出版三个字段，并实例化一个值打印它。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 把“请求正在加载/成功拿到数据/失败带错误信息”建模成 enum，并说明为什么多个布尔字段更差。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 设计一个函数：根据用户输入的服务名返回端口。如果服务不存在，用 Option 还是 Result 更合适？请给出理由和最小代码。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 为一个 CLI 程序建模：配置文件、运行状态、启动结果分别适合用 struct、enum 还是组合结构？画出你的类型草图。</li>
-            </ol>
-        </section>
+fn read_username() -&gt; Result&lt;String, io::Error&gt; {
+    let content = fs::read_to_string("username.txt")?;
+    Ok(content.trim().to_string())
+}
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch05-01-defining-structs.html">The Rust Programming Language · Defining and Instantiating Structs</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch06-00-enums.html">The Rust Programming Language · Enums and Pattern Matching</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/custom_types.html">Rust By Example · Custom Types</a></li>
-            </ul>
-        </section>
-    </main>
+fn main() {
+    match read_username() {
+        Ok(name) =&gt; println!("Welcome, {}!", name),
+        Err(e) =&gt; println!("Could not read username: {}", e),
+    }
 
-    <script src="../assets/js/main.js"></script>
+    // Result 和 Option 的转换
+    let opt: Option&lt;i32&gt; = Some(42);
+    let res: Result&lt;i32, &amp;str&gt; = opt.ok_or("missing value");
+    println!("{:?}", res);
+
+    let res2: Result&lt;i32, &amp;str&gt; = Err("oops");
+    let opt2: Option&lt;i32&gt; = res2.ok();
+    println!("{:?}", opt2);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Could not read username: No such file or directory (os error 2)
+Ok(42)
+None</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>?</code> 运算符只能在返回 <code>Result</code> 或 <code>Option</code> 的函数中使用。在 <code>main()</code> 中使用 <code>?</code> 要把 main 的返回类型改为 <code>Result</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>?</code> 运算符在遇到 <code>Err(e)</code> 时做什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '? 不会 panic，它是安全的错误传播。')">A. panic</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '? 在 Err 时提前从函数返回该错误，在 Ok 时提取内部值继续执行。')">B. 提前从当前函数返回 Err(e)</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '? 不会忽略错误。')">C. 忽略错误继续执行</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '? 不会转成 None（除非在返回 Option 的函数中）。')">D. 将 Err 转为 None</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch2.3_functions_closures.html">← Ch 2.3 函数与闭包</a>
+      <a class="nav-next" href="ch2.5_pattern_matching.html">Ch 2.5 模式匹配 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

@@ -1,358 +1,976 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.6 Trait 系统 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.6 Trait 系统 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch26-q1",
+        "question": "Trait 在 Rust 中最类似于其他语言的什么概念？",
+        "options": ["A. 类（class）", "B. 接口（interface）", "C. 抽象类（abstract class）", "D. 模板（template）"],
+        "answer": 1,
+        "explanation": "Trait 最像接口——定义一组方法签名，类型通过 impl Trait for Type 实现。但 trait 可以有默认方法实现，更灵活。"
+      },
+      {
+        "id": "u2-ch26-q2",
+        "question": "以下代码正确吗？\ntrait Greet {\n    fn hello(&self) -> String;\n}\nimpl Greet for i32 {\n    fn hello(&self) -> String { format!(\"I'm {}\", self) }\n}",
+        "options": ["A. 正确", "B. 错误，不能为基本类型实现 trait", "C. 错误，trait 方法必须有默认实现", "D. 错误，缺少 pub"],
+        "answer": 0,
+        "explanation": "可以为任何类型实现 trait，包括基本类型如 i32。前提是 trait 或类型至少有一个是当前 crate 定义的（孤儿规则）。"
+      },
+      {
+        "id": "u2-ch26-q3",
+        "question": "什么是 trait 的默认方法？",
+        "options": ["A. 必须被所有类型实现的方法", "B. 在 trait 定义中提供了实现体，实现者可选择覆盖", "C. 只有标准库类型能用的方法", "D. 编译器自动生成的方法"],
+        "answer": 1,
+        "explanation": "默认方法在 trait 中直接写方法体。实现者可以不覆盖（使用默认），也可以 override 提供自己的版本。"
+      },
+      {
+        "id": "u2-ch26-q4",
+        "question": "孤儿规则（orphan rule）是什么？",
+        "options": ["A. trait 不能有默认方法", "B. 实现 trait 时，trait 或类型至少有一个必须在当前 crate 中定义", "C. 一个类型只能实现一个 trait", "D. trait 不能有泛型"],
+        "answer": 1,
+        "explanation": "孤儿规则防止两个外部 crate 为同一个类型提供同一个 trait 的冲突实现。至少 trait 或 type 有一个是 local。"
+      },
+      {
+        "id": "u2-ch26-q5",
+        "question": "trait bound 的语法是什么？",
+        "options": ["A. fn foo<T>(x: T) where T = Display", "B. fn foo<T: Display>(x: T)", "C. fn foo<T>(x: T as Display)", "D. fn foo(x: impl trait Display)"],
+        "answer": 1,
+        "explanation": "T: Display 是 trait bound，要求 T 实现了 Display。也可以用 where 子句：fn foo<T>(x: T) where T: Display。"
+      },
+      {
+        "id": "u2-ch26-q6",
+        "question": "多个 trait bound 怎么写？",
+        "options": ["A. T: Display, Clone", "B. T: Display + Clone", "C. T: Display & Clone", "D. T: (Display, Clone)"],
+        "answer": 1,
+        "explanation": "用 + 连接多个 trait bound：T: Display + Clone 要求 T 同时实现 Display 和 Clone。"
+      },
+      {
+        "id": "u2-ch26-q7",
+        "question": "impl Trait 作为参数类型是什么意思？\nfn print_it(item: &impl Display) { ... }",
+        "options": ["A. item 的类型是 Display", "B. item 可以是任何实现了 Display 的类型", "C. item 是 trait 对象", "D. 语法错误"],
+        "answer": 1,
+        "explanation": "impl Trait 作为参数是 trait bound 的语法糖。fn print_it(item: &impl Display) 等价于 fn print_it<T: Display>(item: &T)。"
+      },
+      {
+        "id": "u2-ch26-q8",
+        "question": "impl Trait 作为返回类型意味着什么？\nfn make_greeting() -> impl Display { ... }",
+        "options": ["A. 返回 trait 对象", "B. 返回某个实现了 Display 的具体类型（编译时确定）", "C. 返回 Display trait 本身", "D. 返回多种可能的类型"],
+        "answer": 1,
+        "explanation": "返回位置的 impl Trait 表示返回某个具体类型（编译时单态化），但调用者不知道具体是哪个类型。函数内只能返回同一种类型。"
+      },
+      {
+        "id": "u2-ch26-q9",
+        "question": "#[derive(Debug)] 做了什么？",
+        "options": ["A. 手动实现 Debug trait", "B. 让编译器自动生成 Debug trait 的实现", "C. 导入 Debug 模块", "D. 创建调试版本的二进制"],
+        "answer": 1,
+        "explanation": "derive 宏让编译器自动为类型生成 trait 实现。Debug 的默认实现会打印类型名和所有字段。"
+      },
+      {
+        "id": "u2-ch26-q10",
+        "question": "以下哪些 trait 可以 derive？",
+        "options": ["A. 只有 Debug", "B. Debug, Clone, Copy, PartialEq, Eq, Hash, Default 等", "C. 所有 trait", "D. 只有标准库 trait"],
+        "answer": 1,
+        "explanation": "标准库提供了一组可 derive 的 trait：Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default。第三方 crate 也可以提供。"
+      },
+      {
+        "id": "u2-ch26-q11",
+        "question": "Clone 和 Copy 的关系？",
+        "options": ["A. 完全无关", "B. Copy 是 Clone 的子 trait，Copy 类型必须先实现 Clone", "C. Clone 是 Copy 的子 trait", "D. 只有基本类型能 Copy"],
+        "answer": 1,
+        "explanation": "Copy: Clone——Copy 要求先有 Clone。Copy 表示按位复制（隐式），Clone 表示显式 .clone()。"
+      },
+      {
+        "id": "u2-ch26-q12",
+        "question": "什么类型不能 derive Copy？",
+        "options": ["A. i32", "B. (i32, bool)", "C. String", "D. char"],
+        "answer": 2,
+        "explanation": "String 拥有堆分配的数据，按位复制会导致 double free。只有所有字段都是 Copy 的类型才能 Copy。"
+      },
+      {
+        "id": "u2-ch26-q13",
+        "question": "trait 中可以定义关联常量吗？",
+        "options": ["A. 不能", "B. 可以", "C. 只有 nightly 才行", "D. 只能定义方法"],
+        "answer": 1,
+        "explanation": "trait 可以定义关联常量：trait Limit { const MAX: usize; }。实现者必须提供具体值。"
+      },
+      {
+        "id": "u2-ch26-q14",
+        "question": "以下代码正确吗？\ntrait Summary {\n    fn summarize_author(&self) -> String;\n    fn summarize(&self) -> String {\n        format!(\"(Read more from {}...)\", self.summarize_author())\n    }\n}",
+        "options": ["A. 错误，默认方法不能调用其他 trait 方法", "B. 正确，默认方法可以调用同一 trait 中的其他方法", "C. 错误，缺少泛型", "D. 错误，语法不对"],
+        "answer": 1,
+        "explanation": "默认方法可以调用同一 trait 中的其他方法（包括没有默认实现的）。只要实现者提供了 summarize_author，summarize 就能工作。"
+      },
+      {
+        "id": "u2-ch26-q15",
+        "question": "where 子句什么时候比内联 trait bound 更好用？",
+        "options": ["A. 永远不需要 where", "B. 当 trait bound 很多或很复杂时", "C. 只有泛型函数才能用 where", "D. where 是旧语法"],
+        "answer": 1,
+        "explanation": "当有多个类型参数、多个约束时，where 子句更清晰：fn foo<T, U>(x: T, y: U) where T: Display + Clone, U: Debug { ... }"
+      },
+      {
+        "id": "u2-ch26-q16",
+        "question": "以下代码输出什么？\n#[derive(Debug)]\nstruct Wrapper(Vec<String>);\nimpl std::fmt::Display for Wrapper {\n    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {\n        write!(f, \"[{}]\", self.0.join(\", \"))\n    }\n}\nlet w = Wrapper(vec![\"hello\".into(), \"world\".into()]);\nprintln!(\"{}\", w);",
+        "options": ["A. Wrapper([\"hello\", \"world\"])", "B. [hello, world]", "C. hello, world", "D. 编译错误"],
+        "answer": 1,
+        "explanation": "Display 的实现用 join(\", \") 连接，包在 [] 里。println!(\"{}\", w) 调用 Display，输出 [hello, world]。"
+      },
+      {
+        "id": "u2-ch26-q17",
+        "question": "一个类型可以实现多个 trait 吗？",
+        "options": ["A. 不能", "B. 可以，没有限制", "C. 最多实现 5 个", "D. 视编译器选项而定"],
+        "answer": 1,
+        "explanation": "一个类型可以实现任意多个 trait。每个 impl Trait for Type 是独立的 impl 块。"
+      },
+      {
+        "id": "u2-ch26-q18",
+        "question": "Display 和 Debug 的区别？",
+        "options": ["A. 完全一样", "B. Display 给用户看（{}），Debug 给开发者看（{:?}）", "C. Debug 更高效", "D. Display 可以 derive"],
+        "answer": 1,
+        "explanation": "Display 用 {} 格式化，面向最终用户。Debug 用 {:?}，面向开发者调试。Debug 可以 derive，Display 必须手动实现。"
+      },
+      {
+        "id": "u2-ch26-q19",
+        "question": "为什么 Rust 不让 Display 自动 derive？",
+        "options": ["A. 技术限制", "B. 面向用户的输出格式因场景而异，需要开发者自行决定", "C. Display 已弃用", "D. 历史原因"],
+        "answer": 1,
+        "explanation": "Debug 有明确的"调试"格式，可以自动生成。Display 是给用户的，最佳格式因业务逻辑不同，没有通用的自动生成策略。"
+      },
+      {
+        "id": "u2-ch26-q20",
+        "question": "以下代码能编译吗？\nfn largest<T: PartialOrd>(list: &[T]) -> &T {\n    let mut max = &list[0];\n    for item in &list[1..] {\n        if item > max {\n            max = item;\n        }\n    }\n    max\n}",
+        "options": ["A. 能编译", "B. 不能，T 需要 PartialOrd + Copy", "C. 不能，T 需要 Display", "D. 不能，切片不能比较"],
+        "answer": 0,
+        "explanation": "只用引用比较，不需要 Copy。PartialOrd 提供 > 运算符。代码正确编译。"
+      },
+      {
+        "id": "u2-ch26-q21",
+        "question": "trait 可以继承其他 trait 吗？",
+        "options": ["A. 不能", "B. 可以，trait Copy: Clone 表示 Copy 要求先实现 Clone", "C. 只有 unsafe trait 可以", "D. 通过 derive 继承"],
+        "answer": 1,
+        "explanation": "trait 可以有 supertraits：trait Copy: Clone 表示实现 Copy 的类型必须也实现 Clone。这不是继承，而是约束。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.6 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 定义与实现 Trait</a></li>
+      <li><a href="#kp2">02 默认方法</a></li>
+      <li><a href="#kp3">03 Trait Bound</a></li>
+      <li><a href="#kp4">04 derive 宏</a></li>
+      <li><a href="#kp5">05 impl Trait 语法</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html" class="active">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>Trait 系统</h1>
+      <p class="chapter-intro">Trait 是 Rust 实现多态和代码复用的核心机制。它定义共享行为、约束泛型参数、支持运算符重载，是理解 Rust 类型系统的关键一步。本章从定义到实践，系统覆盖 trait 基础。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">Trait：描述能力，而不是硬绑具体类型</a></li>
-            <li><a href="#kp-2">impl 与 derive：手写行为，或让编译器帮你生成常见行为</a></li>
-            <li><a href="#kp-3">Trait bound 与 impl Trait：把“需要什么能力”写进函数签名</a></li>
-            <li><a href="#kp-4">默认方法与组合：trait 也可以带来共享实现</a></li>
-            <li><a href="#kp-5">静态分发 vs 动态分发：编译期定形，还是运行时走 trait 对象？</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.6 Trait 系统</h1>
-            <p class="chapter-description">Trait 是 Rust 抽象能力的核心：它让你描述“一个类型能做什么”，而不是只盯着“它是什么”。本章会把 impl、derive、trait bound，以及静态分发和动态分发的直觉串在一起。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>定义与实现 Trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>如果你有很多类型都需要"可打印""可比较""可序列化"这种共享行为，你不想为每个类型各写一套。Trait 就是 Rust 的"接口"——定义一组方法签名，任何类型都可以实现它。标准库的 <code>Display</code>、<code>Clone</code>、<code>Iterator</code> 都是 trait。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
             <ul>
-                <li>理解 trait 如何表达共享行为，以及 impl 如何为类型实现行为</li>
-                <li>掌握常见 derive 的用途，并知道它们为什么能减少样板代码</li>
-                <li>理解 trait bound、impl Trait 的基本用法与设计意图</li>
-                <li>建立对静态分发与动态分发的直觉，知道何时考虑 trait 对象</li>
+              <li><code>trait Name { fn method(&self); }</code>——定义 trait。</li>
+              <li><code>impl Name for Type { fn method(&self) { ... } }</code>——为类型实现 trait。</li>
+              <li><strong>孤儿规则</strong>：trait 或 type 至少有一个是当前 crate 的，才能写 impl。</li>
+              <li>Trait 方法通过 <code>.method()</code> 调用，需要 trait 在作用域内。</li>
             </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先完成函数、struct、enum 和模式匹配章节。本章默认你已经知道 impl 可以写普通方法，现在会进一步把它提升到“共享行为接口”的层面。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.6.1 Trait：描述能力，而不是硬绑具体类型</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果日志、配置、网络消息都需要“格式化成一段文本”，为什么不直接给每个类型都写一个同名方法就好了？</p>
-            </div>
-            <p>Trait 的价值在于把“共享行为契约”提炼出来。这样调用方关心的是“你能不能做这件事”，而不是“你是不是某个具体类型”。</p>
-            <p><strong>正式规则：</strong>trait 用来声明一组方法签名；使用 impl TraitName for Type 可以为具体类型实现这组行为。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>trait_intro.rs</span></div>
-                <pre><code>trait Summary {
-    fn summary(&amp;self) -&gt; String;
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>trait_basics.rs</span></div>
+              <pre><code>// 定义一个 trait
+trait Summary {
+    fn summarize(&amp;self) -&gt; String;
 }
 
-struct News {
+// 为不同类型实现
+struct Article {
     title: String,
+    author: String,
+    content: String,
 }
 
-impl Summary for News {
-    fn summary(&amp;self) -&gt; String {
-        format!(&quot;news: {}&quot;, self.title)
+impl Summary for Article {
+    fn summarize(&amp;self) -&gt; String {
+        format!("{}, by {} — {}...",
+            self.title, self.author, &amp;self.content[..20])
+    }
+}
+
+struct Tweet {
+    username: String,
+    content: String,
+}
+
+impl Summary for Tweet {
+    fn summarize(&amp;self) -&gt; String {
+        format!("@{}: {}", self.username, self.content)
     }
 }
 
 fn main() {
-    let item = News { title: String::from(&quot;Rust 1.78&quot;) };
-    println!(&quot;{}&quot;, item.summary());
+    let article = Article {
+        title: "AI in 2025".into(),
+        author: "Alice".into(),
+        content: "Artificial intelligence has transformed many industries...".into(),
+    };
+    let tweet = Tweet {
+        username: "rustlang".into(),
+        content: "Rust 2025 roadmap is out!".into(),
+    };
+
+    println!("{}", article.summarize());
+    println!("{}", tweet.summarize());
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>news: Rust 1.78</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>AI in 2025, by Alice — Artificial intelligen...
+@rustlang: Rust 2025 roadmap is out!</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>抽象顺序：</strong>先从几个具体类型里看出共同动作，再抽 trait；不要为了“用上 trait”而过早抽象。</p>
-            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>trait 就是契约</strong>——定义 trait 时就是在声明"任何实现者必须提供这些能力"。</li>
+              <li><strong>use 导入 trait</strong>——调用 trait 方法前，相应 trait 必须在作用域中（<code>use std::fmt::Display;</code>）。</li>
+              <li><strong>关联函数</strong>——trait 也可以有 <code>fn new() -&gt; Self</code> 这类无 self 的关联函数。</li>
+              <li><strong>命名惯例</strong>——trait 名是形容词或能力描述：<code>Printable</code>, <code>Sendable</code>, <code>Iterator</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>orphan_rule.rs</span></div>
+              <pre><code>use std::fmt;
 
-            <div class="quick-quiz" data-answer="B" data-explanation="trait 关注的是行为契约：只要类型实现了该 trait，就能以同一种方式被使用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Trait 最核心解决的是什么问题？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.6_traits-q1" value="A"> A. 让所有 struct 自动拥有相同字段</label>
-                    <label><input type="radio" name="ch2.6_traits-q1" value="B"> B. 用统一契约描述不同类型的共享行为</label>
-                    <label><input type="radio" name="ch2.6_traits-q1" value="C"> C. 替代所有函数</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+// ✅ 可以为自己的类型实现外部 trait
+struct MyType(i32);
+impl fmt::Display for MyType {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter) -&gt; fmt::Result {
+        write!(f, "MyType({})", self.0)
+    }
+}
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.6.2 impl 与 derive：手写行为，或让编译器帮你生成常见行为</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么有些 trait 需要自己 impl，而 Debug、Clone、Default 这类 trait 却经常只要一行 derive？</p>
+// ✅ 可以为外部类型实现自己的 trait
+trait Describe {
+    fn describe(&amp;self) -&gt; String;
+}
+impl Describe for Vec&lt;i32&gt; {
+    fn describe(&amp;self) -&gt; String {
+        format!("Vec with {} elements", self.len())
+    }
+}
+
+// ❌ 不能为外部类型实现外部 trait
+// impl fmt::Display for Vec&lt;i32&gt; { ... }  // 编译错误！
+
+fn main() {
+    let m = MyType(42);
+    println!("{}", m);                    // Display
+
+    let v = vec![1, 2, 3];
+    println!("{}", v.describe());         // 自定义 trait
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>MyType(42)
+Vec with 3 elements</pre></div>
             </div>
-            <p>有些行为是业务语义相关的，例如如何生成摘要、如何比较领域对象，这通常需要你自己写 impl。另一些行为是通用且可机械推导的，例如打印调试信息、浅复制、默认值，编译器就能通过 derive 自动生成。</p>
-            <p><strong>正式规则：</strong>derive 是为支持派生的 trait 自动生成实现；只有 trait 设计成可派生时，才能使用 #[derive(...)].</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>derive.rs</span></div>
-                <pre><code>#[derive(Debug, Clone, Default)]
-struct Config {
-    port: u16,
-    debug: bool,
+            <div class="warning-box">
+              <strong>易错</strong>：忘记导入 trait 是常见编译错误。明明类型有 <code>.method()</code> 却报"method not found"——大概率是忘了 <code>use</code> 对应的 trait。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">孤儿规则的目的是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '和性能无关。')">A. 提高编译速度</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '防止不同 crate 为同一组类型和 trait 提供冲突的实现。')">B. 防止两个外部 crate 对同一 type+trait 提供冲突实现</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '和安全性无关。')">C. 防止 unsafe 代码</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'trait 数量没有限制。')">D. 限制 trait 的数量</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>默认方法 — 减少模板代码</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>如果 trait 有 10 个方法，每个实现者都得写 10 个，那太繁琐了。默认方法让 trait 在声明时就提供方法体。实现者只需重写需要自定义的方法，其余沿用默认逻辑。这是 Rust 版的"模板方法"模式。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <ul>
+              <li>trait 中的方法可以有方法体——这就是<strong>默认方法</strong>。</li>
+              <li>实现者可以选择<strong>覆盖</strong>（override）默认方法。</li>
+              <li>默认方法可以<strong>调用同一 trait 中的其他方法</strong>（包括无默认实现的）。</li>
+              <li><strong>无法</strong>在 <code>override</code> 后再调用原始默认实现（Rust 无 <code>super.method()</code>）。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>default_methods.rs</span></div>
+              <pre><code>trait Summary {
+    fn author(&amp;self) -&gt; String;                  // 必须实现
+
+    fn summarize(&amp;self) -&gt; String {               // 默认方法
+        format!("(Read more from {}...)", self.author())
+    }
+
+    fn preview(&amp;self) -&gt; String {                 // 默认方法
+        format!("[Preview] {}", self.summarize())
+    }
+}
+
+struct Article {
+    title: String,
+    author: String,
+}
+
+// 只实现必须的方法，其余用默认
+impl Summary for Article {
+    fn author(&amp;self) -&gt; String {
+        self.author.clone()
+    }
+    // summarize 和 preview 使用默认实现
+}
+
+struct Tweet {
+    username: String,
+    content: String,
+}
+
+impl Summary for Tweet {
+    fn author(&amp;self) -&gt; String {
+        format!("@{}", self.username)
+    }
+
+    // 覆盖 summarize 的默认实现
+    fn summarize(&amp;self) -&gt; String {
+        format!("{}: {}", self.author(), self.content)
+    }
+    // preview 用默认实现（会调用覆盖后的 summarize）
 }
 
 fn main() {
-    let config = Config { port: 8080, debug: true };
-    let copied = config.clone();
-    let fallback = Config::default();
+    let article = Article {
+        title: "Rust Tips".into(),
+        author: "Alice".into(),
+    };
+    println!("{}", article.summarize());
+    println!("{}", article.preview());
 
-    println!(&quot;{:?}&quot;, copied);
-    println!(&quot;{:?}&quot;, fallback);
+    let tweet = Tweet {
+        username: "bob".into(),
+        content: "Hello Rust!".into(),
+    };
+    println!("{}", tweet.summarize());
+    println!("{}", tweet.preview());
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Config { port: 8080, debug: true }
-Config { port: 0, debug: false }</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>(Read more from Alice...)
+[Preview] (Read more from Alice...)
+@bob: Hello Rust!
+[Preview] @bob: Hello Rust!</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>derive 不是“万能自动化”：</strong>当业务语义需要你自己决定时，例如排序规则、领域等价关系、展示文本，就不要机械依赖 derive。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 derive 重要？</button>
-                <div class="collapsible-content">因为它把大量重复样板从手写代码里拿掉，让你把精力放在真正有业务含义的实现上。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="derive 适合自动生成那些可以机械推导的常见 trait 实现，而业务语义强的 trait 往往仍需手写 impl。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于 derive，下列哪项最合理？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.6_traits-q2" value="A"> A. 它主要减少通用样板代码</label>
-                    <label><input type="radio" name="ch2.6_traits-q2" value="B"> B. 任何 trait 都能 derive</label>
-                    <label><input type="radio" name="ch2.6_traits-q2" value="C"> C. 用了 derive 就不能再写 impl</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.6.3 Trait bound 与 impl Trait：把“需要什么能力”写进函数签名</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>函数到底是该接收具体类型，还是接收“任何实现了某种能力的类型”？</p>
-            </div>
-            <p>当函数真正依赖的是某种行为，而不是某个具体实现时，用 trait bound 会更灵活。调用方只要提供实现了该 trait 的类型即可，函数本身不必知道更多细节。</p>
-            <p><strong>正式规则：</strong>可以用 <code>fn f<T: Trait>(x: T)</code> 或 <code>fn f(x: impl Trait)</code> 表示参数必须实现某个 trait；多个约束可通过 <code>+</code> 或 where 子句组合。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>trait_bounds.rs</span></div>
-                <pre><code>use std::fmt::Display;
-
-fn announce(item: impl Display) {
-    println!(&quot;announcement: {item}&quot;);
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>最小实现原则</strong>——trait 只要求实现者提供"核心"方法，其余用默认方法组合出来。如 <code>Iterator</code> 只要求 <code>next()</code>，其余 <code>map</code>/<code>filter</code>/<code>collect</code> 等上百个方法都是默认方法。</li>
+              <li><strong>默认调用其他方法</strong>——默认方法可以依赖同 trait 中的其他方法，形成链式委托。</li>
+              <li><strong>小心覆盖连锁效应</strong>——覆盖基础方法后，所有调用它的默认方法行为都会改变。这是有意设计。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>iterator_methods.rs</span></div>
+              <pre><code>struct Counter {
+    count: u32,
+    max: u32,
 }
 
-fn pair&lt;T&gt;(left: T, right: T)
+impl Counter {
+    fn new(max: u32) -&gt; Self {
+        Counter { count: 0, max }
+    }
+}
+
+// 只实现 next()——获得所有迭代器方法
+impl Iterator for Counter {
+    type Item = u32;
+    fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
+        if self.count &lt; self.max {
+            self.count += 1;
+            Some(self.count)
+        } else {
+            None
+        }
+    }
+}
+
+fn main() {
+    // 免费获得 sum, map, filter, collect, zip...
+    let total: u32 = Counter::new(5).sum();
+    println!("1+2+3+4+5 = {}", total);
+
+    let doubled: Vec&lt;u32&gt; = Counter::new(3).map(|x| x * 2).collect();
+    println!("doubled: {:?}", doubled);
+
+    let pairs: Vec&lt;_&gt; = Counter::new(3)
+        .zip(Counter::new(3).skip(1))
+        .collect();
+    println!("pairs: {:?}", pairs);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>1+2+3+4+5 = 15
+doubled: [2, 4, 6]
+pairs: [(1, 2), (2, 3)]</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>要点</strong>：Iterator trait 有 70+ 默认方法，你只需实现 <code>next()</code>。这就是默认方法的威力。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">覆盖了 summarize() 后，默认方法 preview() 里调用的是哪个版本？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '调用的是覆盖后的版本。')">A. 原始的默认 summarize()</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '默认方法中的 self.summarize() 走动态分派——如果你覆盖了，就调用覆盖版。')">B. 覆盖后的 summarize()</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不会报错，只是用覆盖版。')">C. 编译错误</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '哪个版本取决于实现者是否覆盖。')">D. 随机</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>Trait Bound — 泛型约束</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>泛型函数 <code>fn foo&lt;T&gt;(x: T)</code> 默认对 T 一无所知——不能打印、不能比较、什么都不能做。Trait bound 告诉编译器："T 必须实现某些 trait"，这样你就能在泛型函数内调用对应的方法。这是 Rust 泛型系统的基石。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>语法</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td><code>T: Display</code></td><td>T 必须实现 Display</td></tr>
+                <tr><td><code>T: Display + Clone</code></td><td>同时满足多个 trait</td></tr>
+                <tr><td><code>where T: Display</code></td><td>等价但更清晰的写法</td></tr>
+                <tr><td><code>impl Display</code> 参数</td><td>语法糖，等价于泛型 + trait bound</td></tr>
+                <tr><td><code>T: 'a</code></td><td>生命周期 bound</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>trait_bounds.rs</span></div>
+              <pre><code>use std::fmt::Display;
+
+// 内联 trait bound
+fn print_twice&lt;T: Display&gt;(item: &amp;T) {
+    println!("{}", item);
+    println!("{}", item);
+}
+
+// 多个 trait bound
+fn print_and_clone&lt;T: Display + Clone&gt;(item: &amp;T) {
+    let cloned = item.clone();
+    println!("original: {}, copy: {}", item, cloned);
+}
+
+// where 子句 — 更清晰
+fn compare_and_display&lt;T, U&gt;(t: &amp;T, u: &amp;U)
 where
     T: Display + PartialOrd,
+    U: Display + Into&lt;f64&gt; + Copy,
 {
-    let bigger = if left &gt;= right { left } else { right };
-    println!(&quot;bigger = {bigger}&quot;);
+    println!("t={}, u={}", t, u);
+}
+
+// impl Trait 作为参数（语法糖）
+fn notify(item: &amp;impl Display) {
+    println!("Breaking news: {}", item);
 }
 
 fn main() {
-    announce(&quot;Rust&quot;);
-    pair(3, 5);
+    print_twice(&amp;"hello");
+    print_and_clone(&amp;42);
+    compare_and_display(&amp;3.14, &amp;2.0_f64);
+    notify(&amp;"Rust 2.0 released!");
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>announcement: Rust
-bigger = 5</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>hello
+hello
+original: 42, copy: 42
+t=3.14, u=2
+Breaking news: Rust 2.0 released!</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>签名思维：</strong>如果你的函数只需要“能打印”，那就别把参数写死成 String；把真正依赖的能力写成约束，会让 API 更可复用。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="C" data-explanation="trait bound 的重点是把函数依赖的能力显式写进签名，而不是把参数硬绑到某个具体类型。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>什么时候 trait bound 最有价值？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.6_traits-q3" value="A"> A. 当你永远只接受一个具体 struct</label>
-                    <label><input type="radio" name="ch2.6_traits-q3" value="B"> B. 当你想隐藏所有类型信息，不让编译器检查</label>
-                    <label><input type="radio" name="ch2.6_traits-q3" value="C"> C. 当函数依赖的是某种行为能力，而不是某个具体类型</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.6.4 默认方法与组合：trait 也可以带来共享实现</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>Trait 只是“接口声明”吗？如果多个类型共享一部分默认行为，该怎么办？</p>
-            </div>
-            <p>trait 不只能声明必须实现的方法，也可以提供默认方法。这样类型只需实现最小必要能力，就能自动获得一部分通用行为。</p>
-            <p>这让 trait 成为“契约 + 可复用默认逻辑”的组合体，在库设计里尤其常见。它和传统面向对象继承不同，因为共享的是行为约束和默认实现，而不是字段层次。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>default_methods.rs</span></div>
-                <pre><code>trait Summary {
-    fn headline(&amp;self) -&gt; &amp;str;
-
-    fn preview(&amp;self) -&gt; String {
-        format!(&quot;preview: {}&quot;, self.headline())
-    }
-}
-
-struct Post {
-    title: String,
-}
-
-impl Summary for Post {
-    fn headline(&amp;self) -&gt; &amp;str {
-        &amp;self.title
-    }
-}
-
-fn main() {
-    let post = Post { title: String::from(&quot;Traits&quot;) };
-    println!(&quot;{}&quot;, post.preview());
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>preview: Traits</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>默认实现的边界：</strong>当默认逻辑只依赖 trait 自身已声明的方法时，它会非常自然；如果开始强依赖具体类型细节，就说明抽象层次可能不对。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：默认方法有什么实际收益？</button>
-                <div class="collapsible-content">它能让多个实现共享一部分通用行为，同时仍把关键差异留给各自类型去补足。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="trait 可以提供默认方法，从而让多个类型共享一部分行为实现。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪项最准确描述了 trait 默认方法？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.6_traits-q4" value="A"> A. 有默认方法后，实现者就不能覆盖</label>
-                    <label><input type="radio" name="ch2.6_traits-q4" value="B"> B. 它允许在 trait 内共享一部分可复用逻辑</label>
-                    <label><input type="radio" name="ch2.6_traits-q4" value="C"> C. 默认方法只能返回 ()</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.6.5 静态分发 vs 动态分发：编译期定形，还是运行时走 trait 对象？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>当你听到“泛型更快、trait object 更灵活”时，真正该理解的到底是什么？</p>
-            </div>
-            <p>使用泛型 + trait bound 时，编译器会为具体类型生成对应代码，这通常称为静态分发；使用 <code>&amp;dyn Trait</code> 或 <code>Box&lt;dyn Trait&gt;</code> 时，运行时通过虚表决定调用哪个实现，这就是动态分发。</p>
-            <p>直觉上，静态分发更适合性能敏感且类型在编译期已知的场景；动态分发更适合需要把不同具体类型放进同一容器、并通过统一接口处理的场景。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>dispatch.rs</span></div>
-                <pre><code>trait Draw {
-    fn draw(&amp;self);
-}
-
-struct Button;
-struct Label;
-
-impl Draw for Button {
-    fn draw(&amp;self) { println!(&quot;button&quot;); }
-}
-
-impl Draw for Label {
-    fn draw(&amp;self) { println!(&quot;label&quot;); }
-}
-
-fn render_all(items: &amp;[Box&lt;dyn Draw&gt;]) {
-    for item in items {
-        item.draw();
-    }
-}
-
-fn main() {
-    let items: Vec&lt;Box&lt;dyn Draw&gt;&gt; = vec![Box::new(Button), Box::new(Label)];
-    render_all(&amp;items);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>button
-label</pre>
-                </div>
-            </div>
-            <div class="note-box warning">
-                <p><strong>不要把“动态分发”直接等同于“坏性能”：</strong>很多应用层场景里，灵活性和接口统一性更重要。关键是理解你为什么需要在同一位置装下多种实现。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：什么时候 trait object 尤其自然？</button>
-                <div class="collapsible-content">当你要把多种实现同一 trait 的不同类型放进同一个集合，例如 UI 组件列表、插件列表、处理器链时，trait object 会很自然。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="静态分发依赖编译期已知具体类型；动态分发则允许通过 trait 对象统一处理多种实现。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪项最符合静态分发与动态分发的区别？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.6_traits-q5" value="A"> A. 泛型更偏静态分发，trait object 更偏运行时多态</label>
-                    <label><input type="radio" name="ch2.6_traits-q5" value="B"> B. trait object 不需要 trait</label>
-                    <label><input type="radio" name="ch2.6_traits-q5" value="C"> C. 动态分发会让 trait 失效</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>trait 用来描述共享行为契约，impl 让具体类型承诺并实现这些行为</li>
-                <li>derive 适合自动生成可机械推导的常见 trait，实现样板代码压缩</li>
-                <li>trait bound 与 impl Trait 让函数按“需要什么能力”而不是“接受什么具体类型”来设计</li>
-                <li>trait 可以提供默认方法，形成“契约 + 默认行为”的组合</li>
-                <li>静态分发强调编译期已知类型，动态分发强调以 trait 对象统一处理不同实现</li>
+              <li><strong>编译时检查</strong>——trait bound 是零成本抽象。编译器单态化泛型，运行时无开销。</li>
+              <li><strong>错误信息</strong>——不满足 trait bound 的编译错误信息清晰，会告诉你缺少哪个 trait 实现。</li>
+              <li><strong>条件实现</strong>——<code>impl&lt;T: Display&gt; ToString for T { ... }</code> 标准库用这种方式为所有 Display 类型自动实现 ToString。</li>
+              <li><strong>选择策略</strong>——参数少、bound 简单用内联；多参数、复杂 bound 用 where。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>conditional_impl.rs</span></div>
+              <pre><code>#[derive(Debug)]
+struct Pair&lt;T&gt; {
+    first: T,
+    second: T,
+}
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 定义一个 trait Greet，包含 greet 方法；为 Person struct 实现它并打印一句问候。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 给一个配置结构体派生 Debug、Clone、Default，并说明这些 derive 在调试和初始化时各自有什么用。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 写一个函数，接收任何实现了 Display 的类型并打印；然后再加一个额外约束，让参数还能比较大小。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设想你在做一个插件系统：插件类型多样，但都要执行 run。请比较“用泛型参数传一个插件”和“把多个插件装进 Vec<Box<dyn Plugin>>”两种方案的适用场景。</li>
-            </ol>
-        </section>
+// 对所有 T 都有 new
+impl&lt;T&gt; Pair&lt;T&gt; {
+    fn new(first: T, second: T) -&gt; Self {
+        Self { first, second }
+    }
+}
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+// 只有 T: Display + PartialOrd 时才有 cmp_display
+impl&lt;T: std::fmt::Display + PartialOrd&gt; Pair&lt;T&gt; {
+    fn cmp_display(&amp;self) {
+        if self.first &gt;= self.second {
+            println!("larger = {}", self.first);
+        } else {
+            println!("larger = {}", self.second);
+        }
+    }
+}
+
+fn main() {
+    let p1 = Pair::new(10, 20);
+    p1.cmp_display();   // ✅ i32 实现了 Display + PartialOrd
+
+    let p2 = Pair::new(vec![1], vec![2]);
+    // p2.cmp_display();  // ❌ Vec<i32> 没实现 Display
+    println!("{:?}", p2);  // ✅ Debug 可以
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>larger = 20
+Pair { first: [1], second: [2] }</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>要点</strong>：条件 impl 是 Rust 强大的特性——同一泛型类型，不同 T 可以有不同的方法集合。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>fn foo(x: &impl Display)</code> 等价于什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, 'impl Trait 参数位置是泛型 + trait bound 的语法糖。')">A. fn foo&lt;T: Display&gt;(x: &T)</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'dyn 是 trait 对象，impl 是泛型语法糖。')">B. fn foo(x: &dyn Display)</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '参数需要是引用。')">C. fn foo(x: Display)</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'as 不是 trait bound 语法。')">D. fn foo(x: &Display as T)</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>derive 宏 — 自动实现 Trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>手动实现 <code>Debug</code>、<code>Clone</code>、<code>PartialEq</code> 这些常见 trait 非常繁琐且容易出错。<code>#[derive(...)]</code> 让编译器自动生成这些实现，几乎每个 Rust 项目都会大量使用。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>可 derive 的 Trait</th><th>功能</th></tr></thead>
+              <tbody>
+                <tr><td><code>Debug</code></td><td><code>{:?}</code> 格式化输出</td></tr>
+                <tr><td><code>Clone</code></td><td>显式 <code>.clone()</code></td></tr>
+                <tr><td><code>Copy</code></td><td>隐式按位复制（需先 Clone）</td></tr>
+                <tr><td><code>PartialEq / Eq</code></td><td><code>==</code> / <code>!=</code> 比较</td></tr>
+                <tr><td><code>PartialOrd / Ord</code></td><td><code>&lt; &gt; &lt;= &gt;=</code> 比较</td></tr>
+                <tr><td><code>Hash</code></td><td>哈希值（用于 HashMap key）</td></tr>
+                <tr><td><code>Default</code></td><td>默认值（<code>Default::default()</code>）</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>derive_example.rs</span></div>
+              <pre><code>#[derive(Debug, Clone, PartialEq)]
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+fn main() {
+    // Debug — {:?} 打印
+    let red = Color { r: 255, g: 0, b: 0 };
+    println!("{:?}", red);
+    println!("{:#?}", red);  // 漂亮打印
+
+    // Clone
+    let red2 = red.clone();
+    println!("cloned: {:?}", red2);
+
+    // PartialEq — == 比较
+    println!("equal: {}", red == red2);
+
+    // Copy — 隐式复制（Point 是 Copy）
+    let p1 = Point { x: 1.0, y: 2.0 };
+    let p2 = p1;       // Copy，不是 move
+    println!("p1={:?}, p2={:?}", p1, p2);  // 两个都能用
+
+    // Default
+    let origin = Point::default();  // x: 0.0, y: 0.0
+    println!("origin: {:?}", origin);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Color { r: 255, g: 0, b: 0 }
+Color {
+    r: 255,
+    g: 0,
+    b: 0,
+}
+cloned: Color { r: 255, g: 0, b: 0 }
+equal: true
+p1=Point { x: 1.0, y: 2.0 }, p2=Point { x: 1.0, y: 2.0 }
+origin: Point { x: 0.0, y: 0.0 }</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch10-02-traits.html">The Rust Programming Language · Traits</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch18-02-trait-objects.html">The Rust Programming Language · Trait Objects</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/trait.html">Rust By Example · Traits</a></li>
+              <li><strong>最佳实践</strong>——几乎所有自定义类型都应该 derive <code>Debug</code>。</li>
+              <li><strong>Copy 的限制</strong>——所有字段都是 Copy 才行。包含 String、Vec 等的类型不能 Copy。</li>
+              <li><strong>PartialEq vs Eq</strong>——<code>Eq</code> 保证自反性（<code>a == a</code>），浮点数因为 NaN 只能 <code>PartialEq</code>。</li>
+              <li><strong>HashMap key</strong>——需要同时实现 <code>Eq + Hash</code>。f64 不能做 key（因为没有 Eq）。</li>
+              <li><strong>第三方 derive</strong>——serde 的 <code>#[derive(Serialize, Deserialize)]</code> 也是同样模式。</li>
             </ul>
-        </section>
-    </main>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>derive_enum.rs</span></div>
+              <pre><code>#[derive(Debug, Clone, PartialEq)]
+enum Shape {
+    Circle(f64),
+    Rectangle { w: f64, h: f64 },
+    Triangle(f64, f64, f64),
+}
 
-    <script src="../assets/js/main.js"></script>
+impl Shape {
+    fn area(&amp;self) -&gt; f64 {
+        match self {
+            Shape::Circle(r) =&gt; std::f64::consts::PI * r * r,
+            Shape::Rectangle { w, h } =&gt; w * h,
+            Shape::Triangle(a, b, c) =&gt; {
+                let s = (a + b + c) / 2.0;
+                (s * (s - a) * (s - b) * (s - c)).sqrt()
+            }
+        }
+    }
+}
+
+fn main() {
+    let shapes = vec![
+        Shape::Circle(5.0),
+        Shape::Rectangle { w: 4.0, h: 6.0 },
+        Shape::Triangle(3.0, 4.0, 5.0),
+    ];
+
+    for s in &amp;shapes {
+        println!("{:?} → area = {:.2}", s, s.area());
+    }
+
+    // PartialEq 比较
+    let c1 = Shape::Circle(5.0);
+    let c2 = Shape::Circle(5.0);
+    println!("c1 == c2: {}", c1 == c2);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Circle(5.0) → area = 78.54
+Rectangle { w: 4.0, h: 6.0 } → area = 24.00
+Triangle(3.0, 4.0, 5.0) → area = 6.00
+c1 == c2: true</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：derive 要求所有字段都实现目标 trait。如果给包含 <code>f64</code> 的 struct derive <code>Eq</code>，会编译错误（f64 只有 PartialEq）。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么 String 不能 derive Copy？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Copy 可以用于 struct。')">A. Copy 只能用于基本类型</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'String 拥有堆内存，按位复制会导致两个所有者，违反所有权规则。')">B. String 拥有堆内存，按位复制会导致 double free</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Copy 不是 deprecated。')">C. Copy 已弃用</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '不是编译器 bug。')">D. 这是编译器 bug</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>impl Trait — 参数与返回值中的 Trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>有时候你想写一个函数"接受任何可打印的东西"或"返回某个迭代器但不想暴露具体类型"。<code>impl Trait</code> 在参数和返回位置的两种用法，让泛型代码更简洁，同时保持零成本抽象。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>位置</th><th>语法</th><th>意义</th><th>等价</th></tr></thead>
+              <tbody>
+                <tr><td>参数</td><td><code>fn f(x: &impl Display)</code></td><td>接受任何 Display 类型</td><td><code>fn f&lt;T: Display&gt;(x: &T)</code></td></tr>
+                <tr><td>返回</td><td><code>fn f() -> impl Display</code></td><td>返回某个 Display 类型</td><td>（无直接等价泛型写法）</td></tr>
+              </tbody>
+            </table>
+            <ul>
+              <li>参数位置：每个 <code>impl Trait</code> 引入独立的泛型参数。</li>
+              <li>返回位置：函数内部只能返回<strong>同一个</strong>具体类型。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>impl_trait.rs</span></div>
+              <pre><code>use std::fmt::Display;
+
+// 1. 参数位置 — 语法糖
+fn log(item: &amp;impl Display) {
+    println!("[LOG] {}", item);
+}
+
+// 等价版本
+fn log_explicit&lt;T: Display&gt;(item: &amp;T) {
+    println!("[LOG] {}", item);
+}
+
+// 2. 返回位置 — 隐藏具体类型
+fn make_greeting(name: &amp;str) -&gt; impl Display {
+    format!("Hello, {}!", name)
+    // 调用者只知道返回值实现了 Display
+    // 不知道具体类型是 String
+}
+
+// 3. 返回复杂迭代器 — impl Trait 最常见用途
+fn even_squares(limit: u32) -&gt; impl Iterator&lt;Item = u32&gt; {
+    (1..=limit)
+        .map(|x| x * x)
+        .filter(|&amp;x| x % 2 == 0)
+    // 具体类型太复杂：Filter&lt;Map&lt;RangeInclusive&lt;u32&gt;, ...&gt;, ...&gt;
+    // impl Iterator 让类型签名保持简洁
+}
+
+// 4. 参数和返回中同时使用
+fn double_display(item: &amp;impl Display) -&gt; impl Display {
+    format!("{} {}", item, item)
+}
+
+fn main() {
+    log(&amp;42);
+    log(&amp;"hello");
+    log_explicit(&amp;3.14);
+
+    let greeting = make_greeting("Rustacean");
+    println!("{}", greeting);
+
+    let squares: Vec&lt;u32&gt; = even_squares(10).collect();
+    println!("even squares: {:?}", squares);
+
+    let doubled = double_display(&amp;"ha");
+    println!("{}", doubled);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>[LOG] 42
+[LOG] hello
+[LOG] 3.14
+Hello, Rustacean!
+even squares: [4, 16, 36, 64, 100]
+ha ha</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>返回迭代器</strong>——<code>-&gt; impl Iterator</code> 是最常见的用法，避免写出复杂的嵌套类型。</li>
+              <li><strong>返回闭包</strong>——<code>-&gt; impl Fn(i32) -&gt; i32</code> 用于返回闭包。</li>
+              <li><strong>限制</strong>：返回位置的 <code>impl Trait</code> 不能返回不同类型——<code>if cond { "str" } else { 42 }</code> 不合法（即使都 Display）。需要动态分派时用 <code>Box&lt;dyn Trait&gt;</code>。</li>
+              <li><strong>impl Trait vs dyn Trait</strong>——<code>impl</code> 是编译时单态化（快），<code>dyn</code> 是运行时动态分派（灵活）。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>return_closure.rs</span></div>
+              <pre><code>// 返回闭包
+fn make_adder(x: i32) -&gt; impl Fn(i32) -&gt; i32 {
+    move |y| x + y
+}
+
+// ❌ 不能返回不同类型
+// fn make_formatter(fancy: bool) -&gt; impl Display {
+//     if fancy { format!("✨ fancy ✨") }
+//     else { 42 }  // 错！String 和 i32 是不同类型
+// }
+
+// ✅ 需要不同类型时用 Box&lt;dyn Trait&gt;
+fn make_formatter(fancy: bool) -&gt; Box&lt;dyn std::fmt::Display&gt; {
+    if fancy {
+        Box::new(format!("fancy output"))
+    } else {
+        Box::new(42)
+    }
+}
+
+fn main() {
+    let add5 = make_adder(5);
+    println!("3 + 5 = {}", add5(3));
+    println!("10 + 5 = {}", add5(10));
+
+    println!("{}", make_formatter(true));
+    println!("{}", make_formatter(false));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>3 + 5 = 8
+10 + 5 = 15
+fancy output
+42</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>核心区别</strong>：<code>impl Trait</code>（静态分派，零开销，但只能返回一种类型）vs <code>dyn Trait</code>（动态分派，有间接寻址开销，但可以返回多种类型）。这是后续章节（Trait 对象）的重点。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">返回 <code>impl Iterator</code> 的函数体能 return 两种不同的迭代器类型吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, 'impl Trait 在返回位置要求所有 return 路径是同一具体类型。')">A. 可以，只要都是 Iterator</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, 'impl Trait 要求编译时确定唯一的具体类型。需要多种类型时用 Box<dyn Iterator>。')">B. 不能，必须是同一具体类型。需要多类型用 Box&lt;dyn Iterator&gt;</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '不是看心情，这是编译时规则。')">C. 视情况而定</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '没有这个 attribute。')">D. 可以，加 #[multi_return] 即可</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch2.5_pattern_matching.html">← Ch 2.5 模式匹配</a>
+      <a class="nav-next" href="../unit3_std_projects/ch3.1_strings.html">Ch 3.1 字符串 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

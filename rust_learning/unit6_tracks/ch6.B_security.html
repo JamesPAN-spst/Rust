@@ -1,309 +1,218 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 6.B 安全攻防方向 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 6.2 安全方向 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u6-chB-q1","question":"Rust 的安全特性能消除哪类漏洞？","options":["A. SQL 注入","B. 内存安全类漏洞（缓冲区溢出、use-after-free、数据竞争）","C. XSS 攻击","D. 所有漏洞"],"answer":1,"explanation":"Rust 的所有权系统在编译期消除 buffer overflow、use-after-free、double free、data race 等内存安全类漏洞。"},
+      {"id":"u6-chB-q2","question":"根据微软和谷歌的统计，内存安全漏洞占所有高危漏洞的百分比约为？","options":["A. 10%","B. 30%","C. 70%","D. 99%"],"answer":2,"explanation":"微软和谷歌均报告约 70% 的高危安全漏洞属于内存安全问题。Rust 从根本上消除这类漏洞。"},
+      {"id":"u6-chB-q3","question":"cargo-audit 的作用是？","options":["A. 审计代码格式","B. 检查依赖中的已知安全漏洞（CVE）","C. 优化编译速度","D. 管理 Git 仓库"],"answer":1,"explanation":"cargo-audit 比对 Cargo.lock 中的依赖与 RustSec 安全数据库，报告已知 CVE 漏洞。"},
+      {"id":"u6-chB-q4","question":"Fuzzing（模糊测试）的基本原理是？","options":["A. 手动编写测试用例","B. 用随机/变异输入喂程序，观察是否崩溃","C. 代码审计","D. 性能测试"],"answer":1,"explanation":"Fuzzer 自动生成大量变异输入，覆盖到人类想不到的边界情况。找到崩溃或异常行为。"},
+      {"id":"u6-chB-q5","question":"cargo-fuzz 使用的底层 fuzzing 引擎是？","options":["A. AFL","B. libFuzzer","C. hongfuzz","D. 自定义引擎"],"answer":1,"explanation":"cargo-fuzz 基于 LLVM 的 libFuzzer，利用编译期插桩实现覆盖引导（coverage-guided）fuzzing。"},
+      {"id":"u6-chB-q6","question":"Rust 安全工具链中，Miri 检测什么？","options":["A. 代码风格","B. unsafe 代码中的未定义行为（UB）","C. 性能瓶颈","D. 依赖许可证"],"answer":1,"explanation":"Miri 是 MIR 解释器，能检测 unsafe 代码中的越界访问、悬垂指针使用、对齐错误等未定义行为。"},
+      {"id":"u6-chB-q7","question":"#[deny(unsafe_code)] 的作用？","options":["A. 删除所有 unsafe 代码","B. 禁止当前 crate 使用 unsafe，违反则编译错误","C. 运行时检查 unsafe","D. 启用额外优化"],"answer":1,"explanation":"这个属性告诉编译器：如果这个 crate 中有任何 unsafe 代码，直接报编译错误。用于确保 crate 是 100% safe Rust。"},
+      {"id":"u6-chB-q8","question":"cargo-geiger 的功能是？","options":["A. 检测辐射","B. 统计项目依赖树中 unsafe 代码的使用量","C. 压缩二进制","D. 管理配置"],"answer":1,"explanation":"cargo-geiger 像盖革计数器一样扫描整个依赖树，报告每个 crate 中 unsafe 的使用情况。"},
+      {"id":"u6-chB-q9","question":"RustSec Advisory Database 是什么？","options":["A. Rust 的包仓库","B. Rust 生态的安全漏洞数据库","C. Rust 编译器仓库","D. IDE 插件库"],"answer":1,"explanation":"RustSec 维护 Rust crate 的已知安全漏洞信息。cargo-audit 和 cargo-deny 都使用这个数据库。"},
+      {"id":"u6-chB-q10","question":"在 Rust 中如何安全解析不受信任的输入？","options":["A. 直接用 unsafe 访问内存","B. 使用 nom/pest 解析器 + 验证边界 + 限制输入大小","C. 用正则表达式","D. 忽略错误输入"],"answer":1,"explanation":"专用解析库不使用 unsafe 的内存操作，配合边界验证和大小限制，可以安全处理恶意输入。"},
+      {"id":"u6-chB-q11","question":"Rust 在密码学开发中的优势是？","options":["A. 内置加密算法","B. 内存安全防止侧信道攻击中的缓冲区问题，且有高质量密码学 crate","C. 运行更快","D. 支持量子加密"],"answer":1,"explanation":"ring、rust-crypto、RustCrypto 组织提供经过审计的密码学实现。Rust 的内存安全减少了实现密码学时的常见错误。"},
+      {"id":"u6-chB-q12","question":"constant_time_eq 库的目的是？","options":["A. 加速比较","B. 防止时序侧信道攻击——比较时间不取决于内容","C. 多线程比较","D. 压缩比较"],"answer":1,"explanation":"普通 == 遇到第一个不同字节就返回——攻击者可以通过比较耗时推断密码位数。常数时间比较始终检查所有字节。"},
+      {"id":"u6-chB-q13","question":"goblin 和 object 这类 crate 用于什么？","options":["A. 游戏开发","B. 解析二进制文件格式（ELF、PE、Mach-O）","C. 网络通信","D. 数据库操作"],"answer":1,"explanation":"安全研究中经常需要分析可执行文件。goblin/object 可以安全解析 ELF/PE/Mach-O 格式——不用 unsafe 手动操作内存。"},
+      {"id":"u6-chB-q14","question":"为什么 Rust 适合编写安全工具？","options":["A. 因为 Rust 有 GC","B. 工具本身不会因为内存 bug 成为攻击面","C. 因为 Rust 代码更短","D. 因为 Rust 有图形界面"],"answer":1,"explanation":"安全工具经常处理恶意输入——如果工具本身有内存安全漏洞，可能被恶意输入反向利用。Rust 消除了这个风险。"},
+      {"id":"u6-chB-q15","question":"cargo-deny 相比 cargo-audit 多了什么功能？","options":["A. 完全一样","B. 还能检查许可证合规性和禁止特定依赖","C. 更快","D. 支持 C 代码审计"],"answer":1,"explanation":"cargo-deny 是更全面的依赖审查工具：安全漏洞 + 许可证冲突 + 来源审查 + 禁止列表。"},
+      {"id":"u6-chB-q16","question":"Pin + Unpin 在安全场景中的意义是？","options":["A. 加密用","B. 确保自引用数据不被移动，防止悬垂引用","C. 网络协议","D. 文件锁定"],"answer":1,"explanation":"Pin 保证值不会被移动到新地址。对于异步 Future 等自引用结构，移动会导致内部引用失效。Pin 在类型层面防止这种错误。"},
+      {"id":"u6-chB-q17","question":"Rust 对 supply chain attack（供应链攻击）有什么防护？","options":["A. 完全免疫","B. cargo-vet + cargo-audit + cargo-deny 三重检查","C. 不使用外部依赖","D. 人工审计所有代码"],"answer":1,"explanation":"cargo-vet 验证依赖审计状态、cargo-audit 检查漏洞、cargo-deny 限制来源和许可证。多层防护减轻供应链风险。"},
+      {"id":"u6-chB-q18","question":"zeroize crate 的作用？","options":["A. 初始化变量为零","B. 在内存中安全擦除敏感数据（密码、密钥），防止被遗留","C. 压缩数据","D. 计数器归零"],"answer":1,"explanation":"普通 drop 不一定清零内存。zeroize 确保敏感数据（密码、密钥）在不再使用时被彻底覆盖，防止内存取证攻击。"},
+      {"id":"u6-chB-q19","question":"Clippy 中哪个 lint 组与安全最相关？","options":["A. clippy::style","B. clippy::nursery","C. clippy::pedantic 和 clippy::suspicious","D. clippy::perf"],"answer":2,"explanation":"pedantic（严格检查）和 suspicious（可疑模式）能发现安全相关的可疑代码模式。配合 #[deny(unsafe_code)] 使用效果更好。"},
+      {"id":"u6-chB-q20","question":"Rust 在网络安全工具开发中取代 C/Python 的趋势原因？","options":["A. C 和 Python 即将消亡","B. Rust 兼具 C 的性能和 Python 的开发效率，且自身无内存安全漏洞","C. Rust 有更多库","D. Rust 是新语言"],"answer":1,"explanation":"安全工具需要高性能（大量数据处理）+ 安全可靠（自身不能有漏洞）+ 高效开发。Rust 同时满足这三个需求。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit6_tracks" style="--domain-color: var(--c-tracks);">
+  <nav class="topbar"><a href="../index.html" class="topbar-brand">Rust Learning</a><div class="topbar-module"><span class="module-domain">TRACKS</span><a href="../index.html" class="module-name">Unit 6 · 专题方向</a></div><div class="topbar-right"><span class="chapter-indicator">Ch.2 / 3</span><button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button></div></nav>
+  <aside class="toc-sidebar"><div class="toc-header">本章目录</div><ul class="toc-list"><li><a href="#kp1">01 · Rust 的安全优势</a></li><li><a href="#kp2">02 · 内存安全消除漏洞</a></li><li><a href="#kp3">03 · Fuzzing 与测试</a></li><li><a href="#kp4">04 · 协议解析与密码学</a></li><li><a href="#kp5">05 · 安全工具生态</a></li><li><a href="#exercises">综合练习</a></li></ul></aside>
+  <main class="main-content">
+    <header class="chapter-hero"><p class="chapter-label">Unit 6 · 专题方向</p><h1>Ch 6.2 安全方向</h1><p class="chapter-intro">Rust 天生就是安全工具的理想语言——所有权系统消除 70% 的高危漏洞类别，同时保持 C 级性能。从安全审计到密码学，Rust 正在改变安全行业的工具链。</p></header>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 6 · 方向分支</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit5_advanced/ch5.4_unsafe_rust.html">上一单元</a></li>
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>Rust 的安全优势</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>微软和谷歌的安全团队都报告：约 70% 的高危安全漏洞是内存安全问题。Rust 从语言层面消除这些漏洞，这对安全从业者意味着什么？</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>Rust 安全三大支柱：</p><ul><li><strong>所有权系统</strong>：编译期消除 use-after-free、double-free</li><li><strong>借用检查</strong>：消除数据竞争和悬垂引用</li><li><strong>类型安全</strong>：消除空指针解引用、类型混淆</li></ul><p>这不是"减少" bug，是<strong>在语言层面使其不可能发生</strong>。</p></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>safety_benefits.rs</span></div>
+<pre><code>// C 中的经典漏洞 → Rust 中不可能发生
 
-            <li class="unit-title">Unit 6 正式页面</li>
-            <li><a href="./ch6.A_game_dev.html">6.A 游戏开发方向</a></li>
-            <li><a href="./ch6.B_security.html" class="active">6.B 安全攻防方向</a></li>
-            <li><a href="./ch6.C_systems.html">6.C 系统编程方向</a></li>
+// 1. Buffer overflow → Rust 数组有边界检查
+fn safe_access(data: &amp;[u8], idx: usize) -> Option&lt;&amp;u8&gt; {
+    data.get(idx)  // 越界返回 None，不会 UB
+}
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">为什么用 Rust 做安全工具</a></li>
-            <li><a href="#kp-2">内存安全消除漏洞类别</a></li>
-            <li><a href="#kp-3">Fuzzing 与二进制分析</a></li>
-            <li><a href="#kp-4">协议解析与密码学生态</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
+// 2. Use-after-free → 所有权系统阻止
+fn no_uaf() {
+    let v = vec![1, 2, 3];
+    let r = &amp;v[0];
+    // drop(v);  // ❌ 编译错误！r 还在借用
+    println!("{}", r);
+}
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 6 · 方向分支</span>
-            <h1>Ch 6.B 安全攻防方向</h1>
-            <p class="chapter-description">安全工具本身不能有漏洞。Rust 的内存安全保证让它成为构建安全工具链的理想语言。这一章从漏洞消除、模糊测试、二进制分析到密码学生态，展示 Rust 在安全攻防领域的独特地位。</p>
-        </header>
+// 3. Data race → 借用规则阻止
+// &amp;T 可以多个，&amp;mut T 只能一个
+// 在多线程中也由 Send/Sync 保护
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解 Rust 如何在语言层面消除 buffer overflow、use-after-free、数据竞争等经典漏洞类别</li>
-                <li>掌握 <code>cargo-fuzz</code> 的基本用法，理解模糊测试如何发现边界问题</li>
-                <li>了解 Rust 在二进制分析和网络协议解析领域的工具链</li>
-                <li>认识 Rust 密码学生态中的核心 crate 及其安全设计理念</li>
-            </ul>
-        </section>
+fn main() {
+    println!("{:?}", safe_access(&amp;[1,2,3], 5)); // None
+    no_uaf();
+}</code></pre>
+<div class="code-output"><strong>输出</strong><pre>None
+1</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>行业趋势</strong>：美国白宫 2024 年报告建议关键基础设施使用内存安全语言。Linux 内核引入 Rust。Android 新代码大量使用 Rust。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>注意</strong>：Rust 不能阻止逻辑错误、SQL 注入、XSS 等非内存安全类问题。它消除的是特定类别的漏洞。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">Rust 的安全特性能消除哪类漏洞？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。SQL 注入是应用层问题。')">A. SQL 注入</button><button onclick="checkInlineQuiz('iq-kp1',this,true,'正确！所有权系统编译期消除内存安全类漏洞。')">B. 内存安全类漏洞</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。XSS 是 Web 前端问题。')">C. XSS 攻击</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。Rust 不能消除逻辑错误。')">D. 所有漏洞</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议已掌握所有权、借用、生命周期和 unsafe 基础。理解 Rust 如何在编译期保证安全是进入安全攻防方向的前提——你需要清楚 Rust 防住了什么，才能理解安全工具为什么选择 Rust。</p>
-        </section>
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>内存安全消除漏洞</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>CVE 数据库中大量高危漏洞——心脏出血（Heartbleed）、Stagefright、WannaCry——都源于 C/C++ 的内存安全问题。理解 Rust 如何消除每类漏洞，能帮你向团队和管理层论证 Rust 的价值。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><table style="width:100%; border-collapse:collapse;"><tr><th style="text-align:left;padding:4px;">漏洞类型</th><th style="text-align:left;padding:4px;">C/C++</th><th style="text-align:left;padding:4px;">Rust</th></tr><tr><td style="padding:4px;">缓冲区溢出</td><td style="padding:4px;">没有边界检查</td><td style="padding:4px;">自动边界检查</td></tr><tr><td style="padding:4px;">Use-after-free</td><td style="padding:4px;">手动管理</td><td style="padding:4px;">所有权阻止</td></tr><tr><td style="padding:4px;">Double free</td><td style="padding:4px;">运行时崩溃</td><td style="padding:4px;">编译期阻止</td></tr><tr><td style="padding:4px;">数据竞争</td><td style="padding:4px;">运行时 UB</td><td style="padding:4px;">Send/Sync 阻止</td></tr><tr><td style="padding:4px;">空指针</td><td style="padding:4px;">段错误</td><td style="padding:4px;">Option&lt;T&gt; 强制处理</td></tr></table></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>heartbleed_impossible.rs</span></div>
+<pre><code>// Heartbleed 漏洞的本质：读取了请求长度外的内存
+// 在 Rust 中这不可能发生
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>6.B.1 为什么用 Rust 构建安全工具？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>安全工具需要解析恶意输入、处理畸形数据包、分析不可信二进制文件——如果工具本身存在内存安全漏洞，攻击者就能反过来攻击分析人员。怎样才能让工具自身足够坚固？</p>
-            </div>
-            <p>C/C++ 编写的安全工具（如 fuzzer、反汇编器、IDS）历史上多次被恶意输入攻破。Rust 在编译期消除内存错误，使安全工具不会因为解析输入而自身崩溃或被利用。同时 Rust 的性能与 C 相当，不会因为选择安全语言而牺牲分析速度。</p>
-            <div class="note-box tip">
-                <p><strong>行业趋势：</strong>Google Android 团队报告显示，引入 Rust 后新增内存安全漏洞数量从 223 降至 85（2019→2022）。微软同样在安全关键组件中推进 Rust 采用。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>safe_parsing.rs</span></div>
-                <pre><code>/// 安全地解析一个长度前缀的二进制协议
-fn parse_message(data: &amp;[u8]) -&gt; Option&lt;&amp;[u8]&gt; {
-    // 第一个字节表示后续 payload 长度
-    let length = *data.first()? as usize;
-    // 切片自动做边界检查，不会越界
-    data.get(1..1 + length)
+fn process_heartbeat(payload: &amp;[u8], claimed_len: usize) -> &amp;[u8] {
+    // get 方法做边界检查，不会越界
+    let actual_len = claimed_len.min(payload.len());
+    &amp;payload[..actual_len]  // 如果越界 → panic，不泄露数据
 }
 
 fn main() {
-    let packet = [3, 0xAA, 0xBB, 0xCC, 0xDD];
-    match parse_message(&amp;packet) {
-        Some(payload) =&gt; println!("payload: {:02X?}", payload),
-        None =&gt; println!("malformed packet"),
+    let data = b"Hello";
+    // 攻击者声称长度 1000，但只发了 5 字节
+    let result = process_heartbeat(data, 1000);
+    println!("安全返回 {} 字节", result.len());
+}</code></pre>
+<div class="code-output"><strong>输出</strong><pre>安全返回 5 字节</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>审计重点</strong>：安全审计 Rust 代码时，重点关注 unsafe 块——这是唯一可能引入内存安全漏洞的地方。safe Rust 不需要审计内存安全。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>边界检查的性能</strong>：有人担心边界检查影响性能。实际上编译器通常能优化掉大部分检查（如 for 循环中迭代器已知长度时）。必要时可用 <code>get_unchecked</code>（unsafe）。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">根据统计，内存安全漏洞约占高危漏洞的多少？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。比例远高于此。')">A. 10%</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。比例更高。')">B. 30%</button><button onclick="checkInlineQuiz('iq-kp2',this,true,'正确！微软和谷歌的安全团队都报告了约 70% 这个数字。')">C. 70%</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。还有逻辑错误、配置错误等其他类别。')">D. 99%</button></div></div>
+    </section><hr class="kp-separator">
+
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>Fuzzing 与安全测试</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>即使 Rust 消除了内存安全漏洞，逻辑错误和 panic 仍然存在。Fuzzing（模糊测试）是发现这些问题的最有效自动化方法——它找到了编译器和密码学库中的大量 bug。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>Fuzzing</strong>：用自动生成的随机/变异输入持续喂给程序</li><li><strong>Coverage-guided</strong>：fuzzer 追踪代码覆盖率，引导输入探索新路径</li><li><strong>对 Rust 的意义</strong>：找 panic、逻辑错误、unsafe 代码中的 UB</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>BASH</span><span>terminal</span></div>
+<pre><code># 安装 cargo-fuzz
+cargo install cargo-fuzz
+
+# 初始化 fuzz 目标
+cargo fuzz init
+cargo fuzz add parse_input</code></pre></div>
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>fuzz/fuzz_targets/parse_input.rs</span></div>
+<pre><code>#![no_main]
+use libfuzzer_sys::fuzz_target;
+
+fuzz_target!(|data: &amp;[u8]| {
+    // 这里放你要测试的解析逻辑
+    if let Ok(s) = std::str::from_utf8(data) {
+        let _ = my_lib::parse_config(s);
     }
+});</code></pre></div>
+          <div class="code-block"><div class="code-header"><span>BASH</span><span>terminal</span></div>
+<pre><code># 开始 fuzzing（持续运行直到发现问题或手动停止）
+cargo fuzz run parse_input
 
-    // 畸形包：声称长度 10 但只有 2 字节
-    let bad = [10, 0xFF];
-    assert!(parse_message(&amp;bad).is_none());
-    println!("bad packet safely rejected");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>payload: [AA, BB, CC]
-bad packet safely rejected</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="Rust 在编译期消除内存安全漏洞，使安全工具自身不会成为攻击面，同时保持 C 级别的性能。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>安全工具选择 Rust 的首要原因是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6b-q1" value="A"> A. Rust 有最多的安全库</label>
-                    <label><input type="radio" name="u6b-q1" value="B"> B. Rust 编译速度快</label>
-                    <label><input type="radio" name="u6b-q1" value="C"> C. 工具自身不会因内存错误成为攻击入口</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+# 查看覆盖率
+cargo fuzz coverage parse_input</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>什么该 fuzz</strong>：解析器、序列化/反序列化、网络协议处理、任何处理不受信输入的代码。</p><p><strong>CI 集成</strong>：在 CI 中运行短时 fuzzing（如 60 秒），长时 fuzzing 在专用机器上持续运行。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>实际成果</strong>：cargo-fuzz 已在 Rust 生态中发现数百个 bug，包括 serde、image、regex 等重要 crate 中的问题。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">Fuzzing 的基本原理是什么？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。Fuzzing 是自动化的。')">A. 手动编写测试用例</button><button onclick="checkInlineQuiz('iq-kp3',this,true,'正确！Fuzzer 自动生成变异输入，覆盖人类想不到的边界。')">B. 用随机/变异输入喂程序，观察否崩溃</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。代码审计是人工活动。')">C. 代码审计</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。性能测试关注延迟/吞吐。')">D. 性能测试</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>6.B.2 内存安全如何消除漏洞类别</h2>
-            <div class="think-box">
-                <div class="think-icon">🛡️</div>
-                <p>CWE Top 25 中大量漏洞类型（buffer overflow、use-after-free、double free、data race）的根因都是内存不安全。如果语言在编译期就排除了这些可能性，安全态势会发生什么变化？</p>
-            </div>
-            <p>Rust 的所有权系统在编译期保证：值只有一个所有者，借用规则排除悬垂引用，<code>Send</code>/<code>Sync</code> 排除数据竞争。这意味着整类漏洞在安全 Rust 代码中根本不可能出现——不是"难以出现"，而是"编译不过"。</p>
-            <div class="note-box warning">
-                <p><strong>边界注意：</strong><code>unsafe</code> 块会绕过这些保证。安全审计时应重点关注 <code>unsafe</code> 代码路径——这是 Rust 程序中潜在漏洞的集中区域。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>compile_time_safety.rs</span></div>
-                <pre><code>fn main() {
-    // ❌ Use-after-free: 编译器直接拒绝
-    // let s = String::from("secret");
-    // let r = &amp;s;
-    // drop(s);
-    // println!("{r}"); // ERROR: borrow of moved value
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>协议解析与密码学</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>安全领域的两大核心技能：解析二进制协议（网络包、文件格式）和密码学操作（加密、签名、哈希）。Rust 在这两方面都有成熟的生态。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>协议解析</strong>：nom（组合子解析器）、pest（PEG 语法）——安全解析不受信输入</li><li><strong>二进制分析</strong>：goblin（ELF/PE/Mach-O）、object、capstone（反汇编）</li><li><strong>密码学</strong>：ring（高性能）、RustCrypto（纯 Rust 全家桶）、rustls（TLS）</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>crypto_example.rs</span></div>
+<pre><code>use sha2::{Sha256, Digest};
 
-    // ❌ Buffer overflow: 运行时边界检查
-    let buf = vec![1, 2, 3];
-    // buf[10]; // panic: index out of bounds
-
-    // ✅ 安全的做法
-    match buf.get(10) {
-        Some(v) =&gt; println!("value: {v}"),
-        None =&gt; println!("index out of range — handled safely"),
-    }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>index out of range — handled safely</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：Rust 能阻止所有安全漏洞吗？</button>
-                <div class="collapsible-content">不能。Rust 消除的是内存安全和数据竞争类漏洞。逻辑漏洞（如认证绕过、权限检查缺失）、侧信道攻击、密码学误用等仍然需要开发者自行防范。此外，<code>unsafe</code> 代码和 FFI 边界也需要额外审计。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="所有权系统和借用规则在编译期排除悬垂引用、数据竞争等问题——这些漏洞在安全 Rust 代码中根本无法通过编译。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 消除内存漏洞的核心机制是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6b-q2" value="A"> A. 运行时垃圾回收器扫描</label>
-                    <label><input type="radio" name="u6b-q2" value="B"> B. 编译期所有权和借用规则检查</label>
-                    <label><input type="radio" name="u6b-q2" value="C"> C. 在运行时动态隔离所有指针</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>6.B.3 Fuzzing 与二进制分析工具</h2>
-            <div class="think-box">
-                <div class="think-icon">🔍</div>
-                <p>代码审计靠人眼，但人总会遗漏。有没有自动化的方式，用大量随机输入去"碰撞"出解析器的边界问题？</p>
-            </div>
-            <p>模糊测试（Fuzzing）通过向目标函数注入大量变异输入来寻找崩溃和异常行为。Rust 生态的 <code>cargo-fuzz</code> 基于 libFuzzer 引擎，可以对任意 <code>fn(&amp;[u8])</code> 进行覆盖率引导的模糊测试。在二进制分析领域，<code>goblin</code>（ELF/PE/Mach-O 解析）和 <code>object</code>（统一二进制格式抽象）提供安全的解析能力。</p>
-            <div class="note-box tip">
-                <p><strong>实用工具链：</strong><code>cargo-fuzz</code> — 覆盖率引导 fuzzing；<code>afl.rs</code> — AFL fuzzer 的 Rust 封装；<code>goblin</code> — 多格式二进制解析；<code>object</code> — 统一对象文件读写。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>fuzz_target_example.rs</span></div>
-                <pre><code>// 文件: fuzz/fuzz_targets/fuzz_parser.rs
-// 需要在 Cargo.toml 中配置 cargo-fuzz
-
-// #![no_main]
-// use libfuzzer_sys::fuzz_target;
-
-// 目标函数：解析一个简单的键值协议
-fn parse_kv(data: &amp;[u8]) -&gt; Option&lt;(&amp;str, &amp;str)&gt; {
-    let s = std::str::from_utf8(data).ok()?;
-    let (key, value) = s.split_once('=')?;
-    if key.is_empty() { return None; }
-    Some((key, value))
-}
-
-// fuzz_target!(|data: &amp;[u8]| {
-//     let _ = parse_kv(data);
-// });
-
-fn main() {
-    // 手动测试用例
-    assert_eq!(parse_kv(b"name=rust"), Some(("name", "rust")));
-    assert_eq!(parse_kv(b"=oops"), None);
-    assert_eq!(parse_kv(b"\xff\xfe"), None);
-    println!("all manual test cases passed");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>all manual test cases passed</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：cargo-fuzz 的基本工作流程是什么？</button>
-                <div class="collapsible-content">
-                    <ol>
-                        <li><code>cargo install cargo-fuzz</code> 安装工具</li>
-                        <li><code>cargo fuzz init</code> 初始化 fuzz 目录</li>
-                        <li><code>cargo fuzz add fuzz_parser</code> 创建目标</li>
-                        <li>编写 <code>fuzz_target!</code> 宏包裹目标函数</li>
-                        <li><code>cargo fuzz run fuzz_parser</code> 启动模糊测试</li>
-                        <li>发现崩溃后在 <code>fuzz/artifacts/</code> 中查看触发输入</li>
-                    </ol>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="模糊测试通过覆盖率引导的随机变异输入自动发现解析器的边界条件和崩溃。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>cargo-fuzz</code> 的核心工作方式是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6b-q3" value="A"> A. 自动生成变异输入并监控目标函数是否崩溃</label>
-                    <label><input type="radio" name="u6b-q3" value="B"> B. 静态分析源代码查找 unsafe 块</label>
-                    <label><input type="radio" name="u6b-q3" value="C"> C. 测量代码行覆盖率并生成覆盖率报告</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-4">
-            <h2>6.B.4 网络协议解析与密码学生态</h2>
-            <div class="think-box">
-                <div class="think-icon">🔐</div>
-                <p>TLS 库的漏洞（如 Heartbleed）曾造成全球性安全灾难。如果用 Rust 重写协议解析和密码学库，能从根本上改善什么？</p>
-            </div>
-            <p>网络协议解析是安全工具的核心场景：防火墙、IDS、代理都需要解析不可信的网络流量。<code>nom</code> 是 Rust 生态中强大的零拷贝解析器组合子库，用类型安全的方式构建解析器。在密码学方面，<code>RustCrypto</code> 项目提供了纯 Rust 实现的加密原语，<code>rustls</code> 是无 C 依赖的 TLS 库——它从根本上排除了 OpenSSL 类型的内存安全漏洞。</p>
-            <div class="note-box tip">
-                <p><strong>安全生态：</strong><code>nom</code> — 零拷贝协议解析；<code>rustls</code> — 纯 Rust TLS；<code>ring</code> — 高性能密码学原语；<code>RustCrypto</code> — 全系列加密算法的纯 Rust 实现。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>nom_parser_example.rs</span></div>
-                <pre><code>// nom 风格的协议解析（简化示例）
-// 实际使用需添加 nom 依赖
-
-/// 手动演示 nom 的解析思想：
-/// 输入一个 "CMD:payload" 格式的字节流
-fn parse_command(input: &amp;str) -&gt; Option&lt;(&amp;str, &amp;str)&gt; {
-    let (cmd, rest) = input.split_once(':')?;
-    if cmd.is_empty() { return None; }
-    Some((cmd, rest))
+fn hash_data(data: &amp;[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    // 转化为十六进制字符串
+    result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 fn main() {
-    let input = "PING:hello_server";
-    match parse_command(input) {
-        Some((cmd, payload)) =&gt; {
-            println!("command: {cmd}");
-            println!("payload: {payload}");
-        }
-        None =&gt; println!("parse failed"),
-    }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>command: PING
-payload: hello_server</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="rustls 用纯 Rust 实现 TLS，从语言层面排除了 C 实现中常见的内存安全漏洞，同时不依赖 OpenSSL。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>rustls</code> 相比 OpenSSL 的核心安全优势是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6b-q4" value="A"> A. 支持更多的加密算法</label>
-                    <label><input type="radio" name="u6b-q4" value="B"> B. 纯 Rust 实现，从语言层面排除内存安全漏洞</label>
-                    <label><input type="radio" name="u6b-q4" value="C"> C. 运行速度比 OpenSSL 快 10 倍</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    let hash = hash_data(b"Hello, Rust Security!");
+    println!("SHA-256: {}", hash);
+}
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
-            <ul>
-                <li>安全工具自身的内存安全至关重要——Rust 在编译期消除 buffer overflow、use-after-free、数据竞争等漏洞。</li>
-                <li>Rust 的所有权系统使得整类 CWE 漏洞在安全代码中不可能存在，<code>unsafe</code> 是审计重点。</li>
-                <li><code>cargo-fuzz</code> 提供覆盖率引导的模糊测试，<code>goblin</code>/<code>object</code> 提供安全的二进制解析。</li>
-                <li><code>nom</code>、<code>rustls</code>、<code>RustCrypto</code> 构成了 Rust 安全工具链的核心密码学与协议解析生态。</li>
-            </ul>
-        </section>
+// nom 解析器示例
+// use nom::{bytes::complete::tag, IResult};
+// fn parse_header(input: &amp;[u8]) -> IResult&lt;&amp;[u8], &amp;[u8]&gt; {
+//     tag(b"MAGIC")(input)
+// }</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>rustls vs OpenSSL</strong>：rustls 是纯 Rust TLS 实现，没有 OpenSSL 的历史包袱和安全漏洞历史。已被 hyper、reqwest 等主流库采用。</p><p><strong>zeroize</strong>：处理敏感数据（密码、密钥）时用 zeroize 确保不留在内存中。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常数时间比较</strong>：比较密码/token 时必须用 <code>constant_time_eq</code>，不能用 <code>==</code>。否则攻击者可以通过时序侧信道推断内容。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">constant_time_eq 的目的是什么？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。普通 == 更快。')">A. 加速比较</button><button onclick="checkInlineQuiz('iq-kp4',this,true,'正确！始终检查所有字节，不会因提前返回泄露信息。')">B. 防止时序侧信道攻击</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。这和多线程无关。')">C. 多线程比较</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。这和数据压缩无关。')">D. 压缩比较</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 列举 3 种 Rust 编译期能阻止的内存安全漏洞类型，并说明各自的防护机制。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 为一个简单的二进制头解析函数编写 <code>cargo-fuzz</code> 目标，运行 fuzzing 并分析结果。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 用 <code>nom</code> 实现一个简化版 HTTP 请求行解析器（方法 + 路径 + 版本），确保畸形输入不会导致 panic。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 对比 <code>rustls</code> 和 OpenSSL 的架构差异，分析 Heartbleed 类漏洞在 Rust 实现中为什么不可能出现。</li>
-            </ol>
-        </section>
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>安全工具生态</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>Rust 生态为安全开发和审计提供了完整的工具链——从静态分析到依赖审计。掌握这些工具是日常安全实践的基础。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><table style="width:100%; border-collapse:collapse;"><tr><th style="text-align:left;padding:4px;">工具</th><th style="text-align:left;padding:4px;">用途</th></tr><tr><td style="padding:4px;">cargo-audit</td><td style="padding:4px;">检查依赖的已知 CVE</td></tr><tr><td style="padding:4px;">cargo-deny</td><td style="padding:4px;">依赖审查（漏洞+许可证+来源）</td></tr><tr><td style="padding:4px;">cargo-geiger</td><td style="padding:4px;">统计 unsafe 使用量</td></tr><tr><td style="padding:4px;">Miri</td><td style="padding:4px;">检测 unsafe 中的 UB</td></tr><tr><td style="padding:4px;">cargo-fuzz</td><td style="padding:4px;">模糊测试</td></tr><tr><td style="padding:4px;">Clippy</td><td style="padding:4px;">lint + 可疑代码模式检测</td></tr><tr><td style="padding:4px;">cargo-vet</td><td style="padding:4px;">依赖审计追踪</td></tr></table></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>BASH</span><span>terminal</span></div>
+<pre><code># 安全工具链一键设置
+cargo install cargo-audit cargo-deny cargo-geiger
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://rust-fuzz.github.io/book/">The Rust Fuzz Book</a></li>
-                <li><a href="https://github.com/rust-fuzz/cargo-fuzz">cargo-fuzz GitHub</a></li>
-                <li><a href="https://github.com/rustls/rustls">rustls GitHub</a></li>
-                <li><a href="https://github.com/RustCrypto">RustCrypto 组织</a></li>
-                <li><a href="https://github.com/rust-bakery/nom">nom 解析器库</a></li>
-            </ul>
-        </section>
-    </main>
+# 检查依赖漏洞
+cargo audit
 
-    <script src="../assets/js/main.js"></script>
+# 全面依赖审查
+cargo deny check
+
+# 统计 unsafe 使用
+cargo geiger
+
+# 用 Miri 检查 unsafe 正确性
+cargo +nightly miri test
+
+# 严格 Clippy
+cargo clippy -- -W clippy::pedantic -W clippy::suspicious</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>CI 集成清单</strong>：<code>cargo audit</code>（每次构建）→ <code>cargo clippy</code>（每次 PR）→ <code>cargo fuzz</code>（定期）→ <code>cargo miri test</code>（有 unsafe 时）。</p><p><strong>#[deny(unsafe_code)]</strong>：不需要 unsafe 的 crate 加上这个属性，确保未来也不会意外引入。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>注意</strong>：<code>cargo audit</code> 只检查 Cargo.lock 中的依赖。如果项目没有 Cargo.lock（lib crate），需要先 <code>cargo generate-lockfile</code>。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">cargo-geiger 的功能是什么？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。那是 cargo-audit。')">A. 检测 CVE 漏洞</button><button onclick="checkInlineQuiz('iq-kp5',this,true,'正确！cargo-geiger 扫描整个依赖树，报告 unsafe 的使用情况。')">B. 统计依赖树中 unsafe 代码的使用量</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。优化是 cargo 编译器的工作。')">C. 优化编译</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。那是 cargo-deny 的附加功能。')">D. 检查许可证</button></div></div>
+    </section><hr class="kp-separator">
+
+    <section id="exercises" class="exercises-section"><h2>综合练习</h2><div id="quiz-zone"></div></section>
+    <nav class="chapter-nav"><a href="ch6.A_game_dev.html">← Ch 6.1 游戏开发</a><a href="../index.html" class="nav-overview">目录</a><a href="ch6.C_systems.html">Ch 6.3 系统编程 →</a></nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

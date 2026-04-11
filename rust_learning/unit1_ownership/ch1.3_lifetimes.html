@@ -1,321 +1,788 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 1.3 Lifetimes - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 1.3 生命周期 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u1-ch13-q1",
+        "question": "生命周期参数 'a 描述的是什么？",
+        "options": ["A. 变量存活的具体时间长度", "B. 引用之间的生命周期关系（谁活得更久）", "C. 堆内存的分配大小", "D. 函数的执行时间"],
+        "answer": 1,
+        "explanation": "'a 不是描述绝对的存活时间，而是描述多个引用之间的相对生命周期约束：返回的引用不会比输入活得更久。"
+      },
+      {
+        "id": "u1-ch13-q2",
+        "question": "以下函数为什么需要生命周期标注？\nfn longest(a: &str, b: &str) -> &str",
+        "options": ["A. 因为参数太多", "B. 编译器不知道返回的引用来自 a 还是 b，无法推断生命周期", "C. 因为 &str 不是 Copy", "D. 因为函数返回了引用"],
+        "answer": 1,
+        "explanation": "返回值可能来自 a 或 b，编译器无法确定返回引用的生命周期应该跟谁。需要 'a 来告诉编译器约束关系。"
+      },
+      {
+        "id": "u1-ch13-q3",
+        "question": "fn longest<'a>(a: &'a str, b: &'a str) -> &'a str 中 'a 的含义是？",
+        "options": ["A. a 和 b 的生命周期必须完全相同", "B. 返回值的生命周期 ≤ a 和 b 的生命周期中较短的那个", "C. 函数运行了 'a 秒", "D. a 和 b 指向同一块内存"],
+        "answer": 1,
+        "explanation": "'a 被约束为 a 和 b 生命周期的交集（较短者）。返回的引用在这个交集范围内保证有效。"
+      },
+      {
+        "id": "u1-ch13-q4",
+        "question": "生命周期省略规则（elision rules）有几条？",
+        "options": ["A. 1 条", "B. 2 条", "C. 3 条", "D. 5 条"],
+        "answer": 2,
+        "explanation": "三条省略规则：1) 每个引用参数获得独立 'a；2) 只有一个输入生命周期时输出用同一个；3) 方法中 &self 的生命周期赋给输出。"
+      },
+      {
+        "id": "u1-ch13-q5",
+        "question": "以下函数需要标注生命周期吗？ fn first_word(s: &str) -> &str",
+        "options": ["A. 需要，返回了引用", "B. 不需要，省略规则自动推断", "C. 需要，有两个引用", "D. 取决于函数体"],
+        "answer": 1,
+        "explanation": "只有一个输入引用参数，省略规则第 2 条自动将输入生命周期赋给输出。等价于 fn first_word<'a>(s: &'a str) -> &'a str。"
+      },
+      {
+        "id": "u1-ch13-q6",
+        "question": "'static 生命周期表示什么？",
+        "options": ["A. 变量是静态类型", "B. 引用的数据在整个程序运行期间有效", "C. 引用不可变", "D. 数据存储在静态内存区"],
+        "answer": 1,
+        "explanation": "'static 表示引用的数据在整个程序运行期间都有效。字符串字面值 &str 默认就是 'static。"
+      },
+      {
+        "id": "u1-ch13-q7",
+        "question": "字符串字面值 \"hello\" 的类型是什么？",
+        "options": ["A. String", "B. &str", "C. &'static str", "D. str"],
+        "answer": 2,
+        "explanation": "字符串字面值嵌入在编译后的二进制文件中，生命周期为整个程序运行时间，类型是 &'static str。"
+      },
+      {
+        "id": "u1-ch13-q8",
+        "question": "以下代码能编译吗？\nlet r;\n{\n    let s = String::from(\"hi\");\n    r = &s;\n}\nprintln!(\"{}\", r);",
+        "options": ["A. 能，r 是不可变引用", "B. 不能，s 在内部作用域结束时被 drop，r 悬垂", "C. 能，但输出是空字符串", "D. 能，编译器会延长 s 的生命周期"],
+        "answer": 1,
+        "explanation": "s 在 } 处 drop，r 指向已释放的内存。编译器通过生命周期分析检测到这个问题并拒绝编译。"
+      },
+      {
+        "id": "u1-ch13-q9",
+        "question": "结构体中为什么需要生命周期标注？\nstruct Excerpt<'a> { part: &'a str }",
+        "options": ["A. 语法要求", "B. 告诉编译器：结构体实例不能活得比 part 引用的数据更久", "C. 让结构体成为泛型", "D. 让结构体可以 Copy"],
+        "answer": 1,
+        "explanation": "生命周期参数约束：Excerpt 实例的生命周期 ≤ 'a。确保 part 引用的数据在 Excerpt 存活期间始终有效。"
+      },
+      {
+        "id": "u1-ch13-q10",
+        "question": "以下省略规则应用了哪一条？ fn len(&self) -> usize",
+        "options": ["A. 第 1 条：每个引用参数获得独立生命周期", "B. 第 2 条：只有一个输入生命周期时输出用同一个", "C. 第 3 条：&self 的生命周期赋给输出", "D. 没有应用省略规则"],
+        "answer": 2,
+        "explanation": "返回值不是引用所以不需要生命周期标注。但如果返回 &str，第 3 条会把 &self 的生命周期赋给返回值。"
+      },
+      {
+        "id": "u1-ch13-q11",
+        "question": "T: 'static 约束表示什么？",
+        "options": ["A. T 必须是引用类型", "B. T 拥有数据或包含的引用都是 'static", "C. T 不能是引用类型", "D. T 必须实现 Copy"],
+        "answer": 1,
+        "explanation": "T: 'static 表示 T 内部没有非 'static 的引用。String 满足（它拥有数据），&'a str 只有 'a = 'static 时才满足。"
+      },
+      {
+        "id": "u1-ch13-q12",
+        "question": "常见误区：'static 意味着『永远不会被释放』？",
+        "options": ["A. 正确", "B. 错误，'static 只表示可以活到程序结束，不代表必须活到程序结束", "C. 错误，'static 只用于全局变量", "D. 正确，但仅限引用类型"],
+        "answer": 1,
+        "explanation": "'static 是上界约束：数据可以活到程序结束。但 owned 类型如 String 也满足 'static（虽然它可以提前 drop）。"
+      },
+      {
+        "id": "u1-ch13-q13",
+        "question": "以下代码正确吗？\nfn longest<'a>(a: &'a str, b: &str) -> &'a str { a }",
+        "options": ["A. 不正确，b 也需要 'a", "B. 正确，因为返回值只来自 a", "C. 不正确，缺少 'b 标注", "D. 正确，但需要运行时检查"],
+        "answer": 1,
+        "explanation": "返回值只用了 a，所以只需要 a 的生命周期约束。b 的生命周期与返回值无关，不需要标注 'a。"
+      },
+      {
+        "id": "u1-ch13-q14",
+        "question": "生命周期标注会改变引用的实际存活时间吗？",
+        "options": ["A. 会，标注长的活得更久", "B. 不会，标注只是描述约束，不改变行为", "C. 会，标注短的提前释放", "D. 取决于编译器优化"],
+        "answer": 1,
+        "explanation": "生命周期标注是给编译器的提示，描述引用之间的约束关系。它不改变任何值的实际创建或销毁时间。"
+      },
+      {
+        "id": "u1-ch13-q15",
+        "question": "以下结构体能编译吗？\nstruct Bad { data: &str }",
+        "options": ["A. 能", "B. 不能，结构体中的引用必须有生命周期参数", "C. 能，但只在 nightly", "D. 取决于 str 的长度"],
+        "answer": 1,
+        "explanation": "结构体包含引用时必须声明生命周期参数：struct Good<'a> { data: &'a str }。编译器需要知道引用的有效期约束。"
+      },
+      {
+        "id": "u1-ch13-q16",
+        "question": "何时需要显式标注生命周期？",
+        "options": ["A. 所有函数都需要", "B. 省略规则无法推断时（如多个输入引用且返回引用）", "C. 只有 unsafe 代码需要", "D. 从不需要，编译器全部推断"],
+        "answer": 1,
+        "explanation": "只有当省略规则无法确定输出生命周期时才需要显式标注。常见场景：多个输入引用参数且返回引用。"
+      },
+      {
+        "id": "u1-ch13-q17",
+        "question": "以下哪个是 'static 的例子？",
+        "options": ["A. 函数内的局部 String 的引用", "B. 字符串字面值 \"hello\"", "C. 函数参数 &str", "D. Vec 中元素的引用"],
+        "answer": 1,
+        "explanation": "字符串字面值编译进二进制文件，整个程序运行期间有效，类型是 &'static str。"
+      },
+      {
+        "id": "u1-ch13-q18",
+        "question": "impl<'a> Excerpt<'a> { fn level(&self) -> i32 { 3 } } 中，level 的返回值需要生命周期吗？",
+        "options": ["A. 需要，因为 self 有生命周期", "B. 不需要，返回的是 i32 不是引用", "C. 需要，返回值需要标注 'a", "D. 取决于 Excerpt 的字段"],
+        "answer": 1,
+        "explanation": "i32 不是引用类型，不需要生命周期标注。生命周期只与引用相关。"
+      },
+      {
+        "id": "u1-ch13-q19",
+        "question": "多个生命周期参数可以同时使用吗？ fn foo<'a, 'b>(x: &'a str, y: &'b str) -> &'a str",
+        "options": ["A. 不行，只能有一个生命周期参数", "B. 可以，不同参数可以有不同的生命周期约束", "C. 可以，但两个必须相同", "D. 不行，编译器不支持"],
+        "answer": 1,
+        "explanation": "函数可以有多个生命周期参数，每个描述不同引用的约束。返回值绑定到 'a，与 y 的 'b 无关。"
+      },
+      {
+        "id": "u1-ch13-q20",
+        "question": "'a: 'b 语法表示什么？",
+        "options": ["A. 'a 和 'b 相同", "B. 'a 至少活得和 'b 一样长（'a outlives 'b）", "C. 'a 比 'b 短", "D. 'a 和 'b 不能交叉"],
+        "answer": 1,
+        "explanation": "'a: 'b 表示 'a outlives 'b，即 'a 的范围 ≥ 'b。这允许 &'b T 出现在需要 'a 的地方（当 'a ≤ 'b 时）。"
+      },
+      {
+        "id": "u1-ch13-q21",
+        "question": "以下代码能编译吗？\nlet s: &'static str = \"hello\";\nlet r: &str = s;",
+        "options": ["A. 不能，类型不匹配", "B. 能，'static 可以缩短为任何更短的生命周期", "C. 不能，必须显式转换", "D. 能，但有运行时开销"],
+        "answer": 1,
+        "explanation": "'static 是最长的生命周期，可以自动缩短（subtyping）为任何更短的生命周期。&'static str 可以用在任何需要 &'a str 的地方。"
+      },
+      {
+        "id": "u1-ch13-q22",
+        "question": "使用 Box<str> 代替 &'a str 的好处是什么？",
+        "options": ["A. 性能更好", "B. 拥有数据的所有权，不需要生命周期标注", "C. 更省内存", "D. 没有好处"],
+        "answer": 1,
+        "explanation": "Box<str>（或更常用的 String）拥有数据，不依赖外部数据的生命周期。如果你在与生命周期苦战，考虑使用 owned 类型。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit1_ownership"
+      style="--domain-color: var(--c-ownership);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 1 · 所有权系统</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
+  <!-- ── Topbar ── -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">OWNERSHIP</span>
+      <a href="../index.html" class="module-name">Unit 1 · 所有权系统</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.3 / 4</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 1 正式页面</li>
-            <li><a href="./ch1.1_ownership.html">1.1 Ownership</a></li>
-            <li><a href="./ch1.2_borrowing.html">1.2 Borrowing</a></li>
-            <li><a href="./ch1.3_lifetimes.html" class="active">1.3 Lifetimes</a></li>
-            <li><a href="./ch1.4_ownership_in_practice.html">1.4 所有权的实际影响</a></li>
+  <!-- ── TOC Sidebar ── -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 · 生命周期参数 'a 语法</a></li>
+      <li><a href="#kp2">02 · 生命周期省略规则</a></li>
+      <li><a href="#kp3">03 · 'static 生命周期</a></li>
+      <li><a href="#kp4">04 · 结构体中的生命周期</a></li>
+      <li><a href="#exercises">综合练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">生命周期直觉</a></li>
-            <li><a href="#kp-2">悬垂引用</a></li>
-            <li><a href="#kp-3">函数签名与标注</a></li>
-            <li><a href="#kp-4">elision 规则</a></li>
-            <li><a href="#kp-5">struct 引用与常见错误</a></li>
-            <li><a href="#summary">章节总结</a></li>
-        </ul>
-    </nav>
+  <!-- ── Main Content ── -->
+  <main class="main-content">
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 1 · 所有权系统</span>
-            <h1>Ch 1.3 Lifetimes</h1>
-            <p class="chapter-description">
-                Lifetimes 不是“让引用活得更久”的魔法，而是告诉编译器“这个引用至少会和谁一样久”。
-                本章要把生命周期从抽象符号，讲成一个关于借用关系、返回值约束和 API 边界的可读模型。
-            </p>
-        </header>
+    <header class="chapter-hero">
+      <span class="chapter-label">Chapter 1.3</span>
+      <h1>生命周期 · Lifetimes</h1>
+      <p class="chapter-intro">
+        生命周期是 Rust 最令初学者困惑的概念——但它的本质很简单：告诉编译器"这个引用的数据至少活多久"。
+        生命周期标注不改变任何东西的实际存活时间，它只是你和编译器之间的一份合约。
+      </p>
+    </header>
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解生命周期标注是在描述引用关系，而不是延长对象寿命</li>
-                <li>能用悬垂引用案例解释编译器为什么要检查 lifetime</li>
-                <li>掌握常见函数签名中的生命周期标注与返回值约束</li>
-                <li>理解生命周期省略规则（elision）何时够用，何时必须手写</li>
-                <li>识别结构体中持有引用时的常见误区与修复方向</li>
-            </ul>
-        </section>
+    <!-- ═══════════════ KP 1 ═══════════════ -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>生命周期参数 'a 语法</h2>
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>
-                建议你已经完成 Ch 1.1 和 Ch 1.2，尤其要先理解 owner、borrow、借用作用域和“多个读者或一个写者”的模型。
-                Lifetimes 解决的是“引用之间的持续关系”，不是重新讲一遍 move 或 mut。
-            </p>
-        </section>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>上一章末尾我们看到：<code>fn longest(a: &str, b: &str) -> &str</code> 不能编译。编译器不知道返回的引用<strong>来自 a 还是 b</strong>，也就无法判断返回值的有效期。</p>
+            <p>生命周期参数 <code>'a</code> 就是你给编译器的线索："返回值的有效期与输入参数的有效期之间有这样的关系"。</p>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>1.3.1 生命周期的直觉：它描述的是关系，不是时长魔法</h2>
-            <div class="think-box">
-                <div class="think-icon">🧭</div>
-                <p>看到 <code>'a</code> 时，很多人第一反应是“这里把变量延长到了多久”。可编译器真的允许你靠标注强行延寿吗？</p>
-            </div>
-            <p>
-                生命周期标注的真正作用是：<strong>描述引用之间至少要保持多久的有效关系</strong>。
-                它不创造新寿命，只是把已有借用关系说清楚。也就是说，<code>'a</code> 是约束，不是增益 buff。
-            </p>
-            <div class="note-box tip">
-                <p><strong>正式理解：</strong> lifetime parameter 用来告诉编译器“这些引用的有效期如何关联”，而不是“请把它们活久一点”。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>lifetime_intuition.rs</span></div>
-                <pre><code>fn identity<'a>(text: &'a str) -> &'a str {
-    text
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p><strong>生命周期参数不是在说"活多久"，而是在说"谁活得比谁久"。</strong></p>
+            <p>把它想象成数学中的约束：<code>'a</code> 不是一个具体的时间长度，而是一个变量。编译器会检查调用处是否满足这个约束。</p>
+            <p>核心公式：<strong>返回引用的生命周期 ≤ 所有标注了同一个 'a 的输入引用的生命周期的最小值</strong>。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>语法</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>lifetime_syntax.rs</span></div>
+              <pre><code>// ❌ 编译器不知道返回的引用寿命跟谁
+// fn longest(a: &str, b: &str) -> &str { ... }
+
+// ✅ 用 'a 告诉编译器：返回值的生命周期 ≤ min(a 的生命周期, b 的生命周期)
+fn longest<'a>(a: &'a str, b: &'a str) -> &'a str {
+    if a.len() >= b.len() { a } else { b }
 }
 
 fn main() {
-    let name = String::from("Ferris");
-    let view = identity(&name);
-    println!("{view}");
-}</code></pre>
-                <div class="code-output">
-                    <strong>说明</strong>
-                    <pre>这里的 'a 表示：返回引用不会比传入引用活得更久，而不是让 name 自动延长生命周期。</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="生命周期标注是在描述引用之间的有效期关系，不会凭空创造更长寿命。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>'a</code> 在函数签名里最准确的作用是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u13-q1" value="A"> A. 把局部变量强制延长到 main 结束</label>
-                    <label><input type="radio" name="u13-q1" value="B"> B. 描述输入引用和输出引用之间的有效期关系</label>
-                    <label><input type="radio" name="u13-q1" value="C"> C. 让函数自动拥有参数的所有权</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <p class="transition-text">理解 lifetime 不是魔法后，最重要的场景就是：它在阻止什么错误？</p>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>1.3.2 悬垂引用：为什么编译器宁可拒绝，也不愿赌一把</h2>
-            <div class="think-box">
-                <div class="think-icon">⚠️</div>
-                <p>如果函数返回了一个指向局部变量的引用，而局部变量在函数结束时已经被销毁，这个引用还剩下什么？</p>
-            </div>
-            <p>
-                这就是悬垂引用（dangling reference）：引用还在，但它指向的数据已经不存在。
-                Rust 的生命周期检查，本质上就是在编译期证明“返回的引用不会比被引用的数据活得更久”。证明不了，就拒绝编译。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>dangling.rs</span></div>
-                <pre><code>fn dangling_ref() -> &str {
-    let text = String::from("oops");
-    &text
-}
-
-fn main() {
-    // let r = dangling_ref();
-}</code></pre>
-                <div class="code-output">
-                    <strong>说明</strong>
-                    <pre>这段代码不会通过编译，因为 text 在函数结束时被释放，返回引用会悬空。</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：这类问题通常怎样修复？</button>
-                <div class="collapsible-content">
-                    常见修复方向有两个：要么返回拥有权（例如直接返回 String），要么让调用方提供数据并只返回基于输入借用出来的引用。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="局部变量 text 在函数返回前就会被销毁，所以返回 &text 会产生悬垂引用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 <code>dangling_ref</code> 不能返回 <code>&amp;text</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u13-q2" value="A"> A. 因为 text 的所有权和存活范围都只在函数内部</label>
-                    <label><input type="radio" name="u13-q2" value="B"> B. 因为字符串不能被借用</label>
-                    <label><input type="radio" name="u13-q2" value="C"> C. 因为函数默认只能返回数字</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>1.3.3 函数签名中的生命周期：返回谁，就约束谁</h2>
-            <div class="think-box">
-                <div class="think-icon">🔗</div>
-                <p>如果函数接收两个字符串切片并返回其中一个，编译器怎么知道返回值和哪个输入相关？</p>
-            </div>
-            <p>
-                当返回引用可能来自多个输入时，编译器需要你把关系写出来。
-                最经典的例子是 <code>longest</code>：返回值的生命周期必须不长于两个输入中较短的那个，所以签名要把它们关联到同一个 lifetime parameter。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>longest.rs</span></div>
-                <pre><code>fn longest<'a>(left: &'a str, right: &'a str) -> &'a str {
-    if left.len() >= right.len() {
-        left
-    } else {
-        right
+    let s1 = String::from("long string");
+    let result;
+    {
+        let s2 = String::from("hi");
+        result = longest(s1.as_str(), s2.as_str());
+        println!("longest: {}", result); // ✅ s2 还活着
     }
+    // println!("{}", result); // ❌ s2 已经 drop，result 可能指向它
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>longest: long string</pre></div>
+            </div>
+
+            <p><strong>解读</strong>：<code>'a</code> 被实例化为 s1 和 s2 生命周期的<strong>交集</strong>（即较短那个 = s2 的生命周期）。所以 result 只在 s2 活着的范围内有效。</p>
+
+            <p><strong>如果返回值只来自一个参数</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>one_param_lifetime.rs</span></div>
+              <pre><code>// 返回值只来自 a，b 的生命周期无关
+fn first_only<'a>(a: &'a str, b: &str) -> &'a str {
+    a   // 只返回 a，所以只需要 a 的生命周期约束
 }
 
 fn main() {
-    let a = String::from("rust");
-    let b = String::from("ownership");
-    println!("{}", longest(&a, &b));
+    let s1 = String::from("hello");
+    let result;
+    {
+        let s2 = String::from("world");
+        result = first_only(&s1, &s2);
+    } // s2 drop，但 result 来自 s1，没问题
+    println!("{}", result); // ✅
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>ownership</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>hello</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>判断口诀：</strong> 如果返回引用来自输入引用，就要问自己：返回值和哪个输入绑定？如果来自多个输入，关系通常需要写进签名。</p>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="longest 的签名表达的是：返回值不会比参与比较的两个输入中更短的那段借用活得更久。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 <code>longest</code> 需要显式写 <code>'a</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u13-q3" value="A"> A. 因为所有有两个参数的函数都必须写 lifetime</label>
-                    <label><input type="radio" name="u13-q3" value="B"> B. 因为编译器不能识别字符串长度</label>
-                    <label><input type="radio" name="u13-q3" value="C"> C. 因为返回引用可能来自多个输入，关系需要明确表达</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>1.3.4 Elision 规则：有些 lifetime 可以省，但不是总能省</h2>
-            <div class="think-box">
-                <div class="think-icon">✂️</div>
-                <p>为什么有些函数明明用了引用却不用写 <code>'a</code>，而另一些一省略就报错？</p>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>何时需要手动标注</strong>：</p>
+            <ul>
+              <li>函数有<strong>多个引用参数</strong>且<strong>返回引用</strong>→ 大概率需要</li>
+              <li>函数只有<strong>一个引用参数</strong>且返回引用 → 省略规则搞定</li>
+              <li>方法有 <code>&self</code> 且返回引用 → 省略规则搞定</li>
+              <li>不返回引用 → 不需要</li>
+            </ul>
+            <p><strong>经验</strong>：先不标注，编译器会告诉你哪里需要。然后思考"<em>返回值来自哪个输入？</em>"来决定标注。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>常见错误：返回局部变量的引用</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>return_local_ref.rs</span></div>
+              <pre><code>// ❌ 返回值不能来自函数内部创建的数据
+fn bad_longest<'a>(a: &'a str, b: &'a str) -> &'a str {
+    let result = String::from("really long");
+    // result.as_str()  // ❌ result 在函数结束时 drop
+    a  // ✅ 只能返回来自输入参数的引用
+}</code></pre>
+              <div class="code-error"><strong>编译错误（如果返回 result.as_str()）</strong><pre>error[E0515]: cannot return reference to local variable `result`
+ --> src/main.rs:3:5
+  |
+3 |     result.as_str()
+  |     ^^^^^^^^^^^^^^^ returns a reference to data owned by the current function</pre></div>
             </div>
-            <p>
-                Rust 有一组生命周期省略规则（lifetime elision rules），会在常见简单场景里自动补全。
-                例如只有一个输入引用时，输出引用通常默认继承它的生命周期；方法里的 <code>&amp;self</code> 也有特殊规则。
-                但一旦返回值可能和多个输入有关，省略就不够了。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>elision.rs</span></div>
-                <pre><code>fn first_word(text: &str) -> &str {
-    text.split_whitespace().next().unwrap_or("")
+            <p><strong>解决方案</strong>：如果需要返回新构造的数据，返回 <code>String</code>（所有权）而非 <code>&str</code>（引用）。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>fn foo&lt;'a&gt;(x: &'a str, y: &'a str) -> &'a str</code> 中 <code>'a</code> 的值是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不一定是 x 的生命周期。如果 y 更短，'a 会是 y 的。')">A. x 的生命周期</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！'a 被约束为 x 和 y 生命周期的交集——即较短的那个。')">B. x 和 y 生命周期中较短的那个</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, ''a 是约束变量，不是字面上的「一秒」。')">C. 字面意思：一秒钟</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 2 ═══════════════ -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>生命周期省略规则</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>如果每个函数都要手动标注生命周期，代码会满是 <code>'a</code> 标注。Rust 的<strong>省略规则</strong>让编译器自动推断大部分情况的生命周期，你只在 "不明确" 时才需要手动标注。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p>编译器按顺序尝试三条规则。如果应用完三条规则后仍有未确定的输出生命周期，才要求你手动标注。</p>
+            <ol>
+              <li><strong>规则 1</strong>：每个引用参数各自获得一个独立的生命周期参数</li>
+              <li><strong>规则 2</strong>：如果只有一个输入生命周期参数，它被赋给所有输出引用</li>
+              <li><strong>规则 3</strong>：如果参数中有 <code>&self</code> 或 <code>&mut self</code>，self 的生命周期被赋给所有输出引用</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>规则推演示例</strong>：</p>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>elision_examples.rs</span></div>
+              <pre><code>// ── 示例1：一个输入引用 → 规则 1+2 搞定 ──
+fn first_word(s: &str) -> &str { ... }
+// 推断过程：
+//   规则1: fn first_word<'a>(s: &'a str) -> &str
+//   规则2: fn first_word<'a>(s: &'a str) -> &'a str  ✅ 完成
+
+// ── 示例2：方法有 &self → 规则 1+3 搞定 ──
+impl MyStruct {
+    fn name(&self) -> &str { ... }
+}
+// 推断过程：
+//   规则1: fn name<'a>(&'a self) -> &str
+//   规则3: fn name<'a>(&'a self) -> &'a str  ✅ 完成
+
+// ── 示例3：两个输入引用 → 规则 1+2+3 都无法确定 → 需要手动标注 ──
+fn longest(a: &str, b: &str) -> &str { ... }
+// 推断过程：
+//   规则1: fn longest<'a, 'b>(a: &'a str, b: &'b str) -> &str
+//   规则2: 不适用（有两个输入生命周期）
+//   规则3: 不适用（没有 &self）
+//   → 输出生命周期未确定 → ❌ 编译错误，要求手动标注</code></pre>
+            </div>
+
+            <p><strong>实际代码验证</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>elision_in_action.rs</span></div>
+              <pre><code>// 不需要标注（省略规则搞定）
+fn first_char(s: &str) -> Option<char> {
+    s.chars().next()
 }
 
-struct Label {
+// 不需要标注（&self 规则）
+struct Config {
     name: String,
 }
-
-impl Label {
-    fn as_str(&self) -> &str {
+impl Config {
+    fn name(&self) -> &str {
         &self.name
     }
-}</code></pre>
-                <div class="code-output">
-                    <strong>说明</strong>
-                    <pre>上面两个例子都能省略 lifetime，因为返回值和唯一输入引用（或 &self）之间的关系足够明确。</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="elision 只在规则足够明确的常见场景生效；多个输入决定一个输出时，通常仍需手写 lifetime。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪种情况最可能需要显式写生命周期标注？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u13-q4" value="A"> A. 只有一个输入引用，返回值直接来自它</label>
-                    <label><input type="radio" name="u13-q4" value="B"> B. 返回引用可能来自多个输入之一</label>
-                    <label><input type="radio" name="u13-q4" value="C"> C. 方法返回 <code>&amp;self</code> 派生的字段引用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+}
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>1.3.5 struct 中的引用与常见错误：你是在借住，不是在拥有</h2>
-            <div class="think-box">
-                <div class="think-icon">🏷️</div>
-                <p>为什么一个持有 <code>&amp;str</code> 字段的结构体必须写生命周期，而持有 <code>String</code> 的结构体却不用？</p>
+fn main() {
+    let c = Config { name: String::from("myapp") };
+    println!("{}: {}", c.name(), first_char("hello").unwrap());
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>myapp: h</pre></div>
             </div>
-            <p>
-                因为持有引用的结构体并不拥有数据，它只是“借住”在别人的数据上。
-                所以结构体类型本身必须声明：<strong>这个借住关系至少要和哪段生命周期一样久</strong>。
-                这也是很多初学者在把局部字符串切片塞进 struct 时最容易遇到的报错来源。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>struct_ref.rs</span></div>
-                <pre><code>struct Excerpt<'a> {
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>经验法则</strong>：</p>
+            <ul>
+              <li>永远先不标注，让编译器告诉你</li>
+              <li>绝大多数函数不需要生命周期标注（省略规则覆盖 ~95% 的场景）</li>
+              <li>最常手写标注的场景：接受两个 &str 返回 &str</li>
+              <li>如果你发现自己在写很复杂的生命周期，考虑是否应该用 owned 类型代替</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>省略规则失败的典型场景</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>elision_fail.rs</span></div>
+              <pre><code>// ❌ 省略规则无法推断
+// fn pick(a: &str, b: &str, flag: bool) -> &str {
+//     if flag { a } else { b }
+// }
+
+// ✅ 手动标注
+fn pick<'a>(a: &'a str, b: &'a str, flag: bool) -> &'a str {
+    if flag { a } else { b }
+}
+
+fn main() {
+    let a = String::from("alpha");
+    let b = String::from("beta");
+    println!("{}", pick(&a, &b, true));
+    println!("{}", pick(&a, &b, false));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>alpha
+beta</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">省略规则第 3 条适用于哪种场景？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '普通函数没有 &self 参数，第 3 条不适用。')">A. 普通函数有两个引用参数</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！第 3 条：方法参数中有 &self 时，self 的生命周期赋给返回值。')">B. 方法（参数中有 &self 或 &mut self）返回引用</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '没有引用参数时不需要生命周期，三条规则都不需要。')">C. 函数没有引用参数</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 3 ═══════════════ -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>'static 生命周期</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p><code>'static</code> 是你会频繁遇到的生命周期，但也是最容易误解的。错误信息经常建议你加 <code>'static</code>，但盲目添加会导致设计问题。理解它的真正含义是避免 "生命周期地狱" 的关键。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p><code>'static</code> 有两种用法，含义不同：</p>
+            <ol>
+              <li><strong>引用类型 <code>&'static T</code></strong>：这个引用指向的数据在整个程序运行期间有效</li>
+              <li><strong>trait bound <code>T: 'static</code></strong>：T 要么是 owned 类型，要么内部所有引用都是 <code>'static</code></li>
+            </ol>
+            <p><strong>关键区别</strong>：<code>T: 'static</code> <em>不意味着 T 永远不会被释放</em>。<code>String</code> 满足 <code>'static</code> bound（因为它不含有非 'static 引用），但 String 随时可以被 drop。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>&'static 引用</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>static_ref.rs</span></div>
+              <pre><code>// 字符串字面值是 &'static str
+let s: &'static str = "I live forever (in binary)";
+
+// 全局常量也是 'static
+static GREETING: &str = "Hello, world!";
+
+// lazy_static 或 const 也产生 'static 数据
+const MAX_SIZE: usize = 1024;
+
+fn main() {
+    println!("{}", s);
+    println!("{}", GREETING);
+    println!("max: {}", MAX_SIZE);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>I live forever (in binary)
+Hello, world!
+max: 1024</pre></div>
+            </div>
+
+            <p><strong>T: 'static bound</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>static_bound.rs</span></div>
+              <pre><code>use std::fmt::Display;
+
+// T: Display + 'static 不表示 T 永远存在
+// 它表示 T 内部没有短命的引用
+fn print_it<T: Display + 'static>(val: T) {
+    println!("{}", val);
+}
+
+fn main() {
+    let s = String::from("owned data");
+    print_it(s);    // ✅ String 满足 'static bound（owned，无内部引用）
+    print_it(42);   // ✅ i32 满足 'static bound
+
+    let local = String::from("temp");
+    // print_it(&local);  // ❌ &local 不是 'static 引用
+    print_it(local);      // ✅ move local 进去，owned
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>owned data
+42
+temp</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>常见 'static 使用场景</strong>：</p>
+            <ul>
+              <li><code>std::thread::spawn</code> 要求闭包 <code>F: 'static</code>——因为线程可能比创建它的作用域活得更久</li>
+              <li>错误类型 <code>Box&lt;dyn Error + 'static&gt;</code></li>
+              <li>全局配置、常量字符串</li>
+            </ul>
+            <p><strong>常见误区</strong>：编译器建议 "consider adding 'static" 时，<strong>不要盲目添加</strong>。先想想：真的需要数据活到程序结束吗？还是应该用 owned 类型？</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>线程与 'static</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>thread_static.rs</span></div>
+              <pre><code>use std::thread;
+
+fn main() {
+    let name = String::from("Alice");
+
+    // ❌ 闭包捕获了 &name，但线程可能比 main 更久
+    // thread::spawn(|| { println!("{}", name); });
+
+    // ✅ move 闭包：把 name 的所有权转移给线程
+    let handle = thread::spawn(move || {
+        println!("Hello from thread, {}!", name);
+    });
+
+    // name 已被 move，这里不能用了
+    handle.join().unwrap();
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Hello from thread, Alice!</pre></div>
+            </div>
+
+            <p><strong>不要把所有东西都改成 'static</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>avoid_static.rs</span></div>
+              <pre><code>// ❌ 过度使用 'static — 所有参数都只能接受 'static 数据
+fn bad_api(data: &'static str) -> &'static str { data }
+
+// ✅ 使用泛型生命周期 — 更灵活
+fn good_api<'a>(data: &'a str) -> &'a str { data }
+
+fn main() {
+    let owned = String::from("dynamic");
+    // bad_api(&owned);  // ❌ owned 不是 'static
+    good_api(&owned);    // ✅ 'a 推断为 owned 的生命周期
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>String</code> 满足 <code>T: 'static</code> 约束吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！String 是 owned 类型，内部不含非 static 引用。T: \'static 不意味着 T 不能被 drop。')">A. 满足，因为 String 是 owned 类型</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'String 是 owned 类型，满足 \'static bound。\'static 不意味着永远存在。')">B. 不满足，String 可以被 drop</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '这不取决于字符串内容，而取决于类型本身的特性。')">C. 取决于字符串内容</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 4 ═══════════════ -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>结构体中的生命周期</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>当你想在 struct 中存储引用而非 owned 数据时（例如存一个 <code>&str</code> 而非 <code>String</code>），Rust 需要知道：<em>这个 struct 实例不能活得比引用指向的数据更久</em>。生命周期参数就是表达这个约束的工具。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p>struct 有引用字段 → 必须有生命周期参数。这个参数约束：<strong>struct 实例的生命周期 ≤ 引用数据的生命周期</strong>。</p>
+            <p>直觉：struct 在借用别人的数据，必须保证在 "还书" 之前它就不存在了。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>基本语法</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>struct_lifetime.rs</span></div>
+              <pre><code>// 'a 约束：Excerpt 不能活得比 part 引用的数据更久
+struct Excerpt<'a> {
     part: &'a str,
 }
 
 fn main() {
-    let article = String::from("Rust lifetimes feel abstract at first.");
-    let first = article.split('.').next().unwrap();
-    let excerpt = Excerpt { part: first };
+    let novel = String::from(
+        "Call me Ishmael. Some years ago..."
+    );
+    let first_sentence = novel
+        .split('.')
+        .next()
+        .expect("Could not find a '.'");
 
-    println!("{}", excerpt.part);
+    let excerpt = Excerpt {
+        part: first_sentence,
+    };
+    println!("Excerpt: {}", excerpt.part);
+}
+// novel 在这里 drop — 但 excerpt 先 drop（声明晚），所以没问题</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Excerpt: Call me Ishmael</pre></div>
+            </div>
+
+            <p><strong>为 struct 实现方法</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>struct_methods.rs</span></div>
+              <pre><code>struct Excerpt<'a> {
+    part: &'a str,
+}
+
+impl<'a> Excerpt<'a> {
+    // 返回 &str — 省略规则第 3 条：&self 的生命周期赋给返回值
+    fn content(&self) -> &str {
+        self.part
+    }
+
+    // 返回 i32 — 不需要生命周期
+    fn word_count(&self) -> usize {
+        self.part.split_whitespace().count()
+    }
+}
+
+fn main() {
+    let text = String::from("Hello world foo bar");
+    let exc = Excerpt { part: &text };
+    println!("{} ({} words)", exc.content(), exc.word_count());
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Rust lifetimes feel abstract at first</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Hello world foo bar (4 words)</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>常见错误：</strong>在函数内部创建一个 <code>String</code>，再把它的切片塞进返回的 struct。问题不在 struct 语法，而在底层数据已经离开作用域。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：什么时候应该直接拥有数据，而不是在 struct 里放引用？</button>
-                <div class="collapsible-content">
-                    当数据需要跨函数返回、跨层保存或避免复杂生命周期传播时，直接用 String、Vec 等拥有型字段通常更简单。引用型字段更适合短期视图、零拷贝解析或明确受控的借用场景。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="持有引用的 struct 不拥有底层数据，所以类型必须描述该引用至少和谁一样久。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 <code>struct Excerpt&lt;'a&gt; { part: &amp;'a str }</code> 需要写 <code>'a</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u13-q5" value="A"> A. 因为 struct 在保存一个借用，必须描述它依赖的数据活多久</label>
-                    <label><input type="radio" name="u13-q5" value="B"> B. 因为所有 struct 都必须带 lifetime</label>
-                    <label><input type="radio" name="u13-q5" value="C"> C. 因为 &str 不能存在于结构体中</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>何时在 struct 中用引用？何时用 owned？</strong></p>
             <ul>
-                <li>Lifetime 标注描述的是引用之间的有效期关系，不会强行延长对象寿命。</li>
-                <li>悬垂引用是生命周期检查想要阻止的核心风险之一。</li>
-                <li>当函数返回引用且它可能来自多个输入时，生命周期关系通常必须手写。</li>
-                <li>Elision 规则能覆盖简单场景，但不是所有签名都能省略。</li>
-                <li>结构体中持有引用时，要么清楚声明借用关系，要么考虑改成直接拥有数据以降低复杂度。</li>
+              <li><strong>用 owned (String)</strong>：struct 需要独立管理数据、需要跨线程传递、数据来源不确定</li>
+              <li><strong>用引用 (&str)</strong>：零拷贝解析（如 JSON parser 借用原始字符串）、性能关键路径</li>
+              <li><strong>用 Cow&lt;'a, str&gt;</strong>：有时借用、有时拥有——最灵活但最复杂</li>
             </ul>
-        </section>
+            <p><strong>经验法则</strong>：初学者优先用 owned 类型（String, Vec&lt;T&gt;），等熟练后再为性能优化引入引用。</p>
+          </div>
+        </div>
 
-        <section class="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 用自己的话解释“生命周期标注不会延长值的寿命，只会描述引用关系”这句话。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个 <code>pick_first</code> 函数，接收两个 <code>&amp;str</code> 并返回第一个；然后解释为什么签名需要或不需要显式 lifetime。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 构造一个返回局部引用的错误示例，把它分别改写成“返回拥有权”和“借用调用方输入”两种合法方案。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设计一个日志解析结构体：比较“字段直接用 String 存储”和“字段用 &amp;str 借用原始缓冲区”两种方案在性能、复杂度和可维护性上的取舍。</li>
-            </ol>
-        </section>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>struct 活得比数据久——编译错误</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>struct_outlive.rs</span></div>
+              <pre><code>struct Excerpt<'a> {
+    part: &'a str,
+}
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html">The Rust Programming Language · Validating References with Lifetimes</a></li>
-                <li><a href="https://doc.rust-lang.org/nomicon/lifetimes.html">The Rustonomicon · Lifetimes</a></li>
-                <li><a href="https://doc.rust-lang.org/error_codes/E0515.html">Rust Error Index · E0515</a></li>
-            </ul>
-        </section>
-    </main>
+fn main() {
+    let excerpt;
+    {
+        let text = String::from("hello world");
+        excerpt = Excerpt { part: &text };
+        // text 在这里 drop
+    }
+    // println!("{}", excerpt.part);  // ❌ text 已经释放
+}</code></pre>
+              <div class="code-error"><strong>编译错误</strong><pre>error[E0597]: `text` does not live long enough
+ --> src/main.rs:8:36
+  |
+8 |         excerpt = Excerpt { part: &text };
+  |                                    ^^^^ borrowed value does not live long enough
+9 |     }
+  |     - `text` dropped here while still borrowed
+10|     println!("{}", excerpt.part);
+  |                    ------------ borrow later used here</pre></div>
+            </div>
 
-    <script src="../assets/js/main.js"></script>
+            <p><strong>多个生命周期参数</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>multi_lifetime_struct.rs</span></div>
+              <pre><code>// 两个引用字段可能有不同的来源/生命周期
+struct Pair<'a, 'b> {
+    first: &'a str,
+    second: &'b str,
+}
+
+fn main() {
+    let s1 = String::from("hello");
+    let pair;
+    {
+        let s2 = String::from("world");
+        pair = Pair { first: &s1, second: &s2 };
+        println!("{} {}", pair.first, pair.second); // ✅ 都还活着
+    }
+    // pair 不能在这里用了（second 已失效）
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>hello world</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>struct Foo { data: &str }</code> 能编译吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '结构体中的引用字段必须有生命周期参数，这段代码缺少 <\'a>。')">A. 能，编译器自动推断生命周期</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！必须写成 struct Foo<\'a> { data: &\'a str }。编译器需要知道引用的约束。')">B. 不能，缺少生命周期参数</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '不是只有 nightly，这是基本语法要求。')">C. 只在 nightly 中能编译</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Exercises ═══════════════ -->
+    <section id="exercises" class="exercises-section">
+      <h2>综合练习</h2>
+      <div id="quiz-zone"></div>
+    </section>
+
+    <!-- ═══════════════ Chapter Nav ═══════════════ -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch1.2_borrowing.html">← Ch 1.2 借用</a>
+      <a class="nav-next" href="ch1.4_ownership_in_practice.html">Ch 1.4 所有权的实际影响 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">Rust Learning · 2026</footer>
+  <script src="../assets/js/components.js"></script>
 </body>
-</html>
+</html>

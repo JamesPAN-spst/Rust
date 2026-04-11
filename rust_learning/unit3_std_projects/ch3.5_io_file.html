@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 3.5 I/O 与文件 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u3-ch35-q1","question":"std::io::Read trait 的核心方法是？","options":["A. fn write(&mut self, buf: &[u8])","B. fn read(&mut self, buf: &mut [u8]) -> io::Result<usize>","C. fn open(path: &str)","D. fn close(&self)"],"answer":1,"explanation":"Read trait 的核心方法是 read()，将数据读入提供的缓冲区并返回实际读取的字节数。"},
+      {"id":"u3-ch35-q2","question":"std::io::Write trait 的 flush() 方法的作用？","options":["A. 删除缓冲区","B. 确保所有缓冲的数据真正写入底层目标","C. 关闭文件","D. 重置写入位置"],"answer":1,"explanation":"缓冲的 Writer 可能暂存数据。flush() 强制将缓冲区中的数据推送到底层 I/O 目标（如磁盘、网络）。"},
+      {"id":"u3-ch35-q3","question":"File::open(path) 以什么模式打开文件？","options":["A. 读写模式","B. 只读模式","C. 只写模式","D. 追加模式"],"answer":1,"explanation":"File::open 以只读模式打开文件。如需写入，使用 File::create（创建/截断）或 OpenOptions 构建器。"},
+      {"id":"u3-ch35-q4","question":"File::create(path) 和 File::open(path) 的区别？","options":["A. 没有区别","B. create 以写模式打开，文件不存在则创建，存在则截断","C. create 只创建不打开","D. open 只读打开，create 追加"],"answer":1,"explanation":"File::create 等价于 OpenOptions::new().write(true).create(true).truncate(true).open(path)。注意 truncate 会清空已有内容。"},
+      {"id":"u3-ch35-q5","question":"BufReader 相比直接使用 File 读取的优势？","options":["A. 更安全","B. 通过内部缓冲区减少系统调用次数，提高性能","C. 支持异步","D. 自动压缩"],"answer":1,"explanation":"每次 read 系统调用都有开销。BufReader 内部维护缓冲区（默认 8KB），将多次小的 read 合并为少量大的系统调用。"},
+      {"id":"u3-ch35-q6","question":"BufRead trait 提供的关键方法是？","options":["A. read_exact","B. read_line 和 lines（按行读取）","C. seek","D. flush"],"answer":1,"explanation":"BufRead 扩展了 Read，提供 read_line（读一行到 String）和 lines（返回行迭代器）。File 本身不实现 BufRead，需要包装成 BufReader。"},
+      {"id":"u3-ch35-q7","question":"fs::read_to_string(path) 的作用？","options":["A. 逐行读取","B. 一次性将整个文件读入 String","C. 读取二进制文件","D. 创建文件"],"answer":1,"explanation":"这是读取文本文件最简洁的方式——一行代码完成打开、读取、关闭。返回 Result<String, io::Error>。"},
+      {"id":"u3-ch35-q8","question":"stdin().read_line(&mut buf) 返回什么？","options":["A. 读取的字符串","B. io::Result<usize>——读取的字节数","C. bool","D. 行号"],"answer":1,"explanation":"read_line 将一行输入（包含换行符）追加到 buf，返回 Result<usize> 表示读取的字节数。"},
+      {"id":"u3-ch35-q9","question":"println! 和 eprintln! 的区别？","options":["A. 没有区别","B. println! 写入 stdout，eprintln! 写入 stderr","C. eprintln! 更快","D. println! 不换行"],"answer":1,"explanation":"println! 输出到标准输出（stdout），eprintln! 输出到标准错误（stderr）。管道重定向时两者分开处理。"},
+      {"id":"u3-ch35-q10","question":"Path 和 PathBuf 的关系类似于？","options":["A. i32 和 i64","B. &str 和 String","C. Vec 和 VecDeque","D. HashMap 和 BTreeMap"],"answer":1,"explanation":"Path 是不拥有所有权的路径切片（类似 &str），PathBuf 是拥有所有权的路径缓冲区（类似 String）。"},
+      {"id":"u3-ch35-q11","question":"Path::new(\"a/b/c.txt\").extension() 返回什么？","options":["A. Some(\"c.txt\")","B. Some(\"txt\")","C. Some(\".txt\")","D. None"],"answer":1,"explanation":"extension() 返回文件扩展名（不含点），即 Some(OsStr::new(\"txt\"))。"},
+      {"id":"u3-ch35-q12","question":"Path::join 的行为？","options":["A. 拼接字符串","B. 将路径组件连接为新路径，自动处理分隔符","C. 合并两个文件","D. 返回绝对路径"],"answer":1,"explanation":"path.join(\"file.txt\") 返回新的 PathBuf，自动在组件之间添加路径分隔符。跨平台正确处理 / 和 \\。"},
+      {"id":"u3-ch35-q13","question":"OpenOptions 的作用？","options":["A. 设置文件权限","B. 精细控制文件打开模式（读/写/追加/创建/截断的组合）","C. 压缩文件","D. 加密文件"],"answer":1,"explanation":"OpenOptions 是构建器模式，让你组合 read/write/append/create/truncate 等选项。比 File::open/create 更灵活。"},
+      {"id":"u3-ch35-q14","question":"以下哪个方式可以追加写入文件？","options":["A. File::create","B. File::open","C. OpenOptions::new().append(true).open(path)","D. File::append"],"answer":2,"explanation":"File::create 会截断文件，File::open 是只读的。追加需要用 OpenOptions 设置 append(true)。"},
+      {"id":"u3-ch35-q15","question":"BufWriter 何时将数据写入磁盘？","options":["A. 每次 write 调用","B. 在缓冲区满或 flush/drop 时","C. 永远不写","D. 只在程序退出时"],"answer":1,"explanation":"BufWriter 缓冲数据直到缓冲区满才做系统调用写入。drop 时也会自动 flush（但 drop 中的错误无法传播）。"},
+      {"id":"u3-ch35-q16","question":"fs::write(path, content) 的作用？","options":["A. 追加到文件","B. 一行代码完成创建/写入文件","C. 读取文件","D. 删除文件"],"answer":1,"explanation":"fs::write 是最简洁的写入方式——创建文件（或覆盖），写入全部内容，关闭。适合小文件的一次性写入。"},
+      {"id":"u3-ch35-q17","question":"为什么 Rust IO 用 OsStr/OsString 而不是 str/String？","options":["A. 性能更好","B. 操作系统路径不保证是有效 UTF-8","C. 节省内存","D. 兼容 C 语言"],"answer":1,"explanation":"Windows 路径可能包含非 UTF-8 数据（WTF-16），Unix 路径也允许非 UTF-8 字节。OsStr 能正确表示这些情况。"},
+      {"id":"u3-ch35-q18","question":"如何逐行读取一个大文件（不全部加载到内存）？","options":["A. fs::read_to_string 然后 split","B. BufReader::new(file).lines() 迭代器","C. file.read_to_end","D. file.bytes()"],"answer":1,"explanation":"BufReader + lines() 是逐行流式读取的标准方式，每次只在内存中保留一行数据。适合处理大文件。"},
+      {"id":"u3-ch35-q19","question":"writeln!(file, \"{}\", data) 中 file 需要实现什么 trait？","options":["A. Read","B. Write","C. Display","D. Debug"],"answer":1,"explanation":"write!/writeln! 宏需要目标实现 std::io::Write trait。File 和 BufWriter 都实现了 Write。"},
+      {"id":"u3-ch35-q20","question":"path.canonicalize() 的作用？","options":["A. 检查路径是否存在","B. 返回绝对路径并解析所有符号链接和 .、..","C. 创建目录","D. 删除路径"],"answer":1,"explanation":"canonicalize 将相对路径转为绝对路径，解析其中的 . 和 .. 以及符号链接。路径必须存在才能成功。"},
+      {"id":"u3-ch35-q21","question":"std::fs::create_dir_all 和 create_dir 的区别？","options":["A. 没有区别","B. create_dir_all 递归创建所有中间目录","C. create_dir_all 只创建一层","D. create_dir 递归创建"],"answer":1,"explanation":"create_dir 只创建最终目录（父目录必须存在），create_dir_all 递归创建所有缺失的中间目录（类似 mkdir -p）。"},
+      {"id":"u3-ch35-q22","question":"File 在 drop 时会自动做什么？","options":["A. 什么都不做","B. 自动关闭文件描述符","C. 删除文件","D. 写入 EOF"],"answer":1,"explanation":"File 实现了 Drop trait，在离开作用域时自动关闭底层文件描述符。无需手动关闭。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="chapter-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
+
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <a href="../index.html" class="module-name">Unit 3 · 标准库与项目实践</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.5 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 Read / Write trait</a></li>
+      <li><a href="#kp2">02 文件读写</a></li>
+      <li><a href="#kp3">03 标准输入输出</a></li>
+      <li><a href="#kp4">04 路径处理</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 3 · 标准库与项目实践</p>
+      <h1>I/O 与文件</h1>
+      <p class="chapter-intro">Rust 的 I/O 系统建立在 Read 和 Write 两个 trait 之上，通过统一的接口抽象文件、网络、标准输入输出等不同数据源。配合 Path/PathBuf 的跨平台路径抽象，你可以写出既安全又可移植的 I/O 代码。</p>
+    </header>
+
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>Read / Write trait</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>文件、网络套接字、标准输入、内存缓冲区——它们的底层完全不同，但"读数据"和"写数据"的基本操作却是一样的。Rust 用 <code>Read</code> 和 <code>Write</code> 两个 trait 统一了所有 I/O 操作，让你可以写出不依赖具体数据源的通用代码。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>核心 trait 层级：</p>
+            <ul>
+              <li><strong><code>Read</code></strong>：<code>fn read(&mut self, buf: &mut [u8]) -> Result&lt;usize&gt;</code> — 基础读取</li>
+              <li><strong><code>BufRead</code></strong>：扩展 Read，增加 <code>read_line()</code>、<code>lines()</code> 等缓冲读取方法</li>
+              <li><strong><code>Write</code></strong>：<code>fn write(&mut self, buf: &[u8]) -> Result&lt;usize&gt;</code> + <code>fn flush(&mut self)</code></li>
+            </ul>
+            <p>实现了这些 trait 的类型：File、TcpStream、Stdin/Stdout、BufReader、BufWriter、Vec&lt;u8&gt; 等。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>read_write_trait.rs</span></div>
+              <pre><code>use std::io::{self, Read, Write};
+
+// 通用函数：任何实现了 Read 的类型都行
+fn count_bytes(reader: &mut impl Read) -> io::Result&lt;usize&gt; {
+    let mut buf = Vec::new();
+    let bytes = reader.read_to_end(&mut buf)?;
+    Ok(bytes)
+}
+
+// 通用函数：任何实现了 Write 的类型都行
+fn write_greeting(writer: &mut impl Write) -> io::Result&lt;()&gt; {
+    writer.write_all(b"Hello, Rust!\n")?;
+    writer.flush()?;
+    Ok(())
+}
+
+fn main() -> io::Result&lt;()&gt; {
+    // 写入文件
+    let mut file = std::fs::File::create("output.txt")?;
+    write_greeting(&mut file)?;
+
+    // 写入 Vec（内存缓冲区）
+    let mut buf: Vec&lt;u8&gt; = Vec::new();
+    write_greeting(&mut buf)?;
+    println!("缓冲区: {:?}", String::from_utf8(buf));
+
+    Ok(())
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>read_methods.rs</span></div>
+              <pre><code>use std::io::Read;
+
+let mut file = std::fs::File::open("data.txt")?;
+
+// read：读入固定大小缓冲区
+let mut buf = [0u8; 1024];
+let n = file.read(&mut buf)?;    // 返回实际读取的字节数
+
+// read_to_string：一次性读成 String
+let mut content = String::new();
+file.read_to_string(&mut content)?;
+
+// read_to_end：一次性读成 Vec&lt;u8&gt;
+let mut bytes = Vec::new();
+file.read_to_end(&mut bytes)?;
+
+// read_exact：精确读取指定字节数（不够则报错）
+let mut header = [0u8; 4];
+file.read_exact(&mut header)?;</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>泛型 I/O</strong>：用 <code>impl Read</code> / <code>impl Write</code> 作为参数，让函数可测试——测试时传入 Vec、生产时传入 File</li>
+              <li><strong>read 可能短读</strong>：<code>read()</code> 不保证填满缓冲区。需要读完所有数据用 <code>read_to_end</code> 或 <code>read_exact</code></li>
+              <li><strong>write_all vs write</strong>：<code>write()</code> 可能短写，<code>write_all()</code> 保证写完所有数据</li>
+              <li><strong>别忘了 flush</strong>：BufWriter 需要 flush 确保数据真正写入</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>testable_io.rs</span></div>
+              <pre><code>use std::io::{self, BufRead, Write};
+
+// 通过 trait 抽象 I/O，方便测试
+fn process_lines(
+    reader: impl BufRead,
+    mut writer: impl Write,
+) -> io::Result&lt;usize&gt; {
+    let mut count = 0;
+    for line in reader.lines() {
+        let line = line?;
+        writeln!(writer, "处理: {}", line.to_uppercase())?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+// 生产环境
+fn main() -> io::Result&lt;()&gt; {
+    let file = std::fs::File::open("input.txt")?;
+    let reader = io::BufReader::new(file);
+    let stdout = io::stdout();
+    process_lines(reader, stdout.lock())?;
+    Ok(())
+}
+
+// 测试——使用内存缓冲区代替真实文件
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_process_lines() {
+        let input = b"hello\nworld\n";
+        let mut output = Vec::new();
+        let count = process_lines(&input[..], &mut output).unwrap();
+        assert_eq!(count, 2);
+        let result = String::from_utf8(output).unwrap();
+        assert!(result.contains("HELLO"));
+    }
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ <code>read()</code> 返回 0 字节表示 EOF（文件结束），不是错误。循环读取时要检查返回值。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么函数参数推荐用 impl Read 而不是 File？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'impl Read 不影响性能。')">A. 性能更好</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！使用 trait 抽象可以接受任何数据源，测试时可传入 Vec 或 &[u8]。')">B. 更通用——接受文件、网络、内存缓冲区等任何 Read 实现</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'File 也是安全的。')">C. File 不安全</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '编译速度差异可忽略。')">D. 编译更快</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>文件读写</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>文件操作是最常见的 I/O 场景。Rust 提供了从一行搞定到精细控制的多层 API。理解何时用便捷函数（<code>fs::read_to_string</code>）、何时用底层控制（<code>BufReader</code> + <code>OpenOptions</code>），是编写高效 I/O 代码的关键。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>需求</th><th>便捷 API</th><th>精细 API</th></tr></thead>
+              <tbody>
+                <tr><td>读全部文本</td><td><code>fs::read_to_string</code></td><td><code>File::open</code> + <code>read_to_string</code></td></tr>
+                <tr><td>读全部字节</td><td><code>fs::read</code></td><td><code>File::open</code> + <code>read_to_end</code></td></tr>
+                <tr><td>逐行读取</td><td>—</td><td><code>BufReader::new(file).lines()</code></td></tr>
+                <tr><td>写入/覆盖</td><td><code>fs::write</code></td><td><code>File::create</code> + <code>write_all</code></td></tr>
+                <tr><td>追加写入</td><td>—</td><td><code>OpenOptions::append(true)</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>file_read.rs</span></div>
+              <pre><code>use std::fs;
+use std::io::{self, BufRead, BufReader};
+
+// === 一行搞定：读取整个文件 ===
+let content: String = fs::read_to_string("config.toml")?;
+let bytes: Vec&lt;u8&gt; = fs::read("image.png")?;
+
+// === 逐行读取（大文件推荐） ===
+let file = fs::File::open("large_log.txt")?;
+let reader = BufReader::new(file);
+
+for line_result in reader.lines() {
+    let line = line_result?;  // 每行可能产生 io::Error
+    if line.contains("ERROR") {
+        println!("{}", line);
+    }
+}
+
+// === 读取固定大小的块 ===
+let mut file = fs::File::open("data.bin")?;
+let mut buf = [0u8; 4096];
+loop {
+    let n = file.read(&mut buf)?;
+    if n == 0 { break; }  // EOF
+    process_chunk(&buf[..n]);
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>file_write.rs</span></div>
+              <pre><code>use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write, BufWriter};
+
+// === 一行搞定：写入文件（创建/覆盖） ===
+fs::write("output.txt", "Hello, World!")?;
+
+// === 使用 File::create + BufWriter 高效写入 ===
+let file = File::create("output.txt")?;
+let mut writer = BufWriter::new(file);
+for i in 0..1000 {
+    writeln!(writer, "行 {}: 数据", i)?;
+}
+writer.flush()?;  // 确保所有数据写入
+
+// === 追加写入 ===
+let mut file = OpenOptions::new()
+    .append(true)
+    .create(true)  // 不存在则创建
+    .open("log.txt")?;
+writeln!(file, "[2026-04-10] 新事件")?;
+
+// === OpenOptions 完全控制 ===
+let file = OpenOptions::new()
+    .read(true)
+    .write(true)
+    .create(true)
+    .truncate(false)  // 不截断
+    .open("data.db")?;</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>小文件</strong>：<code>fs::read_to_string</code> / <code>fs::write</code> 最方便</li>
+              <li><strong>大文件</strong>：<code>BufReader</code> 逐行流式处理，避免内存爆炸</li>
+              <li><strong>频繁写入</strong>：<code>BufWriter</code> 减少系统调用，写完记得 <code>flush()</code></li>
+              <li><strong>日志追加</strong>：<code>OpenOptions::append(true).create(true)</code></li>
+              <li><strong>File 的 Drop</strong>：离开作用域自动关闭，但 BufWriter 的 Drop 中 flush 的错误会被静默忽略——显式 flush 更安全</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>buffered_trap.rs</span></div>
+              <pre><code>use std::io::{BufWriter, Write};
+
+// ❌ BufWriter drop 时 flush 失败是静默的
+fn bad_write() -> std::io::Result&lt;()&gt; {
+    let file = std::fs::File::create("out.txt")?;
+    let mut writer = BufWriter::new(file);
+    write!(writer, "Important data!")?;
+    // writer 在这里 drop → 自动 flush
+    // 但 flush 错误被静默忽略了！
+    Ok(())
+}
+
+// ✅ 显式 flush 以捕获错误
+fn good_write() -> std::io::Result&lt;()&gt; {
+    let file = std::fs::File::create("out.txt")?;
+    let mut writer = BufWriter::new(file);
+    write!(writer, "Important data!")?;
+    writer.flush()?;  // 显式 flush，错误会被 ? 传播
+    Ok(())
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ BufWriter 在 drop 时会尝试 flush，但 Drop trait 不能返回 Result，所以 flush 失败会被静默忽略。对重要数据，务必显式调用 <code>flush()</code>。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">逐行读取大文件的推荐方式是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '会把整个文件加载到内存。')">A. fs::read_to_string + split</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！BufReader 的 lines() 迭代器逐行流式读取，内存高效。')">B. BufReader::new(file).lines()</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '那样也是全部加载。')">C. file.read_to_end + split</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '那是逐字节读取，太慢了。')">D. file.bytes()</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>标准输入输出</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>CLI 程序的数据流动通过 stdin/stdout/stderr 三个标准流完成。掌握它们的 Rust API，是编写命令行工具和管道友好程序的基础。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>流</th><th>方向</th><th>获取方式</th><th>用途</th></tr></thead>
+              <tbody>
+                <tr><td>stdin</td><td>输入</td><td><code>io::stdin()</code></td><td>用户输入、管道输入</td></tr>
+                <tr><td>stdout</td><td>输出</td><td><code>io::stdout()</code> / <code>println!</code></td><td>正常输出（可重定向）</td></tr>
+                <tr><td>stderr</td><td>输出</td><td><code>io::stderr()</code> / <code>eprintln!</code></td><td>错误/诊断信息（不重定向）</td></tr>
+              </tbody>
+            </table>
+            <p>注意：<code>println!</code> 每次调用都锁定 stdout。高频输出场景应手动锁定一次。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>stdio.rs</span></div>
+              <pre><code>use std::io::{self, BufRead, Write};
+
+fn main() -> io::Result&lt;()&gt; {
+    // === 读取一行输入 ===
+    print!("请输入名字: ");
+    io::stdout().flush()?;  // print! 不自动 flush
+
+    let mut name = String::new();
+    io::stdin().read_line(&mut name)?;
+    let name = name.trim();  // 去掉末尾的换行符
+    println!("你好, {}!", name);
+
+    // === 逐行处理 stdin（管道友好） ===
+    let stdin = io::stdin();
+    for line in stdin.lock().lines() {
+        let line = line?;
+        println!(">> {}", line.to_uppercase());
+    }
+
+    // === 高频输出：手动锁定 stdout ===
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();  // 只锁一次
+    for i in 0..10000 {
+        writeln!(handle, "行 {}", i)?;  // 避免每次 println! 都加锁
+    }
+
+    // === 错误输出到 stderr ===
+    eprintln!("警告: 配置文件缺失，使用默认值");
+
+    Ok(())
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>print! 后要 flush</strong>：<code>print!</code> 不像 <code>println!</code> 自动换行和 flush</li>
+              <li><strong>高频输出锁定 stdout</strong>：<code>stdout.lock()</code> 避免每次输出都加锁解锁</li>
+              <li><strong>管道兼容</strong>：正常数据走 stdout，错误信息走 stderr。这样 <code>program | grep</code> 不会被错误信息干扰</li>
+              <li><strong>read_line 追加</strong>：<code>read_line</code> 是追加到 String，循环读取前要清空</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>stdin_trap.rs</span></div>
+              <pre><code>use std::io;
+
+// ❌ read_line 是追加的！
+let mut input = String::new();
+io::stdin().read_line(&mut input)?;  // "hello\n"
+io::stdin().read_line(&mut input)?;  // "hello\nworld\n"  ← 两行拼在一起了！
+
+// ✅ 每次读取前清空
+let mut input = String::new();
+io::stdin().read_line(&mut input)?;
+let first = input.trim().to_string();
+input.clear();  // 清空！
+io::stdin().read_line(&mut input)?;
+let second = input.trim().to_string();
+
+// ✅ 或者每次创建新 String
+fn read_line() -> io::Result&lt;String&gt; {
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(buf.trim().to_string())
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ <code>read_line</code> 会在 String 末尾追加（包含 <code>\n</code>）。循环读取时务必先 <code>.clear()</code> 或每次用新的 String。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么 print!("请输入: ") 后要调用 flush()？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'print! 的数据确实进了缓冲区。')">A. 否则数据会丢失</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！stdout 是行缓冲的，print! 不换行就不会自动 flush，提示文字可能不显示。')">B. stdout 行缓冲模式下 print! 不换行不会 flush，提示不会立即显示</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不是必须的，但不 flush 文字可能延迟显示。')">C. 否则会编译错误</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'flush 不提高性能。')">D. 提高性能</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>路径处理</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>文件路径在 Windows 和 Unix 上格式不同（<code>\</code> vs <code>/</code>），且操作系统路径可能包含非 UTF-8 字符。Rust 用 <code>Path</code> / <code>PathBuf</code> 类型封装了这些跨平台细节，让路径操作既安全又可移植。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>路径类型对照：</p>
+            <table class="info-table">
+              <thead><tr><th>字符串世界</th><th>路径世界</th><th>特点</th></tr></thead>
+              <tbody>
+                <tr><td><code>&str</code></td><td><code>&Path</code></td><td>不可变借用，unsized</td></tr>
+                <tr><td><code>String</code></td><td><code>PathBuf</code></td><td>拥有所有权，可增长</td></tr>
+                <tr><td><code>&OsStr</code></td><td>—</td><td>操作系统原生字符串</td></tr>
+                <tr><td><code>OsString</code></td><td>—</td><td>拥有的操作系统字符串</td></tr>
+              </tbody>
+            </table>
+            <p>Path 内部用 <code>OsStr</code>（而非 <code>str</code>），因为操作系统路径不保证是有效 UTF-8。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>path_ops.rs</span></div>
+              <pre><code>use std::path::{Path, PathBuf};
+
+// === 创建 ===
+let p = Path::new("/home/user/doc.txt");
+let mut pb = PathBuf::from("/home/user");
+
+// === 组件操作 ===
+println!("{:?}", p.file_name());    // Some("doc.txt")
+println!("{:?}", p.extension());    // Some("txt")
+println!("{:?}", p.stem());         // Some("doc")
+println!("{:?}", p.parent());       // Some("/home/user")
+
+// === 拼接路径 ===
+pb.push("documents");              // /home/user/documents
+pb.push("report.pdf");             // /home/user/documents/report.pdf
+
+let joined = Path::new("/home").join("user").join("file.txt");
+// /home/user/file.txt
+
+// === 检查 ===
+let exists = p.exists();
+let is_file = p.is_file();
+let is_dir = p.is_dir();
+let is_abs = p.is_absolute();
+
+// === 转换 ===
+let s: Option&lt;&str&gt; = p.to_str();       // 可能失败（非 UTF-8 路径）
+let s: String = p.display().to_string();  // 总是成功（有损转换）
+let os: &std::ffi::OsStr = p.as_os_str();</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>path_practical.rs</span></div>
+              <pre><code>use std::path::Path;
+use std::fs;
+
+// 递归遍历目录
+fn list_files(dir: &Path) -> std::io::Result&lt;()&gt; {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                list_files(&path)?;
+            } else {
+                println!("{}", path.display());
+            }
+        }
+    }
+    Ok(())
+}
+
+// 构建输出路径：修改扩展名
+fn to_output_path(input: &Path) -> PathBuf {
+    let mut output = input.to_path_buf();
+    output.set_extension("out");  // foo.txt → foo.out
+    output
+}
+
+// 安全拼接：join 处理绝对路径的特殊情况
+let base = Path::new("/home/user");
+let relative = Path::new("docs/file.txt");
+let absolute = Path::new("/etc/config");
+
+let p1 = base.join(relative);   // /home/user/docs/file.txt
+let p2 = base.join(absolute);   // /etc/config  ← 绝对路径覆盖！</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>函数参数用 <code>&Path</code></strong>：类似 <code>&str</code>，接受 &PathBuf 和路径字面值</li>
+              <li><strong>用 <code>join</code> 而非字符串拼接</strong>：join 自动处理分隔符和平台差异</li>
+              <li><strong>注意 join 的覆盖行为</strong>：如果参数是绝对路径，会覆盖前面的部分</li>
+              <li><strong>display() 用于输出</strong>：<code>path.display()</code> 返回可 format 的对象，处理非 UTF-8 路径时做有损替换</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>path_traps.rs</span></div>
+              <pre><code>use std::path::Path;
+
+// ❌ 字符串拼接路径——不可移植
+let path = "/home/user".to_string() + "/" + "file.txt";
+// Windows 上可能出问题
+
+// ✅ 用 Path::join
+let path = Path::new("/home/user").join("file.txt");
+
+// ❌ to_str() 可能返回 None
+let p = Path::new("/some/path");
+let s: &str = p.to_str().unwrap();  // 对非 UTF-8 路径会 panic
+
+// ✅ 安全处理
+match p.to_str() {
+    Some(s) => println!("路径: {}", s),
+    None => println!("路径包含非 UTF-8 字符: {}", p.display()),
+}
+
+// ⚠ join 绝对路径的陷阱
+let base = Path::new("/home");
+let sub = Path::new("/etc/config");  // 注意：这是绝对路径
+assert_eq!(base.join(sub), Path::new("/etc/config"));
+// join 的参数如果是绝对路径，会直接替换（不是拼接）！</code></pre>
+            </div>
+            <p class="warning-text">⚠ <code>Path::join</code> 的参数如果是绝对路径，结果就是那个绝对路径（而非拼接）。处理用户输入的路径时要特别注意这一点。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">Path 和 PathBuf 的关系类似于？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Vec 和 VecDeque 是不同的数据结构。')">A. Vec 和 VecDeque</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！Path 是不拥有所有权的切片（类似 &str），PathBuf 拥有所有权（类似 String）。')">B. &amp;str 和 String</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'HashMap 和 BTreeMap 解决不同问题。')">C. HashMap 和 BTreeMap</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Box 和 Rc 是不同的智能指针。')">D. Box 和 Rc</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <p class="exercises-intro">共 22 道题，涵盖 Read/Write trait、文件操作、标准 I/O 和路径处理。</p>
+      <div id="quiz-container"></div>
+      <div class="quiz-controls">
+        <button class="btn" onclick="checkAnswers()">提交答案</button>
+        <button class="btn btn-outline" onclick="resetQuiz()">重置</button>
+      </div>
+      <div id="quiz-result"></div>
+    </section>
+
+    <!-- ==================== 章节导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="ch3.4_modules_crates.html" class="prev-chapter">
+        <span class="nav-arrow">←</span>
+        <span class="nav-info">
+          <span class="nav-label">上一章</span>
+          <span class="nav-title">模块与 Crate</span>
+        </span>
+      </a>
+      <a href="ch3.6_mini_project.html" class="next-chapter">
+        <span class="nav-info">
+          <span class="nav-label">下一章</span>
+          <span class="nav-title">迷你项目</span>
+        </span>
+        <span class="nav-arrow">→</span>
+      </a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
+</body>
+</html>

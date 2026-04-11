@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════
+   Rust Learning · Theme Variables & Base Styles
+   Adapted from math_univers design language
+   ═════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Raleway:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+:root {
+  /* ── Base ── */
+  --bg: #f8f9fc;
+  --bg-alt: #f0f2f5;
+  --surface: rgba(255,255,255,.74);
+  --surface-solid: #ffffff;
+  --border: rgba(0,0,0,.08);
+  --border-strong: rgba(0,0,0,.12);
+  --shadow: rgba(10,14,28,.08);
+  --shadow-lg: rgba(10,14,28,.15);
+
+  /* ── Text ── */
+  --text: #1a1a2e;
+  --text-secondary: #5a5a72;
+  --text-tertiary: #8a8aa0;
+
+  /* ── Unit / domain colors ── */
+  --c-foundation: #78716c;   /* Unit 0: 环境与心态 */
+  --c-ownership: #ef4444;    /* Unit 1: 所有权系统 */
+  --c-syntax: #f59e0b;       /* Unit 2: 基础语法 */
+  --c-stdlib: #10b981;       /* Unit 3: 标准库与项目 */
+  --c-concurrency: #3b82f6;  /* Unit 4: 并发与异步 */
+  --c-advanced: #8b5cf6;     /* Unit 5: 高级特性 */
+  --c-tracks: #06b6d4;       /* Unit 6: 方向分支 */
+
+  /* ── Step-card accent colors ── */
+  --step-motivation: #3b82f6;
+  --step-abstraction: #eab308;
+  --step-derivation: #10b981;
+  --step-application: #a855f7;
+  --step-example: #64748b;
+
+  /* ── Feedback ── */
+  --success: #10b981;
+  --error: #ef4444;
+
+  /* ── Glass ── */
+  --glass-bg: rgba(255,255,255,.68);
+  --glass-blur: 20px;
+
+  /* ── Fonts ── */
+  --font-display: 'Cormorant Garamond','Noto Serif SC', serif;
+  --font-body: 'Raleway','Noto Sans SC', sans-serif;
+  --font-mono: 'Fira Code','JetBrains Mono','Consolas', monospace;
+
+  /* ── Radii ── */
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  /* ── Layout constants ── */
+  --topbar-h: 56px;
+  --sidebar-w: 260px;
+}
+
+/* ═══ Dark Theme ═══ */
+html[data-theme="dark"] {
+  --bg: #0f1117;
+  --bg-alt: #181a24;
+  --surface: rgba(26,27,46,.74);
+  --surface-solid: #1a1b2e;
+  --border: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.15);
+  --shadow: rgba(0,0,0,.2);
+  --shadow-lg: rgba(0,0,0,.35);
+  --text: #e4e4ed;
+  --text-secondary: #9a9ab0;
+  --text-tertiary: #6a6a80;
+  --glass-bg: rgba(26,27,46,.68);
+}
+
+/* ═══ Neon / Aurora Theme ═══ */
+html[data-theme="neon"] {
+  --bg: #020617;
+  --bg-alt: #0a0f1e;
+  --surface: rgba(10,15,40,.45);
+  --surface-solid: rgba(10,15,40,.55);
+  --border: rgba(120,180,255,.15);
+  --border-strong: rgba(120,180,255,.25);
+  --shadow: rgba(0,0,0,.3);
+  --shadow-lg: rgba(0,0,0,.5);
+  --text: #e8ecf4;
+  --text-secondary: #a0b4d0;
+  --text-tertiary: #607090;
+  --glass-bg: rgba(10,15,40,.38);
+  --glass-blur: 24px;
+  --neon-glow: 0 0 12px rgba(100,200,255,.15), 0 0 40px rgba(100,160,255,.06);
+}
+
+/* ═══ Resets ═══ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-body);line-height:1.6;
+  -webkit-font-smoothing:antialiased;min-height:100vh;
+  -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
+::selection{background:rgba(239,68,68,.2)}
+
+/* ═══ Scrollbar ═══ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.1);border-radius:3px}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1)}
+
+/* ═══ Page transition ═══ */
+@keyframes pageIn{
+  from{opacity:0;transform:translateY(16px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes pageOut{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-12px)}
+}
+body{animation:pageIn .4s ease backwards}
+body.page-exit{animation:pageOut .25s ease forwards}
+
+/* ═══ Code styling ═══ */
+code,pre{font-family:var(--font-mono)}
+code{
+  font-size:.88em;padding:2px 6px;border-radius:4px;
+  background:rgba(0,0,0,.06);color:var(--text);
+}
+html[data-theme="dark"] code,
+html[data-theme="neon"] code{background:rgba(255,255,255,.08)}
+pre code{background:transparent;padding:0;font-size:inherit}

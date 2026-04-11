@@ -1,369 +1,243 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 5.2 泛型与 Trait 对象 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 5.2 泛型与 Trait 对象 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u5-ch52-q1","question":"泛型函数 fn foo<T>(x: T) 中，裸泛型 T 能调用什么方法？","options":["A. 任何方法","B. 什么方法都不能调用","C. 只能调用 Display 方法","D. 只能调用 Debug 方法"],"answer":1,"explanation":"裸泛型 T 没有任何约束，编译器不知道 T 有哪些方法。需要 Trait Bound 才能调用特定方法。"},
+      {"id":"u5-ch52-q2","question":"Trait Bound <T: Display + Clone> 表示什么？","options":["A. T 必须是 Display 或 Clone","B. T 必须同时实现 Display 和 Clone","C. T 可以是任何类型","D. T 必须是 String"],"answer":1,"explanation":"+ 表示多重约束，T 必须同时满足 Display 和 Clone 两个 trait。"},
+      {"id":"u5-ch52-q3","question":"where 子句的主要优势是什么？","options":["A. 性能更好","B. 可以使用更多 trait","C. 复杂约束时提高可读性","D. 支持动态分发"],"answer":2,"explanation":"where 把约束从函数签名的尖括号中移出来，多个复杂约束时代码更清晰。"},
+      {"id":"u5-ch52-q4","question":"impl Trait 作为返回类型的限制是？","options":["A. 不能返回 trait 对象","B. 只能返回一种具体类型","C. 必须配合 Box 使用","D. 不能使用泛型"],"answer":1,"explanation":"impl Trait 返回类型在编译期确定为一种具体类型。不能根据条件返回不同类型。"},
+      {"id":"u5-ch52-q5","question":"单态化（monomorphization）的含义是？","options":["A. 运行时确定类型","B. 编译器为每个具体类型生成专用代码副本","C. 使用虚函数表分发","D. 把所有类型统一成 Object"],"answer":1,"explanation":"编译器为 foo::<i32>、foo::<String> 等生成各自的函数代码，实现零运行时开销。"},
+      {"id":"u5-ch52-q6","question":"单态化的代价是？","options":["A. 运行时更慢","B. 编译时间和二进制体积增加","C. 内存泄漏","D. 不支持泛型"],"answer":1,"explanation":"每个具体类型生成一份代码 → 编译时间变长、二进制变大。但运行时零开销。"},
+      {"id":"u5-ch52-q7","question":"dyn Trait 的本质是什么？","options":["A. 编译期确定的泛型","B. 胖指针（数据指针 + vtable 指针）实现动态分发","C. 宏展开","D. 没有运行时开销的泛型"],"answer":1,"explanation":"dyn Trait 是 trait 对象，运行时通过虚函数表（vtable）判断调用哪个实现。"},
+      {"id":"u5-ch52-q8","question":"为什么不能直接写 let x: dyn Display?","options":["A. dyn 不是有效关键字","B. dyn Trait 是 DST，大小不确定，不能直接放栈上","C. Display 不是 trait","D. 需要 where 子句"],"answer":1,"explanation":"dyn Trait 是动态大小类型（DST），编译器不知道它占多少字节，必须通过 Box<dyn Trait> 等指针间接使用。"},
+      {"id":"u5-ch52-q9","question":"哪种方式不符合对象安全规则？","options":["A. fn name(&self) -> &str","B. fn process(&self, data: &[u8])","C. fn duplicate(&self) -> Self","D. fn describe(&self) -> String"],"answer":2,"explanation":"返回 Self 的方法不对象安全——通过 dyn Trait 调用时，编译器不知道具体类型是什么，无法确定 Self 的大小。"},
+      {"id":"u5-ch52-q10","question":"泛型 vs trait 对象的选择标准是？","options":["A. 泛型更快，总是用泛型","B. 编译期能确定类型用泛型，运行时才知道用 trait 对象","C. trait 对象更灵活，总是用 trait 对象","D. 没有区别"],"answer":1,"explanation":"泛型（静态分发）编译期确定，零运行时开销但增加编译时间。trait 对象（动态分发）支持运行时多态但有 vtable 间接调用开销。"},
+      {"id":"u5-ch52-q11","question":"fn largest<T: PartialOrd>(a: T, b: T) -> T 中 PartialOrd 的作用？","options":["A. 让 T 可以打印","B. 让 T 可以比较大小","C. 让 T 可以克隆","D. 让 T 可以序列化"],"answer":1,"explanation":"PartialOrd 提供 >=、<= 等比较运算符。没有它，编译器不知道 T 能否比较。"},
+      {"id":"u5-ch52-q12","question":"impl Display for MyType 中的 Display 是什么？","options":["A. 一个函数","B. 一个 trait，定义了格式化显示的接口","C. 一个类型","D. 一个模块"],"answer":1,"explanation":"Display 是标准库 trait，定义了 fmt 方法，让类型可以通过 {} 格式化输出。"},
+      {"id":"u5-ch52-q13","question":"静态分发和动态分发在调用时的区别是？","options":["A. 静态分发更慢","B. 静态分发直接调用函数，动态分发通过 vtable 间接查找","C. 动态分发不支持 trait","D. 没有区别"],"answer":1,"explanation":"静态分发（泛型）编译期内联调用具体函数。动态分发（dyn Trait）运行时先查 vtable 找到函数指针再调用。"},
+      {"id":"u5-ch52-q14","question":"Vec<Box<dyn Drawable>> 能存储什么？","options":["A. 只能存储同一类型","B. 可以存储不同类型，只要它们都实现了 Drawable","C. 只能存储 Box 类型","D. 不能存储在 Vec 中"],"answer":1,"explanation":"这就是 trait 对象的核心价值：异构集合——不同具体类型放在同一个容器中，通过统一的 trait 接口操作。"},
+      {"id":"u5-ch52-q15","question":"Sized trait bound 默认什么状态？","options":["A. 需要手动添加","B. 所有泛型参数默认 T: Sized","C. 永远不需要","D. 只对 struct 有效"],"answer":1,"explanation":"Rust 中泛型参数默认隐含 T: Sized（编译期已知大小）。用 ?Sized 放松此约束以接受 DST。"},
+      {"id":"u5-ch52-q16","question":"fn bar(x: &dyn Display) 和 fn bar<T: Display>(x: &T) 的区别？","options":["A. 完全一样","B. 前者动态分发（有 vtable 开销），后者静态分发（零开销）","C. 前者更快","D. 后者不支持多态"],"answer":1,"explanation":"&dyn Display 运行时通过 vtable 查找方法，有间接调用开销。泛型版本编译期单态化，直接调用。"},
+      {"id":"u5-ch52-q17","question":"对象安全为什么要求方法不返回 Self？","options":["A. Self 是关键字不能做返回类型","B. 通过 dyn Trait 调用时不知道具体类型，无法确定 Self 的大小","C. Self 会导致内存泄漏","D. Rust 语言限制"],"answer":1,"explanation":"vtable 调用时类型已擦除，编译器不知道 Self 是什么类型、多大，无法在栈上分配返回值。"},
+      {"id":"u5-ch52-q18","question":"哪个 trait 不是对象安全的？","options":["A. Display","B. Debug","C. Clone","D. Drop"],"answer":2,"explanation":"Clone 有 fn clone(&self) -> Self 方法，返回 Self 不对象安全。Display 和 Debug 的方法不返回 Self。"},
+      {"id":"u5-ch52-q19","question":"impl Trait 作为参数和作为返回值有什么不同？","options":["A. 完全一样","B. 参数位置相当于泛型语法糖，返回位置表示具体类型由实现决定","C. 参数不支持 impl Trait","D. 返回不支持 impl Trait"],"answer":1,"explanation":"fn foo(x: impl Display) ≈ fn foo<T: Display>(x: T)。返回位置的 impl Trait 表示返回一种编译期确定的具体类型（但调用者不知道是哪种）。"},
+      {"id":"u5-ch52-q20","question":"turbofish 语法 foo::<i32>(x) 的用途是？","options":["A. 强制运行时类型检查","B. 手动指定泛型类型参数","C. 调用宏","D. 启用动态分发"],"answer":1,"explanation":"当编译器无法推断泛型参数时，用 ::<Type> 显式指定。常见于 str::parse::<i32>()。"},
+      {"id":"u5-ch52-q21","question":"关联类型和泛型参数的区别？","options":["A. 完全一样","B. 关联类型由实现者决定（每种 impl 一种），泛型参数由使用者选择","C. 关联类型更快","D. 泛型参数不能在 trait 中使用"],"answer":1,"explanation":"trait Iterator { type Item; } 的 Item 由实现者确定。trait Foo<T> 的 T 由使用者指定，同一类型可以 impl Foo<i32> 和 impl Foo<String>。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit5_advanced" style="--domain-color: var(--c-advanced);">
+  <nav class="topbar"><a href="../index.html" class="topbar-brand">Rust Learning</a><div class="topbar-module"><span class="module-domain">ADVANCED</span><a href="../index.html" class="module-name">Unit 5 · 高级特性</a></div><div class="topbar-right"><span class="chapter-indicator">Ch.2 / 4</span><button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button></div></nav>
+  <aside class="toc-sidebar"><div class="toc-header">本章目录</div><ul class="toc-list"><li><a href="#kp1">01 · 泛型函数与结构体</a></li><li><a href="#kp2">02 · Trait Bound 与 where</a></li><li><a href="#kp3">03 · 单态化</a></li><li><a href="#kp4">04 · dyn Trait 动态分发</a></li><li><a href="#kp5">05 · 对象安全规则</a></li><li><a href="#exercises">综合练习</a></li></ul></aside>
+  <main class="main-content">
+    <header class="chapter-hero"><p class="chapter-label">Unit 5 · 高级特性</p><h1>Ch 5.2 泛型与 Trait 对象</h1><p class="chapter-intro">泛型让一份代码适用多种类型，Trait 对象让不同类型在运行时统一操作。理解静态分发与动态分发的取舍，是 Rust 类型系统的核心功力。</p></header>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 5 · 高级特性</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit4_concurrency_async/ch4.3_async_ecosystem.html">上一单元：异步生态</a></li>
-
-            <li class="unit-title">Unit 5 正式页面</li>
-            <li><a href="./ch5.1_smart_pointers.html">5.1 智能指针</a></li>
-            <li><a href="./ch5.2_generics_trait_objects.html" class="active">5.2 泛型与 Trait 对象</a></li>
-            <li><a href="./ch5.3_macros.html">5.3 宏系统</a></li>
-            <li><a href="./ch5.4_unsafe_rust.html">5.4 Unsafe Rust</a></li>
-
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">泛型函数与结构体</a></li>
-            <li><a href="#kp-2">Trait Bound 与 where</a></li>
-            <li><a href="#kp-3">单态化与静态分发</a></li>
-            <li><a href="#kp-4">dyn Trait 与动态分发</a></li>
-            <li><a href="#kp-5">对象安全规则</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 5 · 高级特性</span>
-            <h1>Ch 5.2 泛型与 Trait 对象</h1>
-            <p class="chapter-description">泛型让你写一次代码、适用多种类型；Trait 对象让你在运行时处理不同类型。两者的核心区别在于"什么时候确定具体类型"——编译期还是运行期，这直接影响性能和灵活性的权衡。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>掌握泛型函数和泛型结构体的声明与使用</li>
-                <li>理解 Trait Bound、<code>where</code> 子句和 <code>impl Trait</code> 语法</li>
-                <li>理解单态化（monomorphization）的原理与性能影响</li>
-                <li>掌握 <code>dyn Trait</code> 动态分发的机制与使用场景</li>
-                <li>明确对象安全（object safety）规则及其设计原因</li>
-            </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>需要理解 Trait 的基本概念（Unit 2.6）。泛型和 Trait 对象是 Trait 系统的延伸，如果对 Trait 定义和实现不熟悉，建议先回顾。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>5.2.1 泛型函数与泛型结构体</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>你写了一个求最大值的函数，先是 i32 版本，然后发现 f64 也需要——难道要复制粘贴？</p>
-            </div>
-            <p>泛型用类型参数（通常是 <code>&lt;T&gt;</code>）抽象掉具体类型，让一份代码适用于多种类型。泛型函数在调用时由编译器推断或显式指定具体类型；泛型结构体则在实例化时确定。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong>泛型参数写在函数名或类型名之后的尖括号中。没有约束的 <code>T</code> 几乎什么都做不了——通常需要加上 Trait Bound 来告诉编译器 <code>T</code> 能做什么。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>generics_basic.rs</span></div>
-                <pre><code>// 泛型结构体
-struct Pair&lt;T&gt; {
-    first: T,
-    second: T,
-}
-
-// 泛型函数：T 必须实现 PartialOrd 才能比较
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>泛型函数与结构体</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>不用泛型，你会为 i32 写一个 largest，为 f64 再写一个，代码完全重复。泛型用 <code>&lt;T&gt;</code> 抽象掉具体类型，一份代码覆盖所有可能。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>泛型是<strong>编译期的类型参数</strong>——告诉编译器"这个位置可以是任何满足约束的类型"。</p><ul><li><strong>泛型函数</strong>：<code>fn foo&lt;T&gt;(x: T)</code></li><li><strong>泛型结构体</strong>：<code>struct Pair&lt;T&gt; { first: T, second: T }</code></li><li><strong>裸泛型什么都不能做</strong>：<code>T</code> 没有约束时，编译器不知道 T 有什么方法</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>generics_basics.rs</span></div>
+<pre><code>// 泛型函数：T 加 PartialOrd 约束才能比较
 fn largest&lt;T: PartialOrd&gt;(a: T, b: T) -&gt; T {
     if a &gt;= b { a } else { b }
 }
 
-fn main() {
-    let pair = Pair { first: 10, second: 20 };
-    println!("最大值: {}", largest(pair.first, pair.second));
+// 泛型结构体
+struct Pair&lt;T&gt; { first: T, second: T }
 
-    let pair_f = Pair { first: 1.5, second: 2.7 };
-    println!("最大值: {}", largest(pair_f.first, pair_f.second));
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>最大值: 20
-最大值: 2.7</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="没有 Trait Bound 的裸泛型 T，编译器不知道它有什么方法可以调用，因此几乎什么有用的操作都做不了。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 <code>fn foo&lt;T&gt;(x: T)</code> 中的 <code>T</code> 几乎不能做什么操作？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-2-q1" value="A"> A. Rust 不允许使用泛型</label>
-                    <label><input type="radio" name="u5-2-q1" value="B"> B. 编译器不知道 T 有哪些方法，需要 Trait Bound 约束</label>
-                    <label><input type="radio" name="u5-2-q1" value="C"> C. 泛型只能用于结构体，不能用于函数</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>5.2.2 Trait Bound、where 子句与 impl Trait</h2>
-            <div class="think-box">
-                <div class="think-icon">📐</div>
-                <p>当泛型约束变得又长又复杂时，代码可读性怎么办？</p>
-            </div>
-            <p>Trait Bound 有三种写法：内联语法 <code>&lt;T: Display + Clone&gt;</code>、<code>where</code> 子句（适合复杂约束）、以及 <code>impl Trait</code>（适合参数和返回值位置的简写）。它们表达的是同一件事：告诉编译器这个类型参数必须满足哪些能力。</p>
-            <div class="note-box tip">
-                <p><strong>使用建议：</strong>一两个约束用内联语法；三个以上或多个类型参数时用 <code>where</code>；函数参数/返回值中只出现一次的泛型用 <code>impl Trait</code> 更清晰。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>trait_bounds.rs</span></div>
-                <pre><code>use std::fmt::Display;
-
-// 内联语法
-fn print_pair&lt;T: Display + Clone&gt;(a: T, b: T) {
-    println!("{} and {}", a, b);
+impl&lt;T: std::fmt::Display&gt; Pair&lt;T&gt; {
+    fn show(&amp;self) {
+        println!("({}, {})", self.first, self.second);
+    }
 }
 
-// where 子句——复杂约束时更清晰
-fn complex&lt;T, U&gt;(t: T, u: U) -&gt; String
+fn main() {
+    println!("{}", largest(10, 20));
+    println!("{}", largest(3.14, 2.72));
+    Pair { first: "hello", second: "world" }.show();
+}</code></pre>
+<div class="code-output"><strong>输出</strong><pre>20
+3.14
+(hello, world)</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p>标准库中泛型无处不在：<code>Vec&lt;T&gt;</code>、<code>Option&lt;T&gt;</code>、<code>Result&lt;T, E&gt;</code>、<code>HashMap&lt;K, V&gt;</code>。它们都是编译期单态化的——用 <code>Vec&lt;i32&gt;</code> 和 <code>Vec&lt;String&gt;</code> 不会产生运行时多态开销。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见错误</strong>：裸泛型调方法 → <code>fn print&lt;T&gt;(x: T) { println!("{x}"); }</code> 编译失败，因为 T 没有 Display 约束。修复：<code>fn print&lt;T: Display&gt;(x: T)</code>。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">fn foo&lt;T&gt;(x: T) 中能对 x 做什么操作？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。编译器不知道 T 有什么方法。')">A. 调用任何方法</button><button onclick="checkInlineQuiz('iq-kp1',this,true,'正确！裸泛型没有约束，只能做 drop、move 等基本操作。')">B. 几乎什么都不能做（只能 drop/move）</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。打印需要 Display bound。')">C. 可以打印</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。比较需要 PartialOrd bound。')">D. 可以比较大小</button></div></div>
+    </section><hr class="kp-separator">
+
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>Trait Bound、where 子句、impl Trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>裸泛型什么都做不了，Trait Bound 是给泛型"解锁能力"的钥匙。三种写法（内联、where、impl Trait）适用于不同复杂度。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>内联</strong>：<code>&lt;T: Display + Clone&gt;</code> 简洁，适合一两个约束</li><li><strong>where 子句</strong>：约束多或复杂时更清晰</li><li><strong>impl Trait</strong>：参数位置是语法糖，返回位置表示"由实现决定的具体类型"</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>trait_bounds.rs</span></div>
+<pre><code>use std::fmt::Display;
+
+// 内联写法
+fn show&lt;T: Display&gt;(x: T) { println!("{x}"); }
+
+// where 子句
+fn process&lt;T, U&gt;(t: T, u: U) -&gt; String
 where
     T: Display + Clone,
-    U: Display + Into&lt;String&gt;,
+    U: Into&lt;String&gt;,
 {
-    format!("{} / {}", t, u)
+    format!("{} - {}", t, u.into())
 }
 
-// impl Trait 语法——参数和返回值位置
+// impl Trait 返回类型
 fn make_greeting(name: &amp;str) -&gt; impl Display {
     format!("Hello, {name}!")
 }
 
 fn main() {
-    print_pair(1, 2);
-    println!("{}", complex("rust", String::from("lang")));
-    println!("{}", make_greeting("world"));
+    show(42);
+    println!("{}", process("key", String::from("value")));
+    println!("{}", make_greeting("Rustacean"));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>1 and 2
-rust / lang
-Hello, world!</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：impl Trait 在返回值位置有什么限制？</button>
-                <div class="collapsible-content">返回值位置的 <code>impl Trait</code> 要求函数所有返回路径必须返回同一个具体类型——编译器需要在编译期确定大小。如果你需要根据条件返回不同类型，必须使用 <code>Box&lt;dyn Trait&gt;</code>。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="where 子句在约束多个类型参数或约束较复杂时保持可读性，本质功能与内联 Trait Bound 完全相同。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>where</code> 子句的核心优势是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-2-q2" value="A"> A. 让代码运行更快</label>
-                    <label><input type="radio" name="u5-2-q2" value="B"> B. 允许使用动态分发</label>
-                    <label><input type="radio" name="u5-2-q2" value="C"> C. 在复杂约束场景下提高可读性</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>42
+key - value
+Hello, Rustacean!</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p>习惯约定：一两个简单约束用内联，三个以上或涉及关联类型用 where。impl Trait 返回类型常见于迭代器和闭包。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>impl Trait 返回类型不能返回多种类型</strong>：</p>
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>impl_trait_error.rs</span></div>
+<pre><code>// ❌ 编译错误——两个分支返回不同具体类型
+fn make_shape(circle: bool) -&gt; impl Display {
+    if circle { "⚪" } else { 42 }  // &amp;str vs i32
+}
+// ✅ 用 Box&lt;dyn Display&gt; 解决
+fn make_shape(circle: bool) -&gt; Box&lt;dyn Display&gt; {
+    if circle { Box::new("⚪") } else { Box::new(42) }
+}</code></pre>
+<div class="code-error"><strong>编译错误（第一种写法）</strong><pre>`if` and `else` have incompatible types</pre></div></div>
+        </div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">where 子句相比内联 Trait Bound 的优势是？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。两者编译结果完全一样。')">A. 性能更好</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。两者支持的约束一样。')">B. 支持更多 trait</button><button onclick="checkInlineQuiz('iq-kp2',this,true,'正确！where 把约束从尖括号中移出来，多个复杂约束时更易读。')">C. 复杂约束时提高可读性</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。where 子句也是静态分发。')">D. 支持动态分发</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>5.2.3 单态化：编译器如何处理泛型</h2>
-            <div class="think-box">
-                <div class="think-icon">⚙️</div>
-                <p>泛型代码在运行时真的比手写每个类型的版本慢吗？</p>
-            </div>
-            <p>Rust 的泛型使用单态化（monomorphization）：编译器为每个实际使用的具体类型生成一份专用代码。这意味着泛型在运行时没有额外开销——和手写具体类型版本一样快。代价是编译时间和二进制体积可能增加。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong>单态化 = 零运行时成本的泛型。<code>fn foo&lt;T&gt;(x: T)</code> 如果被 <code>foo(1i32)</code> 和 <code>foo("hi")</code> 调用，编译器会生成 <code>foo_i32</code> 和 <code>foo_str</code> 两个独立函数。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>monomorphization.rs</span></div>
-                <pre><code>fn identity&lt;T&gt;(x: T) -&gt; T {
-    x
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>单态化：零成本泛型</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>"泛型有运行时开销吗？"——很多从 Java/Python 来的开发者会担心这个问题。答案是：Rust 的泛型通过<strong>单态化</strong>实现零运行时开销。理解这个机制能让你放心使用泛型而不担心性能。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>编译器把 <code>fn foo&lt;T&gt;</code> 在使用时"展开"成 <code>foo_i32</code>、<code>foo_string</code> 等专用版本——每个具体类型一份机器码。</p><ul><li><strong>零运行时开销</strong>：没有类型检查、没有虚函数查找</li><li><strong>代价在编译期</strong>：更长的编译时间、更大的二进制文件</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>monomorphization.rs</span></div>
+<pre><code>fn double&lt;T: Copy + std::ops::Add&lt;Output=T&gt;&gt;(x: T) -&gt; T {
+    x + x
 }
 
 fn main() {
-    // 编译器生成：identity_i32, identity_f64, identity_string
-    let a = identity(42);
-    let b = identity(3.14);
-    let c = identity(String::from("hello"));
-
-    println!("{a}, {b}, {c}");
-    // 运行时性能等同于手写三个函数
+    // 编译器生成 double_i32 和 double_f64 两个版本
+    println!("{}", double(5));      // double::<i32>
+    println!("{}", double(3.14));   // double::<f64>
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>42, 3.14, hello</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="单态化为每个具体类型生成专用代码，运行时无额外开销，但会增加编译时间和二进制大小。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>单态化的运行时性能代价是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-2-q3" value="A"> A. 零运行时代价，但编译时间和二进制体积可能增大</label>
-                    <label><input type="radio" name="u5-2-q3" value="B"> B. 每次调用都需要查虚函数表</label>
-                    <label><input type="radio" name="u5-2-q3" value="C"> C. 运行时需要动态类型检查</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>10
+6.28</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>放心用泛型</strong>：不要为了"减少编译时间"而避免泛型，除非在极端情况下（如模板膨胀严重的 Bevy 系统）。</p><p><strong>看编译后大小</strong>：<code>cargo bloat</code> 可以检查哪些泛型函数展开后占用最多空间。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见误解</strong>：</p><ul><li>"泛型和 Java 的泛型一样有类型擦除" → Rust 泛型不擦除，编译期完全展开。</li><li>"dyn Trait 和泛型一样零开销" → dyn Trait 有 vtable 间接调用开销。</li></ul></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">单态化的运行时代价是？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp3',this,true,'正确！单态化在编译期完成，运行时直接调用专用代码，零开销。')">A. 零，但编译时间和二进制体积增加</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。单态化是编译期行为，不影响运行时。')">B. 需要运行时类型检查</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。单态化不使用 vtable。')">C. 需要 vtable 查找</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。单态化不需要额外内存。')">D. 需要额外堆分配</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>5.2.4 dyn Trait：运行时才知道具体类型</h2>
-            <div class="think-box">
-                <div class="think-icon">🎭</div>
-                <p>如果你想把不同类型的值放进同一个 Vec，泛型能做到吗？</p>
-            </div>
-            <p><code>dyn Trait</code> 是 Trait 对象——在运行时通过胖指针（数据指针 + vtable 指针）实现动态分发。调用方法时需要查虚函数表，有一定开销，但换来了灵活性：你可以在同一个集合中存放实现了同一 Trait 的不同类型。</p>
-            <div class="note-box warning">
-                <p><strong>大小问题：</strong><code>dyn Trait</code> 本身是一个动态大小类型（DST），不能直接放在栈上。必须通过 <code>Box&lt;dyn Trait&gt;</code>、<code>&amp;dyn Trait</code> 或 <code>Arc&lt;dyn Trait&gt;</code> 使用。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>dyn_trait.rs</span></div>
-                <pre><code>trait Drawable {
-    fn draw(&amp;self) -&gt; String;
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>dyn Trait：动态分发</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>有时你需要在运行时处理不同类型——比如一个 Vec 存储不同形状的对象，或者插件架构中加载未知类型。泛型在编译期确定，满足不了这种需求。dyn Trait 提供运行时多态。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>Trait 对象通过<strong>胖指针</strong>（数据指针 + vtable 指针）实现动态分发：</p><ul><li>vtable 是一张方法查找表，存储了具体类型的每个方法地址</li><li>调用时先查表，再跳转——比直接调用多一次间接寻址</li><li>dyn Trait 是 <strong>DST</strong>（动态大小类型），不能直接放栈上，必须用 <code>Box&lt;dyn Trait&gt;</code> 或 <code>&amp;dyn Trait</code></li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>dyn_trait.rs</span></div>
+<pre><code>trait Drawable {
+    fn draw(&amp;self);
+    fn area(&amp;self) -&gt; f64;
 }
 
-struct Circle;
-struct Square;
+struct Circle { radius: f64 }
+struct Rect   { w: f64, h: f64 }
 
 impl Drawable for Circle {
-    fn draw(&amp;self) -&gt; String { "●".to_string() }
+    fn draw(&amp;self)   { println!("⚪ r={}", self.radius); }
+    fn area(&amp;self) -&gt; f64 { std::f64::consts::PI * self.radius * self.radius }
 }
-impl Drawable for Square {
-    fn draw(&amp;self) -&gt; String { "■".to_string() }
+impl Drawable for Rect {
+    fn draw(&amp;self)   { println!("▭ {}x{}", self.w, self.h); }
+    fn area(&amp;self) -&gt; f64 { self.w * self.h }
 }
 
 fn main() {
-    // 不同类型放进同一个 Vec
     let shapes: Vec&lt;Box&lt;dyn Drawable&gt;&gt; = vec![
-        Box::new(Circle),
-        Box::new(Square),
-        Box::new(Circle),
+        Box::new(Circle { radius: 5.0 }),
+        Box::new(Rect { w: 4.0, h: 3.0 }),
     ];
-
-    for shape in &amp;shapes {
-        print!("{} ", shape.draw());
+    for s in &amp;shapes {
+        s.draw();
+        println!("  area = {:.2}", s.area());
     }
-    println!();
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>● ■ ●</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：静态分发 vs 动态分发，怎么选？</button>
-                <div class="collapsible-content">
-                    <p>静态分发（泛型/impl Trait）：编译期确定类型，零运行时开销，但编译产物更大。适合性能敏感路径。</p>
-                    <p>动态分发（dyn Trait）：运行时查虚函数表，有间接调用开销，但代码更灵活、编译产物更小。适合插件系统、异构集合等场景。</p>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="dyn Trait 是动态大小类型（DST），编译器不知道它的大小，所以不能直接放在栈上，必须通过指针间接使用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么不能写 <code>let x: dyn Display = ...</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-2-q4" value="A"> A. Display 不是一个合法的 Trait</label>
-                    <label><input type="radio" name="u5-2-q4" value="B"> B. dyn Trait 是动态大小类型，不能直接放在栈上</label>
-                    <label><input type="radio" name="u5-2-q4" value="C"> C. dyn 关键字已经被弃用了</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>⚪ r=5
+  area = 78.54
+▭ 4x3
+  area = 12.00</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>异构集合</strong>：Vec&lt;Box&lt;dyn Trait&gt;&gt; 是存储不同类型对象的标准方式。</p><p><strong>插件架构</strong>：定义 trait 接口，插件 impl trait，主程序通过 dyn Trait 调用。</p><p><strong>性能敏感路径少用</strong>：vtable 间接调用阻止内联优化。热路径上优先用泛型。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见错误</strong>：忘了 dyn 关键字（旧版 Rust 允许省略，现在报 warning/error）；把 non-object-safe trait 用 dyn 包装。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">为什么不能写 let x: dyn Display？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。dyn 是有效关键字。')">A. dyn 不是有效关键字</button><button onclick="checkInlineQuiz('iq-kp4',this,true,'正确！dyn Trait 是 DST，编译器不知道它占多少字节。必须通过 Box/&amp; 间接使用。')">B. dyn Trait 是 DST，不能直接放栈上</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。Display 是标准库 trait。')">C. Display 不是 trait</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。dyn 不需要 where。')">D. 需要 where 子句</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>5.2.5 对象安全：不是所有 Trait 都能做 dyn</h2>
-            <div class="think-box">
-                <div class="think-icon">🚧</div>
-                <p>为什么有些 Trait（比如 <code>Clone</code>）不能用作 <code>dyn Clone</code>？</p>
-            </div>
-            <p>要让一个 Trait 成为 Trait 对象（<code>dyn Trait</code>），它必须满足"对象安全"规则。核心约束是：方法不能返回 <code>Self</code> 类型，方法不能有泛型参数——因为动态分发时虚函数表必须有固定的函数签名，而 <code>Self</code> 和泛型都会让签名不确定。</p>
-            <div class="note-box tip">
-                <p><strong>对象安全三条核心规则：</strong>① 方法的返回类型不能是 <code>Self</code>；② 方法不能有泛型类型参数；③ Trait 本身不能要求 <code>Self: Sized</code>（或者用 <code>where Self: Sized</code> 排除特定方法）。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>object_safety.rs</span></div>
-                <pre><code>// ✅ 对象安全——所有方法签名确定
-trait Describe {
-    fn name(&amp;self) -&gt; &amp;str;
-    fn info(&amp;self) -&gt; String;
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>对象安全规则</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>不是所有 trait 都能用 <code>dyn</code> 包装。尝试 <code>Box&lt;dyn Clone&gt;</code> 会编译失败——因为 Clone 不"对象安全"。理解对象安全规则，能让你设计出既支持泛型又支持 trait 对象的接口。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>对象安全的核心限制：vtable 必须能在<strong>不知道具体类型</strong>的情况下工作。</p><ul><li>方法不能返回 <code>Self</code>——因为 vtable 调用时不知道 Self 的大小</li><li>方法不能有泛型参数——因为 vtable 需要每个方法固定一个签名</li><li><strong>Clone 不安全</strong>：<code>fn clone(&amp;self) -&gt; Self</code> 返回 Self</li><li><strong>Display 安全</strong>：<code>fn fmt(&amp;self, f: &amp;mut Formatter) -&gt; Result</code> 不含 Self</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>object_safety.rs</span></div>
+<pre><code>trait Describe {
+    fn name(&amp;self) -&gt; &amp;str;        // ✅ 对象安全
+    fn to_json(&amp;self) -&gt; String;   // ✅ 返回 String 而非 Self
+    // fn duplicate(&amp;self) -&gt; Self; // ❌ 返回 Self
+    // fn convert&lt;U&gt;(&amp;self) -&gt; U;  // ❌ 泛型参数
 }
 
-// ❌ 不对象安全——clone 返回 Self
-// trait NotSafe: Clone {}
-
-struct Dog;
-impl Describe for Dog {
-    fn name(&amp;self) -&gt; &amp;str { "Dog" }
-    fn info(&amp;self) -&gt; String { format!("I am a {}", self.name()) }
+struct Item { label: String }
+impl Describe for Item {
+    fn name(&amp;self) -&gt; &amp;str { &amp;self.label }
+    fn to_json(&amp;self) -&gt; String { format!("{{\"name\":\"{}\"}}", self.label) }
 }
 
-struct Cat;
-impl Describe for Cat {
-    fn name(&amp;self) -&gt; &amp;str { "Cat" }
-    fn info(&amp;self) -&gt; String { format!("I am a {}", self.name()) }
+fn print_desc(d: &amp;dyn Describe) {
+    println!("{}: {}", d.name(), d.to_json());
 }
 
 fn main() {
-    let animals: Vec&lt;Box&lt;dyn Describe&gt;&gt; = vec![
-        Box::new(Dog),
-        Box::new(Cat),
-    ];
-
-    for a in &amp;animals {
-        println!("{}: {}", a.name(), a.info());
-    }
+    let item = Item { label: String::from("widget") };
+    print_desc(&amp;item);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Dog: I am a Dog
-Cat: I am a Cat</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="返回 Self 的方法会让虚函数表的签名不确定（每个实现类型的 Self 不同），所以违反对象安全。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>以下哪种方法签名会导致 Trait 不对象安全？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-2-q5" value="A"> A. <code>fn name(&amp;self) -&gt; &amp;str</code></label>
-                    <label><input type="radio" name="u5-2-q5" value="B"> B. <code>fn info(&amp;self) -&gt; String</code></label>
-                    <label><input type="radio" name="u5-2-q5" value="C"> C. <code>fn duplicate(&amp;self) -&gt; Self</code></label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>widget: {"name":"widget"}</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>设计 trait 时考虑对象安全</strong>：如果你的 trait 需要用 dyn，避免返回 Self 和泛型方法。</p><p><strong>变通方法</strong>：</p><ul><li>返回 <code>Box&lt;dyn Trait&gt;</code> 代替 <code>Self</code></li><li>使用关联类型代替泛型方法参数</li><li>用 <code>where Self: Sized</code> 标注非对象安全方法，让 trait 其余部分仍可用 dyn</li></ul></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见错误</strong>：尝试 <code>Box&lt;dyn Clone&gt;</code> → 编译报 "the trait Clone cannot be made into an object"。解决方案：自定义一个 <code>DynClone</code> trait。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">以下哪个方法签名违反对象安全？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。返回 String 不涉及 Self。')">A. fn name(&amp;self) -&gt; String</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。返回切片引用是安全的。')">B. fn data(&amp;self) -&gt; &amp;[u8]</button><button onclick="checkInlineQuiz('iq-kp5',this,true,'正确！返回 Self 意味着 vtable 调用时不知道具体类型的大小。')">C. fn duplicate(&amp;self) -&gt; Self</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。无参方法不涉及 Self 返回。')">D. fn reset(&amp;mut self)</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
-            <ul>
-                <li>泛型用类型参数抽象具体类型，通过 Trait Bound 约束能力。</li>
-                <li><code>where</code> 子句和 <code>impl Trait</code> 是 Trait Bound 的可读性语法糖。</li>
-                <li>单态化让泛型运行时零开销，但增加编译时间和二进制体积。</li>
-                <li><code>dyn Trait</code> 提供动态分发，适合异构集合和插件架构。</li>
-                <li>对象安全规则限制了哪些 Trait 可以用作 Trait 对象——方法不能返回 Self 或有泛型参数。</li>
-            </ul>
-        </section>
-
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 写一个泛型函数 <code>min_of_three</code>，返回三个值中的最小值。说明需要哪些 Trait Bound。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 用 <code>dyn Trait</code> 实现一个简单的"日志后端"系统：定义 <code>Logger</code> trait，实现 <code>ConsoleLogger</code> 和 <code>FileLogger</code>，放入同一个 Vec 中逐一调用。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 分析什么情况下 <code>impl Trait</code> 返回值不够用，必须改为 <code>Box&lt;dyn Trait&gt;</code>。给出代码示例说明。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 设计一个既支持静态分发（泛型）又支持动态分发（<code>dyn</code>）的 API，比较两种版本的编译产物大小差异。</li>
-            </ol>
-        </section>
-
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch10-00-generics.html">The Rust Programming Language · Generic Types, Traits, and Lifetimes</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch17-02-trait-objects.html">The Rust Programming Language · Trait Objects</a></li>
-                <li><a href="https://doc.rust-lang.org/reference/items/traits.html#object-safety">Rust Reference · Object Safety</a></li>
-                <li><a href="https://huonw.github.io/blog/2015/01/peeking-inside-trait-objects/">Peeking inside Trait Objects（经典博文）</a></li>
-            </ul>
-        </section>
-    </main>
-
-    <script src="../assets/js/main.js"></script>
+    <section id="exercises" class="exercises-section"><h2>综合练习</h2><div id="quiz-zone"></div></section>
+    <nav class="chapter-nav"><a href="ch5.1_smart_pointers.html">← Ch 5.1 智能指针</a><a href="../index.html" class="nav-overview">目录</a><a href="ch5.3_macros.html">Ch 5.3 宏系统 →</a></nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

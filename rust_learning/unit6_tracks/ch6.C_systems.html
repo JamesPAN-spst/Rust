@@ -1,326 +1,275 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 6.C 系统编程方向 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 6.3 系统编程 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u6-chC-q1","question":"Rust 系统编程的核心优势是什么？","options":["A. 自动垃圾回收","B. C 级性能 + 内存安全 + 零成本抽象","C. 内置 GUI 库","D. 动态类型"],"answer":1,"explanation":"Rust 在系统编程领域的独特价值：和 C 一样的底层控制和性能，同时编译期保证内存安全。"},
+      {"id":"u6-chC-q2","question":"clap 是什么？","options":["A. 音频库","B. CLI 参数解析框架，支持 derive 宏声明参数","C. 网络库","D. 日志框架"],"answer":1,"explanation":"clap 是 Rust 最流行的命令行解析库，用 #[derive(Parser)] 为结构体自动生成参数解析代码。"},
+      {"id":"u6-chC-q3","question":"clap 的 derive 模式相比 builder 模式有什么优势？","options":["A. 更快","B. 声明式定义参数——结构体字段即参数，减少样板代码","C. 支持更多参数类型","D. 不需要 Cargo.toml 配置"],"answer":1,"explanation":"derive 模式让参数定义和数据结构合一，代码更简洁。builder 模式适合复杂的动态参数。"},
+      {"id":"u6-chC-q4","question":"std::fs 模块提供什么功能？","options":["A. 网络通信","B. 文件和目录操作（读写、创建、元数据等）","C. 数据库访问","D. 图形渲染"],"answer":1,"explanation":"std::fs 提供文件读写（read_to_string、write）、目录操作（create_dir、read_dir）、元数据查询等。"},
+      {"id":"u6-chC-q5","question":"std::process::Command 的作用是？","options":["A. 解析命令行参数","B. 创建和管理子进程","C. 管理线程","D. 网络连接"],"answer":1,"explanation":"Command::new(\"ls\").arg(\"-la\").output() 创建子进程执行系统命令，获取 stdout/stderr/exit code。"},
+      {"id":"u6-chC-q6","question":"FFI 与 C 交互时，字符串应该用什么类型？","options":["A. &str / String","B. CStr / CString（以 null 结尾的 C 字符串）","C. Vec<u8>","D. char"],"answer":1,"explanation":"C 字符串以 \\0 结尾，Rust 字符串不是。CStr（借用）和 CString（拥有）处理这种差异。"},
+      {"id":"u6-chC-q7","question":"#[no_std] 的含义是？","options":["A. 不使用标准库，只用 core 库","B. 不使用任何库","C. 不进行编译优化","D. 不生成 debug 信息"],"answer":0,"explanation":"#![no_std] 表示不链接 std（它依赖 OS），只用 core 库。适用于裸机/嵌入式/内核编程。"},
+      {"id":"u6-chC-q8","question":"no_std 环境下不能使用什么？","options":["A. 基本类型（i32, bool）","B. 堆分配（Vec, String, Box）——除非提供 alloc","C. 函数和闭包","D. 循环和条件"],"answer":1,"explanation":"std 的堆分配功能依赖 OS 内存分配器。no_std 默认没有堆。可以引入 alloc crate + 自定义全局分配器来获得 Vec 等。"},
+      {"id":"u6-chC-q9","question":"embedded-hal 是什么？","options":["A. 嵌入式游戏引擎","B. 嵌入式硬件抽象层 trait——统一不同芯片的 GPIO/SPI/I2C 接口","C. 网络协议","D. 编译器后端"],"answer":1,"explanation":"embedded-hal 定义了 GPIO、SPI、I2C、UART 等硬件接口的 trait。驱动代码基于 trait 编写，可跨芯片移植。"},
+      {"id":"u6-chC-q10","question":"在 Linux 内核中使用 Rust 的目标是什么？","options":["A. 完全替代 C","B. 用 Rust 写安全的新内核模块，与现有 C 代码共存","C. 加速内核编译","D. 简化内核配置"],"answer":1,"explanation":"Rust for Linux 项目的目标是让新模块（如驱动）用 Rust 编写，减少内存安全漏洞。现有数百万行 C 代码不会被替换。"},
+      {"id":"u6-chC-q11","question":"walkdir crate 的用途？","options":["A. 计步器","B. 递归遍历目录树","C. 网络路由","D. 进程管理"],"answer":1,"explanation":"walkdir 提供高效的递归目录遍历，支持过滤、排序、follow symlinks、max depth 等功能。"},
+      {"id":"u6-chC-q12","question":"serde + toml/json/yaml 的组合用于什么？","options":["A. 数据库查询","B. 配置文件的读取和写入——自动序列化/反序列化","C. 网络传输","D. 图像处理"],"answer":1,"explanation":"serde 提供序列化/反序列化框架，配合格式 crate（toml、serde_json、serde_yaml）处理配置文件。"},
+      {"id":"u6-chC-q13","question":"Rust 的 std::io::BufReader 有什么好处？","options":["A. 加密读取","B. 减少系统调用次数——批量读取到内存缓冲区","C. 压缩读取","D. 异步读取"],"answer":1,"explanation":"每次 read() 都是系统调用（开销大）。BufReader 批量读取数据到缓冲区，后续读取从缓冲区取，大幅提升 I/O 性能。"},
+      {"id":"u6-chC-q14","question":"系统编程中 signal handling 在 Rust 中怎么做？","options":["A. 不支持","B. 用 signal-hook 或 ctrlc crate 安全注册信号处理函数","C. 用 panic! 处理","D. 用 try-catch"],"answer":1,"explanation":"Unix 信号处理在 C 中很容易出错（async-signal-safety 问题）。signal-hook crate 提供安全的 Rust API。"},
+      {"id":"u6-chC-q15","question":"Rust 编译为 WASM 时的 no_std 意义？","options":["A. WASM 不支持 Rust","B. WASM 环境没有 OS，no_std + wasm-bindgen 是常见模式","C. 必须用完整 std","D. WASM 只支持 JS"],"answer":1,"explanation":"WASM 运行在浏览器沙箱中，没有 OS 的文件系统、网络等。no_std 或 wasm 特定 std 适配是标准做法。"},
+      {"id":"u6-chC-q16","question":"nix crate 在 Rust 系统编程中的角色？","options":["A. 包管理器","B. Unix 系统调用的安全 Rust 封装","C. Windows API","D. 网络框架"],"answer":1,"explanation":"nix 为 fork、exec、pipe、socket、signal 等 Unix 系统调用提供类型安全的 Rust API。"},
+      {"id":"u6-chC-q17","question":"写 CLI 工具时推荐的日志方案？","options":["A. println!","B. tracing + tracing-subscriber（结构化日志/追踪）","C. 不需要日志","D. 写文件"],"answer":1,"explanation":"tracing 提供结构化日志和 span 追踪，性能优于 log crate，被 tokio 生态广泛采用。"},
+      {"id":"u6-chC-q18","question":"Rust 做 daemon/服务程序时需要注意什么？","options":["A. 不需要特别注意","B. 信号处理、pid 文件、日志轮转、graceful shutdown","C. 只需要 main 函数","D. 用 sleep 做循环"],"answer":1,"explanation":"生产级 daemon 需要处理 SIGTERM（优雅关闭）、写 pid 文件防止重复启动、日志不能写 stdout（用文件或 syslog）。"},
+      {"id":"u6-chC-q19","question":"cross crate 的作用？","options":["A. 交叉编译——在当前平台编译其他平台的二进制","B. 跨语言调用","C. 交叉测试","D. 交叉引用"],"answer":0,"explanation":"cross 用 Docker 容器提供目标平台的链接器和 sysroot，简化交叉编译。如在 macOS 上编译 Linux ARM 二进制。"},
+      {"id":"u6-chC-q20","question":"系统编程中 Rust 对比 Go 的取舍？","options":["A. Go 更底层","B. Rust 更底层（no_std/FFI），Go 更简单（GC/goroutine），选择取决于场景","C. 完全一样","D. Rust 有 GC"],"answer":1,"explanation":"Rust 适合极致性能和底层控制（内核、嵌入式、FFI）。Go 适合快速开发网络服务。系统编程的"底层"部分 Rust 更合适。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit6_tracks" style="--domain-color: var(--c-tracks);">
+  <nav class="topbar"><a href="../index.html" class="topbar-brand">Rust Learning</a><div class="topbar-module"><span class="module-domain">TRACKS</span><a href="../index.html" class="module-name">Unit 6 · 专题方向</a></div><div class="topbar-right"><span class="chapter-indicator">Ch.3 / 3</span><button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button></div></nav>
+  <aside class="toc-sidebar"><div class="toc-header">本章目录</div><ul class="toc-list"><li><a href="#kp1">01 · 系统编程优势</a></li><li><a href="#kp2">02 · CLI 工具开发</a></li><li><a href="#kp3">03 · 文件系统与进程</a></li><li><a href="#kp4">04 · FFI 与外部集成</a></li><li><a href="#kp5">05 · no_std 与内核编程</a></li><li><a href="#exercises">综合练习</a></li></ul></aside>
+  <main class="main-content">
+    <header class="chapter-hero"><p class="chapter-label">Unit 6 · 专题方向</p><h1>Ch 6.3 系统编程</h1><p class="chapter-intro">系统编程是 Rust 的"本命领域"——从命令行工具到操作系统内核，Rust 让底层编程既安全又高效。这是 C 语言统治了 50 年的领域，Rust 正在成为有力的挑战者。</p></header>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 6 · 方向分支</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit5_advanced/ch5.4_unsafe_rust.html">上一单元</a></li>
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>系统编程优势</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>系统编程意味着直接与硬件和 OS 交互——内存管理、进程控制、设备驱动、性能优化。Rust 让你在不牺牲安全的前提下做这些事。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>C 级性能</strong>：无 GC、零成本抽象、可直接操作内存</li><li><strong>编译期安全</strong>：不需要 Valgrind、AddressSanitizer 来找内存 bug</li><li><strong>现代工具链</strong>：Cargo 包管理、交叉编译、测试框架——C 从未有过这么好的开发体验</li><li><strong>渐进式 unsafe</strong>：安全代码是默认模式，需要时才用 unsafe 下降一层</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>system_programming.rs</span></div>
+<pre><code>// Rust 系统编程的日常：
+// 1. 精确控制内存布局
+#[repr(C)]
+struct PacketHeader {
+    version: u8,
+    length: u16,
+    flags: u8,
+}
 
-            <li class="unit-title">Unit 6 正式页面</li>
-            <li><a href="./ch6.A_game_dev.html">6.A 游戏开发方向</a></li>
-            <li><a href="./ch6.B_security.html">6.B 安全攻防方向</a></li>
-            <li><a href="./ch6.C_systems.html" class="active">6.C 系统编程方向</a></li>
+// 2. 位操作
+fn extract_flags(byte: u8) -> (bool, bool, bool) {
+    let read   = byte &amp; 0b100 != 0;
+    let write  = byte &amp; 0b010 != 0;
+    let exec   = byte &amp; 0b001 != 0;
+    (read, write, exec)
+}
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">为什么用 Rust 做系统编程</a></li>
-            <li><a href="#kp-2">CLI 工具与 clap</a></li>
-            <li><a href="#kp-3">文件系统与进程管理</a></li>
-            <li><a href="#kp-4">FFI、no_std 与内核探索</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 6 · 方向分支</span>
-            <h1>Ch 6.C 系统编程方向</h1>
-            <p class="chapter-description">系统编程是 Rust 的"主场"。从 CLI 工具到操作系统抽象，从嵌入式 no_std 到 FFI 和内核模块探索，这一章展示 Rust 如何在最底层的工程场景中替代 C，同时提供更强的安全保障。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解 Rust 在系统编程中替代 C/C++ 的核心动机和现实案例</li>
-                <li>掌握用 <code>clap</code> 构建健壮 CLI 工具的方法</li>
-                <li>了解文件系统操作和进程管理的 Rust API 设计</li>
-                <li>建立对 FFI、<code>no_std</code> 嵌入式开发和 Linux 内核 Rust 支持的基本认知</li>
-            </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议已掌握所有权、Trait、错误处理（<code>Result</code>/<code>Option</code>）、以及 unsafe 基础。系统编程经常与 C 交互、操作裸指针、处理底层错误码——这些都需要对 Rust 安全边界有清晰认识。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>6.C.1 为什么用 Rust 做系统编程？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>操作系统、驱动、嵌入式固件——这些代码运行在最底层，一个内存错误就可能导致系统崩溃或安全漏洞。C 语言统治这个领域 50 年了，Rust 凭什么介入？</p>
-            </div>
-            <p>Rust 提供了与 C 相同的底层控制能力（裸指针、内联汇编、零成本抽象），同时通过所有权系统在编译期排除内存错误。这不是"用安全换性能"的妥协，而是"两者兼得"的设计目标。Linux 内核从 6.1 版本开始正式支持 Rust，Android、Windows 也在关键组件中引入 Rust——这标志着系统编程范式的转变。</p>
-            <div class="note-box tip">
-                <p><strong>现实信号：</strong>Linux 6.1+ 支持 Rust 内核模块；Android 新增安全组件使用 Rust；Cloudflare、Discord 等公司用 Rust 重写关键系统服务。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>os_info.rs</span></div>
-                <pre><code>use std::env;
+// 3. 零开销迭代
+fn sum_even(data: &amp;[i32]) -> i32 {
+    data.iter().filter(|&&x| x % 2 == 0).sum()
+}
 
 fn main() {
-    // OS 级别信息获取
-    println!("OS: {}", env::consts::OS);
-    println!("Arch: {}", env::consts::ARCH);
-    println!("Family: {}", env::consts::FAMILY);
-
-    // 环境变量读取
-    match env::var("HOME") {
-        Ok(home) =&gt; println!("HOME = {home}"),
-        Err(_) =&gt; println!("HOME not set"),
-    }
+    let header = PacketHeader { version: 1, length: 64, flags: 0b101 };
+    let (r, w, x) = extract_flags(header.flags);
+    println!("rwx: {r}{w}{x}");
+    println!("sum even: {}", sum_even(&amp;[1,2,3,4,5,6]));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>OS: linux
-Arch: x86_64
-Family: unix
-HOME = /home/user</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="Rust 提供 C 级别的底层控制力，同时用编译期所有权系统保证内存安全——兼得安全和性能。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 在系统编程中的核心优势是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6c-q1" value="A"> A. 内置完整的操作系统 API</label>
-                    <label><input type="radio" name="u6c-q1" value="B"> B. C 级底层控制力 + 编译期内存安全保证</label>
-                    <label><input type="radio" name="u6c-q1" value="C"> C. 比 C 更快的运行速度</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>rwx: truefalsetrue
+sum even: 12</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>成功案例</strong>：ripgrep（比 grep 更快的搜索工具）、fd（find 替代）、bat（cat 替代）、tokei（代码统计）、zoxide（cd 替代）。这些工具证明 Rust CLI 在性能和用户体验上都超越前辈。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>#[repr(C)]</strong>：与 C 交互的结构体必须使用 C 内存布局，否则 Rust 可能重排字段顺序。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">Rust 系统编程的核心优势是？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。Rust 没有 GC。')">A. 自动垃圾回收</button><button onclick="checkInlineQuiz('iq-kp1',this,true,'正确！这是 Rust 区别于 C 和 Go 的独特组合。')">B. C 级性能 + 内存安全 + 零成本抽象</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。Rust 没有内置 GUI 库。')">C. 内置 GUI 库</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。Rust 是静态类型的。')">D. 动态类型</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>6.C.2 用 clap 构建 CLI 工具</h2>
-            <div class="think-box">
-                <div class="think-icon">⌨️</div>
-                <p>命令行工具是系统编程最常见的交付形式。手动解析 <code>std::env::args()</code> 既冗长又容易出错——有没有声明式的方式定义参数，同时自动生成帮助信息和错误提示？</p>
-            </div>
-            <p><code>clap</code> 是 Rust 生态中最流行的命令行参数解析库。通过 derive 宏，你可以用结构体声明参数，clap 自动处理解析、验证、帮助文本生成。ripgrep、fd、bat 等知名 CLI 工具都基于 Rust 构建，展示了 Rust CLI 工具的高性能和用户体验。</p>
-            <div class="note-box tip">
-                <p><strong>核心模式：</strong>用 <code>#[derive(Parser)]</code> 标注结构体，字段即参数。clap 自动生成 <code>--help</code>、类型验证和错误信息。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>clap_example.rs</span></div>
-                <pre><code>// 需要在 Cargo.toml 添加: clap = { version = "4", features = ["derive"] }
-use clap::Parser;
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>CLI 工具开发</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>CLI 工具是系统编程最常见的产出。Rust 的静态编译（单一二进制）+ 极快的启动速度 + clap 的声明式参数解析让它成为 CLI 开发的理想语言。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>clap</strong>：参数解析。derive 模式让参数定义和数据结构合一</li><li><strong>anyhow / eyre</strong>：错误处理。自动转换不同类型的错误</li><li><strong>indicatif</strong>：进度条。长时间任务的用户反馈</li><li><strong>colored / owo-colors</strong>：终端彩色输出</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>cli_tool.rs</span></div>
+<pre><code>use clap::Parser;
+use std::fs;
 
-/// 一个简单的文件搜索工具
-#[derive(Parser, Debug)]
-#[command(name = "minigrep", about = "Search for a pattern in files")]
+/// 简单的文件搜索工具
+#[derive(Parser)]
+#[command(name = "search", about = "在文件中搜索文本")]
 struct Args {
-    /// 要搜索的模式
+    /// 搜索的文本模式
     pattern: String,
 
-    /// 要搜索的文件路径
-    path: String,
+    /// 输入文件路径
+    #[arg(short, long)]
+    file: String,
 
     /// 忽略大小写
     #[arg(short, long, default_value_t = false)]
     ignore_case: bool,
 }
 
-fn main() {
-    // 实际运行: minigrep "hello" src/main.rs --ignore-case
-    // 这里演示结构定义
-    println!("clap 的 derive 模式让 CLI 参数定义变成了结构体声明");
-    println!("字段类型即验证规则，doc comment 即帮助文本");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>clap 的 derive 模式让 CLI 参数定义变成了结构体声明
-字段类型即验证规则，doc comment 即帮助文本</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：Rust CLI 生态还有哪些常用 crate？</button>
-                <div class="collapsible-content">
-                    <ul>
-                        <li><code>clap</code> — 参数解析（derive 或 builder 模式）</li>
-                        <li><code>serde</code> + <code>toml</code>/<code>serde_json</code> — 配置文件读写</li>
-                        <li><code>indicatif</code> — 进度条</li>
-                        <li><code>colored</code> / <code>ansi_term</code> — 终端着色</li>
-                        <li><code>dialoguer</code> — 交互式输入（选择、确认）</li>
-                        <li><code>tracing</code> — 结构化日志</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="clap 的 derive 模式用结构体字段定义参数，doc comment 自动成为帮助文本，字段类型自动提供验证。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>clap 的 derive 模式中，结构体字段的 doc comment 会变成什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6c-q2" value="A"> A. 编译期的类型约束</label>
-                    <label><input type="radio" name="u6c-q2" value="B"> B. 运行时的日志输出</label>
-                    <label><input type="radio" name="u6c-q2" value="C"> C. 自动生成的 --help 帮助文本</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+fn main() -> anyhow::Result&lt;()&gt; {
+    let args = Args::parse();
+    let content = fs::read_to_string(&amp;args.file)?;
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>6.C.3 文件系统操作与进程管理</h2>
-            <div class="think-box">
-                <div class="think-icon">📂</div>
-                <p>系统工具需要遍历目录、读写文件、启动子进程并管理输出。Rust 标准库提供了哪些 OS 级抽象？和 C 的 POSIX API 有什么不同？</p>
-            </div>
-            <p>Rust 的 <code>std::fs</code> 和 <code>std::process</code> 模块封装了操作系统 API，但与 C 不同的是：路径用 <code>Path</code>/<code>PathBuf</code>（区分 UTF-8 和 OS 字符串），文件操作返回 <code>Result</code>（强制处理错误），进程管理通过 <code>Command</code> builder 模式安全构造。</p>
-            <div class="note-box warning">
-                <p><strong>跨平台注意：</strong><code>Path</code> 使用 <code>OsStr</code> 而非 <code>&amp;str</code>，因为文件系统路径不保证是合法 UTF-8。用 <code>.to_str()</code> 转换时要处理 <code>None</code>。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>fs_and_process.rs</span></div>
-                <pre><code>use std::fs;
+    for (i, line) in content.lines().enumerate() {
+        let matches = if args.ignore_case {
+            line.to_lowercase().contains(&amp;args.pattern.to_lowercase())
+        } else {
+            line.contains(&amp;args.pattern)
+        };
+        if matches {
+            println!("{}:{}", i + 1, line);
+        }
+    }
+    Ok(())
+}
+// cargo run -- -f data.txt "hello" -i</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>分发</strong>：<code>cargo build --release</code> 生成静态链接的单一二进制，无需运行时依赖。跨平台编译用 <code>cross</code> crate。</p><p><strong>自动补全</strong>：clap 支持自动生成 bash/zsh/fish/PowerShell 的 tab 补全脚本。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>注意</strong>：<code>anyhow::Result</code> 适用于应用程序（万能错误类型），库代码应使用自定义 Error 类型。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">clap 的 derive 模式有什么优势？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。编译后性能一样。')">A. 更快</button><button onclick="checkInlineQuiz('iq-kp2',this,true,'正确！结构体字段就是命令行参数，代码更简洁。')">B. 声明式定义——结构体字段即参数</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。两种模式支持相同的参数类型。')">C. 支持更多参数类型</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。clap 始终是 Cargo 依赖。')">D. 不需要 Cargo.toml 配置</button></div></div>
+    </section><hr class="kp-separator">
+
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>文件系统与进程管理</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>系统编程的日常：读写文件、遍历目录、启动子进程、解析配置文件。Rust 标准库提供了类型安全的 API，第三方 crate 补充更强大的功能。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>文件操作</strong>：<code>std::fs</code>（读写）、<code>std::path</code>（路径处理）、<code>walkdir</code>（递归遍历）</li><li><strong>进程管理</strong>：<code>std::process::Command</code>（子进程）、<code>nix</code>（Unix API）</li><li><strong>配置管理</strong>：<code>serde</code> + 格式 crate（toml、json、yaml）</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>fs_process.rs</span></div>
+<pre><code>use std::fs;
 use std::process::Command;
 use std::path::Path;
 
-fn main() -&gt; std::io::Result&lt;()&gt; {
+fn main() -> std::io::Result&lt;()&gt; {
+    // 文件读写
+    fs::write("hello.txt", "Hello, System Programming!")?;
+    let content = fs::read_to_string("hello.txt")?;
+    println!("文件内容: {}", content);
+
+    // 路径操作
+    let path = Path::new("/usr/local/bin/rustc");
+    println!("文件名: {:?}", path.file_name());
+    println!("扩展名: {:?}", path.extension());
+    println!("父目录: {:?}", path.parent());
+
     // 遍历目录
-    let dir = Path::new(".");
-    for entry in fs::read_dir(dir)? {
+    for entry in fs::read_dir(".")? {
         let entry = entry?;
-        let kind = if entry.file_type()?.is_dir() { "DIR" } else { "FILE" };
-        println!("{kind}: {}", entry.file_name().to_string_lossy());
+        let meta = entry.metadata()?;
+        println!("{:?} ({}B)", entry.file_name(), meta.len());
     }
 
-    // 执行子进程并捕获输出
+    // 子进程
     let output = Command::new("echo")
-        .arg("hello from subprocess")
+        .arg("Hello from subprocess!")
         .output()?;
+    println!("子进程输出: {}", String::from_utf8_lossy(&amp;output.stdout));
 
-    println!("subprocess: {}", String::from_utf8_lossy(&amp;output.stdout));
+    fs::remove_file("hello.txt")?;
     Ok(())
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>DIR: src
-FILE: Cargo.toml
-...
-subprocess: hello from subprocess</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="Path 使用 OsStr 而非普通 str，因为操作系统的文件路径不保证是合法 UTF-8 编码。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 的 <code>Path</code> 为什么不直接用 <code>&amp;str</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6c-q3" value="A"> A. 文件系统路径不保证是合法 UTF-8</label>
-                    <label><input type="radio" name="u6c-q3" value="B"> B. 为了让路径支持正则表达式</label>
-                    <label><input type="radio" name="u6c-q3" value="C"> C. 为了减少内存使用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+}</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>BufReader/BufWriter</strong>：处理大文件时必须使用缓冲 I/O，否则每次 read/write 都是系统调用。</p><p><strong>tempfile crate</strong>：创建临时文件和目录，自动在 scope 结束时清理。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>跨平台注意</strong>：路径分隔符在 Windows 是 <code>\</code>，Unix 是 <code>/</code>。始终用 <code>Path::join</code> 而非字符串拼接</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">std::process::Command 的作用是？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。参数解析用 clap。')">A. 解析命令行参数</button><button onclick="checkInlineQuiz('iq-kp3',this,true,'正确！Command 提供创建和管理子进程的能力。')">B. 创建和管理子进程</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。线程用 std::thread。')">C. 管理线程</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。网络用 std::net 或 tokio。')">D. 网络连接</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>6.C.4 FFI、no_std 与内核模块探索</h2>
-            <div class="think-box">
-                <div class="think-icon">🔧</div>
-                <p>系统编程有时需要直接调用 C 库、在没有操作系统的裸机上运行、甚至编写内核模块。Rust 能做到这些吗？安全边界在哪里？</p>
-            </div>
-            <p>FFI（Foreign Function Interface）让 Rust 调用 C 函数或被 C 调用。<code>extern "C"</code> 声明 C ABI 函数，<code>#[no_mangle]</code> 导出符号。<code>no_std</code> 模式去掉标准库依赖，只保留 <code>core</code> 和可选的 <code>alloc</code>，适合嵌入式和内核场景。Linux 从 6.1 开始在内核中支持 Rust 模块，使用 <code>kernel</code> crate 包装内核 API。</p>
-            <div class="note-box warning">
-                <p><strong>安全边界：</strong>FFI 调用和 <code>no_std</code> 中的裸指针操作必须在 <code>unsafe</code> 块中。这不是 Rust 的"漏洞"，而是明确标记安全责任由开发者承担的边界。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>ffi_example.rs</span></div>
-                <pre><code>use std::ffi::CString;
-use std::os::raw::c_char;
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>FFI 与外部集成</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>系统编程中经常需要调用 C 库（如 OpenSSL、SQLite、系统 API），或者让你的 Rust 库被其他语言调用。FFI 是 Rust 融入现有生态的关键桥梁。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>调用 C</strong>：<code>extern "C" { fn ... }</code> + unsafe 调用</li><li><strong>被 C 调用</strong>：<code>#[no_mangle] pub extern "C" fn</code></li><li><strong>自动绑定</strong>：<code>bindgen</code>（C→Rust）、<code>cbindgen</code>（Rust→C）</li><li><strong>-sys crate 惯例</strong>：裸绑定在 foo-sys，安全封装在 foo</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>ffi_integration.rs</span></div>
+<pre><code>use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_int};
 
-// 声明要调用的 C 函数
+// 声明 C 函数
 extern "C" {
-    fn strlen(s: *const c_char) -&gt; usize;
+    fn strlen(s: *const c_char) -> usize;
+    fn getenv(name: *const c_char) -> *const c_char;
 }
 
-fn safe_strlen(s: &amp;str) -&gt; usize {
-    let c_str = CString::new(s).expect("string contains null byte");
-    // unsafe 块明确标记：我们正在跨越安全边界
-    unsafe { strlen(c_str.as_ptr()) }
+fn safe_getenv(name: &amp;str) -> Option&lt;String&gt; {
+    let c_name = CString::new(name).ok()?;
+    unsafe {
+        let ptr = getenv(c_name.as_ptr());
+        if ptr.is_null() {
+            None
+        } else {
+            CStr::from_ptr(ptr).to_str().ok().map(|s| s.to_owned())
+        }
+    }
 }
 
 fn main() {
-    let length = safe_strlen("Hello, FFI!");
-    println!("C strlen says: {length}");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>C strlen says: 11</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：no_std 和嵌入式 Rust 是什么样的？</button>
-                <div class="collapsible-content">
-                    <p><code>#![no_std]</code> 告诉编译器不链接标准库（<code>std</code>），只使用 <code>core</code>（无堆分配、无 OS 依赖）。嵌入式开发中，你需要自行提供 panic handler 和可能的内存分配器。典型目标如 ARM Cortex-M 微控制器：</p>
-                    <pre><code>#![no_std]
+    let c_str = CString::new("Hello, FFI!").unwrap();
+    let len = unsafe { strlen(c_str.as_ptr()) };
+    println!("strlen = {}", len);
+
+    if let Some(home) = safe_getenv("HOME") {
+        println!("HOME = {}", home);
+    }
+}</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>build.rs</strong>：用 <code>cc</code> crate 在构建时编译 C 代码，或用 <code>pkg-config</code> 查找系统库。</p><p><strong>PyO3</strong>：Rust ↔ Python FFI，可以用 Rust 写 Python 扩展模块（maturin 打包）。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>安全抽象模式</strong>：<code>safe_getenv</code> 示例展示了标准的做法——unsafe 内部调用 C 函数，外部提供安全的 Rust API。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">FFI 中 Rust 字符串应 使用什么类型？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。Rust 字符串不以 null 结尾。')">A. &amp;str / String</button><button onclick="checkInlineQuiz('iq-kp4',this,true,'正确！C 字符串以 \\0 结尾，CStr/CString 处理这种差异。')">B. CStr / CString</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。Vec&lt;u8&gt; 不保证 null 终止。')">C. Vec&lt;u8&gt;</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。char 是 Unicode 码点，C 的 char 是字节。')">D. char</button></div></div>
+    </section><hr class="kp-separator">
+
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>no_std 与内核编程</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>系统编程的终极形态：没有操作系统的环境——裸机嵌入式、操作系统内核、引导加载器。Rust 的 <code>no_std</code> 让你在这些极端环境中仍然享受类型安全。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>#![no_std]</strong>：不链接 std 标准库，只用 core（不依赖 OS）</li><li><strong>core</strong>：提供基础类型、trait、迭代器等。没有堆分配。</li><li><strong>alloc</strong>：可选引入。提供 Vec、String 等，但需要全局分配器。</li><li><strong>嵌入式</strong>：<code>embedded-hal</code> trait 抽象硬件，<code>cortex-m</code> 支持 ARM 芯片。</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>no_std_example.rs</span></div>
+<pre><code>#![no_std]
 #![no_main]
 
 use core::panic::PanicInfo;
 
+// 裸机需要自定义 panic handler
 #[panic_handler]
-fn panic(_info: &amp;PanicInfo) -&gt; ! {
-    loop {}
+fn panic(_info: &amp;PanicInfo) -> ! {
+    loop {}  // 死循环——裸机没有 OS 可以退回去
 }
 
+// 入口点
 #[no_mangle]
-pub extern "C" fn _start() -&gt; ! {
-    // 嵌入式入口：直接操作硬件寄存器
-    loop {}
-}</code></pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="extern &quot;C&quot; 声明使用 C ABI 的函数接口，unsafe 块标记编译器无法验证安全性的操作。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 调用 C 函数时，哪些元素是必需的？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u6c-q4" value="A"> A. 只需要 <code>use libc</code> 即可</label>
-                    <label><input type="radio" name="u6c-q4" value="B"> B. <code>extern "C"</code> 声明 + <code>unsafe</code> 调用块</label>
-                    <label><input type="radio" name="u6c-q4" value="C"> C. 编写 <code>.h</code> 头文件并手动编译</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+pub extern "C" fn _start() -> ! {
+    // 裸机代码——直接操作硬件
+    let mut counter: u32 = 0;
+    loop {
+        counter = counter.wrapping_add(1);
+        // 在实际嵌入式中，这里操作 GPIO、定时器等
+    }
+}
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
-            <ul>
-                <li>Rust 提供 C 级底层控制力的同时，在编译期保证内存安全——这是系统编程的范式转变。</li>
-                <li><code>clap</code> 让 CLI 工具的参数定义变成声明式结构体，配合 Rust 生态可以快速构建高质量命令行工具。</li>
-                <li><code>std::fs</code> 和 <code>std::process</code> 提供类型安全的文件系统和进程管理 API，<code>Path</code> 处理跨平台路径差异。</li>
-                <li>FFI 通过 <code>extern "C"</code> 和 <code>unsafe</code> 实现 C 互操作；<code>no_std</code> 支持嵌入式和内核开发；Linux 已在内核中支持 Rust。</li>
-            </ul>
-        </section>
+// 嵌入式 HAL 示例（概念）
+// use embedded_hal::digital::OutputPin;
+// fn blink(led: &amp;mut impl OutputPin) {
+//     led.set_high().ok();
+//     delay(500);
+//     led.set_low().ok();
+// }</code></pre></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>Rust for Linux</strong>：Linux 6.1+ 支持用 Rust 编写内核模块。目标是在驱动开发中减少内存安全漏洞。</p><p><strong>嵌入式开发</strong>：Rust 已支持 ARM Cortex-M、RISC-V 等平台。probe-rs 提供调试和烧录工具。</p><p><strong>学习资源</strong>：Philipp Oppermann 的 "Writing an OS in Rust" 博客系列是最好的入门教程。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>no_std 不等于 no safety</strong>：即使没有 std，借用检查、类型安全等所有编译期检查仍然有效。unsafe 仍然是明确标注的。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">#![no_std] 的含义是什么？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp5',this,true,'正确！core 提供不依赖 OS 的基础功能。')">A. 不使用标准库，只用 core 库</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。core 库始终可用。')">B. 不使用任何库</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。no_std 和编译优化无关。')">C. 不进行编译优化</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。no_std 和 debug 信息无关。')">D. 不生成 debug 信息</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 解释 <code>Path</code> 和 <code>&amp;str</code> 的区别，以及为什么文件系统操作应使用 <code>Path</code>。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 用 <code>clap</code> 构建一个 CLI 工具：接受一个目录路径，输出该目录下所有文件的名称和大小。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 编写一个安全的 FFI 封装：调用 C 标准库的 <code>getenv</code>，返回 <code>Option&lt;String&gt;</code>，正确处理 null 指针和 UTF-8 转换。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 调研 Linux 内核中 Rust 模块的编译流程和当前支持范围，讨论 Rust 在内核中的长期前景和面临的挑战。</li>
-            </ol>
-        </section>
-
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://docs.rs/clap/latest/clap/">clap 官方文档</a></li>
-                <li><a href="https://doc.rust-lang.org/std/fs/">std::fs 文档</a></li>
-                <li><a href="https://doc.rust-lang.org/std/process/">std::process 文档</a></li>
-                <li><a href="https://doc.rust-lang.org/nomicon/ffi.html">The Rustonomicon · FFI</a></li>
-                <li><a href="https://docs.rust-embedded.org/book/">The Embedded Rust Book</a></li>
-                <li><a href="https://rust-for-linux.com/">Rust for Linux 项目</a></li>
-            </ul>
-        </section>
-    </main>
-
-    <script src="../assets/js/main.js"></script>
+    <section id="exercises" class="exercises-section"><h2>综合练习</h2><div id="quiz-zone"></div></section>
+    <nav class="chapter-nav"><a href="ch6.B_security.html">← Ch 6.2 安全方向</a><a href="../index.html" class="nav-overview">目录</a><a href="../index.html">返回总目录 →</a></nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

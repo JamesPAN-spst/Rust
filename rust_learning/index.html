@@ -1,161 +1,134 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rust Learning Template</title>
-    <link rel="stylesheet" href="./assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rust Learning</title>
+  <link rel="stylesheet" href="./assets/css/theme.css">
+  <link rel="stylesheet" href="./assets/css/layout.css">
+  <link rel="stylesheet" href="./assets/css/components.css">
+  <style>
+    .hero-landing{text-align:center;padding:4rem 2rem 3rem;max-width:800px;margin:0 auto}
+    .hero-landing h1{font-family:var(--font-display);font-size:clamp(2rem,5vw,3.2rem);color:var(--text);margin-bottom:.5rem;letter-spacing:.02em}
+    .hero-landing .hero-sub{font-family:var(--font-body);font-size:1.1rem;color:var(--text-secondary);line-height:1.7}
+    .hero-landing .hero-rust{color:#ef4444;font-weight:700}
+    .stats-bar{display:flex;justify-content:center;gap:2.5rem;margin:2rem 0;flex-wrap:wrap}
+    .stat-item{text-align:center}
+    .stat-num{font-family:var(--font-display);font-size:2rem;font-weight:700;color:#ef4444}
+    .stat-label{font-size:.85rem;color:var(--text-secondary)}
+    .units-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.5rem;padding:0 1.5rem;max-width:1200px;margin:0 auto 3rem}
+    .unit-card{background:var(--surface-solid);border:1px solid var(--border);border-radius:12px;padding:1.5rem;transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+    .unit-card:hover{transform:translateY(-4px);box-shadow:0 8px 32px var(--shadow-lg)}
+    .unit-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+    .unit-card[data-domain="foundation"]::before{background:var(--c-foundation)}
+    .unit-card[data-domain="ownership"]::before{background:var(--c-ownership)}
+    .unit-card[data-domain="syntax"]::before{background:var(--c-syntax)}
+    .unit-card[data-domain="stdlib"]::before{background:var(--c-stdlib)}
+    .unit-card[data-domain="concurrency"]::before{background:var(--c-concurrency)}
+    .unit-card[data-domain="advanced"]::before{background:var(--c-advanced)}
+    .unit-card[data-domain="tracks"]::before{background:var(--c-tracks)}
+    .unit-card-head{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem}
+    .unit-card-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+    .unit-card[data-domain="foundation"] .unit-card-icon{background:rgba(120,113,108,.15);color:#78716c}
+    .unit-card[data-domain="ownership"] .unit-card-icon{background:rgba(239,68,68,.12);color:#ef4444}
+    .unit-card[data-domain="syntax"] .unit-card-icon{background:rgba(245,158,11,.12);color:#f59e0b}
+    .unit-card[data-domain="stdlib"] .unit-card-icon{background:rgba(16,185,129,.12);color:#10b981}
+    .unit-card[data-domain="concurrency"] .unit-card-icon{background:rgba(59,130,246,.12);color:#3b82f6}
+    .unit-card[data-domain="advanced"] .unit-card-icon{background:rgba(139,92,246,.12);color:#8b5cf6}
+    .unit-card[data-domain="tracks"] .unit-card-icon{background:rgba(6,182,212,.12);color:#06b6d4}
+    .unit-card-title{font-family:var(--font-display);font-size:1.15rem;color:var(--text);font-weight:600}
+    .unit-card-desc{font-size:.9rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem}
+    .unit-card-meta{font-family:var(--font-mono);font-size:.8rem;color:var(--text-tertiary);margin-top:auto;padding-top:.75rem;border-top:1px solid var(--border)}
+    a.unit-card{text-decoration:none;color:inherit;cursor:pointer}
+    .landing-footer{text-align:center;padding:2rem 1rem;color:var(--text-tertiary);font-size:.85rem;border-top:1px solid var(--border);max-width:1200px;margin:0 auto}
+  </style>
+  <script src="./assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
-
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Rust 系统学习站点</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="./index.html" class="active">学习首页</a></li>
-
-            <li class="unit-title">Unit 0 · 环境与心态</li>
-            <li><a href="./unit0_foundation/ch0.1_toolchain.html">0.1 工具链</a></li>
-            <li><a href="./unit0_foundation/ch0.2_mindset.html">0.2 心态建设</a></li>
-
-            <li class="unit-title">Unit 1 · 所有权系统</li>
-            <li><a href="./unit1_ownership/ch1.1_ownership.html">1.1 Ownership</a></li>
-            <li><a href="./unit1_ownership/ch1.2_borrowing.html">1.2 Borrowing</a></li>
-            <li><a href="./unit1_ownership/ch1.3_lifetimes.html">1.3 Lifetimes</a></li>
-            <li><a href="./unit1_ownership/ch1.4_ownership_in_practice.html">1.4 实际影响</a></li>
-
-            <li class="unit-title">Unit 2 · 基础语法</li>
-            <li><a href="./unit2_syntax/ch2.1_basic_types_variables.html">2.1 类型与变量</a></li>
-            <li><a href="./unit2_syntax/ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./unit2_syntax/ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./unit2_syntax/ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./unit2_syntax/ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./unit2_syntax/ch2.6_traits.html">2.6 Trait 系统</a></li>
-
-            <li class="unit-title">Unit 3 · 标准库与项目</li>
-            <li><a href="./unit3_std_projects/ch3.1_strings.html">3.1 字符串</a></li>
-            <li><a href="./unit3_std_projects/ch3.2_collections.html">3.2 集合</a></li>
-            <li><a href="./unit3_std_projects/ch3.3_iterators.html">3.3 迭代器</a></li>
-            <li><a href="./unit3_std_projects/ch3.4_error_handling.html">3.4 错误处理</a></li>
-            <li><a href="./unit3_std_projects/ch3.5_modules.html">3.5 模块系统</a></li>
-            <li><a href="./unit3_std_projects/ch3.6_project_practice.html">3.6 实战项目</a></li>
-
-            <li class="unit-title">Unit 4 · 并发与异步</li>
-            <li><a href="./unit4_concurrency_async/ch4.1_threads.html">4.1 线程并发</a></li>
-            <li><a href="./unit4_concurrency_async/ch4.2_async_programming.html">4.2 异步编程</a></li>
-            <li><a href="./unit4_concurrency_async/ch4.3_async_ecosystem.html">4.3 异步生态</a></li>
-
-            <li class="unit-title">Unit 5 · 高级特性</li>
-            <li><a href="./unit5_advanced/ch5.1_smart_pointers.html">5.1 智能指针</a></li>
-            <li><a href="./unit5_advanced/ch5.2_generics_trait_objects.html">5.2 泛型与 Trait 对象</a></li>
-            <li><a href="./unit5_advanced/ch5.3_macros.html">5.3 宏系统</a></li>
-            <li><a href="./unit5_advanced/ch5.4_unsafe_rust.html">5.4 Unsafe Rust</a></li>
-
-            <li class="unit-title">Unit 6 · 方向分支</li>
-            <li><a href="./unit6_tracks/ch6.A_game_dev.html">6.A 游戏开发</a></li>
-            <li><a href="./unit6_tracks/ch6.B_security.html">6.B 安全攻防</a></li>
-            <li><a href="./unit6_tracks/ch6.C_systems.html">6.C 系统编程</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Rust Learning</span>
-            <h1>Rust 系统学习首页</h1>
-            <p class="chapter-description">
-                从零开始系统学习 Rust：所有权、语法、标准库、并发、高级特性与实战方向，共 6 个单元 25 个正式章节。
-            </p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 当前模板要解决的问题</h2>
-            <ul>
-                <li>统一 Rust 学习页面的结构与阅读节奏</li>
-                <li>把设计风格和主题内容彻底分离</li>
-                <li>为后续子 agent 生成页面提供稳定骨架</li>
-                <li>把第一步的风格学习结果固定下来，避免再次跑偏</li>
-            </ul>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>1. 已学习到的设计特点</h2>
-            <div class="think-box">
-                <div class="think-icon">🧭</div>
-                <p>迁移模板时，真正需要学习的是“组织方式”和“阅读体验”，不是把原主题照搬进 Rust 仓库。</p>
-            </div>
-            <ul>
-                <li>深色阅读界面 + 高亮强调色</li>
-                <li>侧边栏导航 + 单元分组</li>
-                <li>卡片化知识块 + 统一标题层级</li>
-                <li>快速测试、折叠答案、提示框、代码展示</li>
-                <li>围绕“为什么 / 怎么用 / 会错在哪”来组织内容</li>
-            </ul>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>2. 模板组成</h2>
-            <div class="code-playground">
-                <div class="code-header"><span>目录</span><span>rust_learning/</span></div>
-                <pre><code>index.html
-assets/css/style.css
-assets/js/main.js
-generation_rule.md
-sub_agent_rule.md
-templates/chapter_template.html
-examples/ch1.1_ownership.html
-workflow.md</code></pre>
-            </div>
-            <div class="note-box tip">
-                <p><strong>模板定位：</strong> `chapter_template.html` 负责结构复用，`ch1.1_ownership.html` 负责展示正确风格落地后的具体样子。</p>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>3. Unit 规划入口</h2>
-            <div class="quick-quiz" data-answer="B" data-explanation="模板系统的首要任务是稳定结构和风格，让后续内容生成不会再次偏成数学页面。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>当前模板系统最优先的目标是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="home-q1" value="A"> A. 先堆满所有章节内容</label>
-                    <label><input type="radio" name="home-q1" value="B"> B. 先固定结构、风格和规则</label>
-                    <label><input type="radio" name="home-q1" value="C"> C. 先引入更多前端框架</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-            <p id="u0"><strong>Unit 0 · 环境与心态：</strong> 工具链安装、编译器反馈、学习心态建设。 <a href="./unit0_foundation/ch0.1_toolchain.html">→ 进入</a></p>
-            <p id="u1"><strong>Unit 1 · 所有权系统：</strong> Ownership / Borrowing / Lifetimes / 实际影响。 <a href="./unit1_ownership/ch1.1_ownership.html">→ 进入</a></p>
-            <p id="u2"><strong>Unit 2 · 基础语法：</strong> 类型、控制流、函数、Struct/Enum、模式匹配、Trait。 <a href="./unit2_syntax/ch2.1_basic_types_variables.html">→ 进入</a></p>
-            <p id="u3"><strong>Unit 3 · 标准库与项目：</strong> 字符串、集合、迭代器、错误处理、模块、实战项目。 <a href="./unit3_std_projects/ch3.1_strings.html">→ 进入</a></p>
-            <p id="u4"><strong>Unit 4 · 并发与异步：</strong> 线程、async/await、异步生态。 <a href="./unit4_concurrency_async/ch4.1_threads.html">→ 进入</a></p>
-            <p id="u5"><strong>Unit 5 · 高级特性：</strong> 智能指针、泛型与 Trait 对象、宏、Unsafe。 <a href="./unit5_advanced/ch5.1_smart_pointers.html">→ 进入</a></p>
-            <p id="u6"><strong>Unit 6 · 方向分支：</strong> 游戏开发、安全攻防、系统编程。 <a href="./unit6_tracks/ch6.A_game_dev.html">→ 进入</a></p>
-        </section>
-
-        <section class="chapter-summary">
-            <h2>📌 当前状态</h2>
-            <ul>
-                <li>全部 6 个单元、25 个正式章节页面已生成</li>
-                <li>每页包含学习目标、前置知识、知识点卡片、快速测验、折叠解析、章节总结、练习与延伸阅读</li>
-                <li>侧边栏统一提供完整跨章节导航</li>
-            </ul>
-        </section>
-
-        <section class="exercises">
-            <h2>🚀 快速入口</h2>
-            <ol>
-                <li><span class="exercise-level">Unit 0：</span> <a href="./unit0_foundation/ch0.1_toolchain.html">Ch 0.1 工具链</a> · <a href="./unit0_foundation/ch0.2_mindset.html">Ch 0.2 心态建设</a></li>
-                <li><span class="exercise-level">Unit 1：</span> <a href="./unit1_ownership/ch1.1_ownership.html">Ch 1.1 Ownership</a> · <a href="./unit1_ownership/ch1.2_borrowing.html">1.2</a> · <a href="./unit1_ownership/ch1.3_lifetimes.html">1.3</a> · <a href="./unit1_ownership/ch1.4_ownership_in_practice.html">1.4</a></li>
-                <li><span class="exercise-level">Unit 2：</span> <a href="./unit2_syntax/ch2.1_basic_types_variables.html">Ch 2.1 类型</a> · <a href="./unit2_syntax/ch2.2_control_flow.html">2.2</a> · <a href="./unit2_syntax/ch2.3_functions_closures.html">2.3</a> · <a href="./unit2_syntax/ch2.4_struct_enum.html">2.4</a> · <a href="./unit2_syntax/ch2.5_pattern_matching.html">2.5</a> · <a href="./unit2_syntax/ch2.6_traits.html">2.6</a></li>
-                <li><span class="exercise-level">Unit 3：</span> <a href="./unit3_std_projects/ch3.1_strings.html">Ch 3.1 字符串</a> · <a href="./unit3_std_projects/ch3.2_collections.html">3.2</a> · <a href="./unit3_std_projects/ch3.3_iterators.html">3.3</a> · <a href="./unit3_std_projects/ch3.4_error_handling.html">3.4</a> · <a href="./unit3_std_projects/ch3.5_modules.html">3.5</a> · <a href="./unit3_std_projects/ch3.6_project_practice.html">3.6</a></li>
-                <li><span class="exercise-level">Unit 4：</span> <a href="./unit4_concurrency_async/ch4.1_threads.html">Ch 4.1 线程</a> · <a href="./unit4_concurrency_async/ch4.2_async_programming.html">4.2</a> · <a href="./unit4_concurrency_async/ch4.3_async_ecosystem.html">4.3</a></li>
-                <li><span class="exercise-level">Unit 5：</span> <a href="./unit5_advanced/ch5.1_smart_pointers.html">Ch 5.1 智能指针</a> · <a href="./unit5_advanced/ch5.2_generics_trait_objects.html">5.2</a> · <a href="./unit5_advanced/ch5.3_macros.html">5.3</a> · <a href="./unit5_advanced/ch5.4_unsafe_rust.html">5.4</a></li>
-                <li><span class="exercise-level">Unit 6：</span> <a href="./unit6_tracks/ch6.A_game_dev.html">Ch 6.A 游戏</a> · <a href="./unit6_tracks/ch6.B_security.html">6.B 安全</a> · <a href="./unit6_tracks/ch6.C_systems.html">6.C 系统</a></li>
-            </ol>
-        </section>
-    </main>
-
-    <script src="./assets/js/main.js"></script>
+<body class="overview-page">
+  <nav class="topbar">
+    <a href="./index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain" style="background:#ef4444;color:#fff">HOME</span>
+      <a href="./index.html" class="module-name">HOME</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">7 Units &middot; 24 Chapters</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="Theme">&#x1F319;</button>
+    </div>
+  </nav>
+  <main style="padding-top:70px">
+    <section class="hero-landing">
+      <h1>&#x1F980; <span class="hero-rust">Rust</span> &#x7CFB;&#x7EDF;&#x5B66;&#x4E60;</h1>
+      <p class="hero-sub">&#x4ECE;&#x6240;&#x6709;&#x6743;&#x5230;&#x5F02;&#x6B65;&#xFF0C;&#x4ECE;&#x57FA;&#x7840;&#x8BED;&#x6CD5;&#x5230;&#x7CFB;&#x7EDF;&#x7F16;&#x7A0B;&#x2014;&#x2014;7 &#x4E2A;&#x5355;&#x5143;&#x3001;24 &#x4E2A;&#x7AE0;&#x8282;&#xFF0C;&#x6BCF;&#x7AE0; 5 &#x4E2A;&#x77E5;&#x8BC6;&#x70B9; + 20 &#x9053;&#x7EC3;&#x4E60;&#x9898;&#xFF0C;&#x5E26;&#x4F60;&#x6784;&#x5EFA;&#x5B8C;&#x6574;&#x7684; Rust &#x77E5;&#x8BC6;&#x4F53;&#x7CFB;&#x3002;</p>
+      <div class="stats-bar">
+        <div class="stat-item"><div class="stat-num">7</div><div class="stat-label">&#x5B66;&#x4E60;&#x5355;&#x5143;</div></div>
+        <div class="stat-item"><div class="stat-num">24</div><div class="stat-label">&#x7AE0;&#x8282;</div></div>
+        <div class="stat-item"><div class="stat-num">120</div><div class="stat-label">&#x77E5;&#x8BC6;&#x70B9;</div></div>
+        <div class="stat-item"><div class="stat-num">480+</div><div class="stat-label">&#x7EC3;&#x4E60;&#x9898;</div></div>
+        <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">&#x4E3B;&#x9898;&#x5207;&#x6362;</div></div>
+      </div>
+    </section>
+    <section class="units-grid">
+      <a class="unit-card" data-domain="foundation" href="./unit0_foundation/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F527;</div>
+          <div class="unit-card-title">Unit 0 &middot; &#x73AF;&#x5883;&#x4E0E;&#x5FC3;&#x6001;</div>
+        </div>
+        <p class="unit-card-desc">&#x5DE5;&#x5177;&#x94FE;&#x5B89;&#x88C5;&#x914D;&#x7F6E;&#x3001;&#x7F16;&#x8BD1;&#x5668;&#x53CD;&#x9988;&#x89E3;&#x8BFB;&#x3001;&#x5B66;&#x4E60;&#x5FC3;&#x6001;&#x5EFA;&#x8BBE;&#x2014;&#x2014;&#x6B63;&#x5F0F;&#x5F00;&#x59CB;&#x524D;&#x7684;&#x51C6;&#x5907;&#x9636;&#x6BB5;&#x3002;</p>
+        <div class="unit-card-meta">2 chapters &middot; 9 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="ownership" href="./unit1_ownership/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F510;</div>
+          <div class="unit-card-title">Unit 1 &middot; &#x6240;&#x6709;&#x6743;&#x7CFB;&#x7EDF;</div>
+        </div>
+        <p class="unit-card-desc">Rust &#x6700;&#x6838;&#x5FC3;&#x7684;&#x6982;&#x5FF5;&#x2014;&#x2014;&#x6240;&#x6709;&#x6743;&#x3001;&#x501F;&#x7528;&#x3001;&#x751F;&#x547D;&#x5468;&#x671F;&#x3002;&#x638C;&#x63E1;&#x5B83;&#x4EEC;&#x662F;&#x7406;&#x89E3;&#x4E00;&#x5207; Rust &#x7279;&#x6027;&#x7684;&#x57FA;&#x7840;&#x3002;</p>
+        <div class="unit-card-meta">4 chapters &middot; 16 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="syntax" href="./unit2_syntax/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F4DD;</div>
+          <div class="unit-card-title">Unit 2 &middot; &#x57FA;&#x7840;&#x8BED;&#x6CD5;</div>
+        </div>
+        <p class="unit-card-desc">&#x7C7B;&#x578B;&#x7CFB;&#x7EDF;&#x3001;&#x63A7;&#x5236;&#x6D41;&#x3001;&#x51FD;&#x6570;&#x4E0E;&#x95ED;&#x5305;&#x3001;Struct/Enum&#x3001;&#x6A21;&#x5F0F;&#x5339;&#x914D;&#x3001;Trait&#x2014;&#x2014;Rust &#x65E5;&#x5E38;&#x7F16;&#x7801;&#x7684;&#x5168;&#x90E8;&#x57FA;&#x7840;&#x3002;</p>
+        <div class="unit-card-meta">6 chapters &middot; 27 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="stdlib" href="./unit3_std_projects/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F4E6;</div>
+          <div class="unit-card-title">Unit 3 &middot; &#x6807;&#x51C6;&#x5E93;&#x4E0E;&#x9879;&#x76EE;</div>
+        </div>
+        <p class="unit-card-desc">&#x5B57;&#x7B26;&#x4E32;&#x3001;&#x96C6;&#x5408;&#x3001;&#x9519;&#x8BEF;&#x5904;&#x7406;&#x3001;&#x6A21;&#x5757;&#x7CFB;&#x7EDF;&#x3001;&#x6587;&#x4EF6; I/O&#x2014;&#x2014;&#x7528;&#x6807;&#x51C6;&#x5E93;&#x6784;&#x5EFA;&#x771F;&#x5B9E;&#x9879;&#x76EE;&#x7684;&#x80FD;&#x529B;&#x3002;</p>
+        <div class="unit-card-meta">5 chapters &middot; 22 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="concurrency" href="./unit4_concurrency_async/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x26A1;</div>
+          <div class="unit-card-title">Unit 4 &middot; &#x5E76;&#x53D1;&#x4E0E;&#x5F02;&#x6B65;</div>
+        </div>
+        <p class="unit-card-desc">&#x7EBF;&#x7A0B;&#x5E76;&#x53D1;&#x3001;async/await&#x3001;tokio &#x751F;&#x6001;&#x2014;&#x2014;Rust &#x7684;&#x5E76;&#x53D1;&#x5B89;&#x5168;&#x662F;&#x5176;&#x6700;&#x72EC;&#x7279;&#x7684;&#x7ADE;&#x4E89;&#x529B;&#x4E4B;&#x4E00;&#x3002;</p>
+        <div class="unit-card-meta">3 chapters &middot; 13 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="advanced" href="./unit5_advanced/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F9EC;</div>
+          <div class="unit-card-title">Unit 5 &middot; &#x9AD8;&#x7EA7;&#x7279;&#x6027;</div>
+        </div>
+        <p class="unit-card-desc">&#x667A;&#x80FD;&#x6307;&#x9488;&#x3001;&#x6CDB;&#x578B;&#x4E0E; Trait &#x5BF9;&#x8C61;&#x3001;&#x5B8F;&#x7CFB;&#x7EDF;&#x3001;Unsafe Rust&#x2014;&#x2014;&#x6210;&#x4E3A; Rust &#x9AD8;&#x624B;&#x7684;&#x8FDB;&#x9636;&#x77E5;&#x8BC6;&#x3002;</p>
+        <div class="unit-card-meta">4 chapters &middot; 20 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+      <a class="unit-card" data-domain="tracks" href="./unit6_tracks/index.html">
+        <div class="unit-card-head">
+          <div class="unit-card-icon">&#x1F6E4;&#xFE0F;</div>
+          <div class="unit-card-title">Unit 6 &middot; &#x4E13;&#x9898;&#x65B9;&#x5411;</div>
+        </div>
+        <p class="unit-card-desc">&#x6E38;&#x620F;&#x5F00;&#x53D1;&#x3001;&#x7F51;&#x7EDC;&#x5B89;&#x5168;&#x3001;&#x7CFB;&#x7EDF;&#x7F16;&#x7A0B;&#x2014;&#x2014;&#x9009;&#x62E9;&#x4F60;&#x7684;&#x65B9;&#x5411;&#xFF0C;&#x628A; Rust &#x77E5;&#x8BC6;&#x843D;&#x5730;&#x5230;&#x5B9E;&#x6218;&#x9886;&#x57DF;&#x3002;</p>
+        <div class="unit-card-meta">3 chapters &middot; 15 &#x77E5;&#x8BC6;&#x70B9;</div>
+      </a>
+    </section>
+    <footer class="landing-footer">
+      Rust Learning &middot; 2026
+    </footer>
+  </main>
 </body>
 </html>

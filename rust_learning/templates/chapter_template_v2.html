@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[Ch X.Y Title] — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    /* ── 课后练习题数据 ── */
+    const QUESTIONS = [
+      {
+        "id": "unitX-chY-q1",
+        "question": "[题目文本]",
+        "options": ["A. [选项]", "B. [选项]", "C. [选项]", "D. [选项]"],
+        "answer": 0,
+        "explanation": "[解析文本]"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="chapter-page" data-module="[unitX_name]"
+      style="--domain-color: var(--c-ownership);">
+<!-- domain-color 选项:
+     Unit 0: var(--c-foundation)
+     Unit 1: var(--c-ownership)
+     Unit 2: var(--c-syntax)
+     Unit 3: var(--c-stdlib)
+     Unit 4: var(--c-concurrency)
+     Unit 5: var(--c-advanced)
+     Unit 6: var(--c-tracks)
+-->
+
+  <!-- ── Topbar ── -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">[UNIT LABEL]</span>
+      <a href="../index.html" class="module-name">[Unit Name]</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.Y / Z</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ── TOC Sidebar ── -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 · [知识点1标题]</a></li>
+      <li><a href="#kp2">02 · [知识点2标题]</a></li>
+      <li><a href="#kp3">03 · [知识点3标题]</a></li>
+      <li><a href="#exercises">综合练习</a></li>
+    </ul>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">[Unit X · Unit Name]</p>
+      <h1>[Ch X.Y Chapter Title]</h1>
+      <p class="chapter-intro">[两到三句话：本章要解决什么问题、为什么值得学、会落到哪些 Rust 场景上。]</p>
+    </header>
+
+    <!-- ══ KP1 ══ -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>[知识点1标题]</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>[从一个具体的工程场景或问题切入，让读者先感受到这个知识点解决了什么痛点。]</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>[先给直觉，再给规则。解释 Rust 为什么这样设计，背后的权衡是什么。]</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p>[给出正式的语法规则、签名、约束，附带简短说明。]</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>example.rs</span></div>
+              <pre><code>fn main() {
+    println!("Hello, Rust!");
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>Hello, Rust!</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p>[展示这个知识点在真实项目中如何出现，给出典型用法或设计决策。]</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <p>[给出具体的代码示例，分析常见错误，展示编译器报错含义。]</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>error_demo.rs</span></div>
+              <pre><code>fn main() {
+    let s = String::from("hello");
+    let s2 = s;
+    // println!("{}", s); // ← 编译错误
+}</code></pre>
+              <div class="code-error">
+                <strong>编译错误</strong>
+                <pre>error[E0382]: borrow of moved value: `s`</pre>
+              </div>
+            </div>
+            <p><strong>常见错误</strong>：</p>
+            <ul>
+              <li>[错误1描述与修正方法]</li>
+              <li>[错误2描述与修正方法]</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 快速检测 -->
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">[本知识点的易错点问题]</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！[简短解释]')">A. [正确选项]</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。[简短解释]')">B. [干扰项]</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。[简短解释]')">C. [干扰项]</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。[简短解释]')">D. [干扰项]</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ══ KP2 ══ -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>[知识点2标题]</h2>
+      <div class="mental-chain">
+        <!-- 同上结构: step-motivation → step-abstraction → step-derivation → step-application → step-example -->
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">[问题]</div>
+        <div class="iq-options">
+          <!-- buttons -->
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ══ 课后练习 ══ -->
+    <section id="exercises" class="exercises-section">
+      <h2>综合练习</h2>
+      <div id="quiz-zone"></div>
+    </section>
+
+    <!-- ── 章节导航 ── -->
+    <nav class="chapter-nav">
+      <a href="[prev_chapter].html">← [上一章标题]</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="[next_chapter].html">[下一章标题] →</a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
+</body>
+</html>

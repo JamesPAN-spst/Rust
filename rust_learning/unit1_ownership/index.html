@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit 1 · 所有权系统 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="overview-page" data-module="unit1_ownership" style="--domain-color: var(--c-ownership);">
+
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">OWNERSHIP</span>
+      <span class="module-name" style="cursor:default">Unit 1 · 所有权系统</span>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">4 chapters</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="overview-hero">
+      <div class="domain-tag">OWNERSHIP</div>
+      <h1>Unit 1 · 所有权系统</h1>
+      <p class="intro">Rust 最核心的概念——所有权、借用、生命周期。掌握它们是理解一切 Rust 特性的基础。</p>
+    </div>
+
+    <div class="chapter-grid">
+      <a class="chapter-card" href="ch1.1_ownership.html">
+        <div class="ch-number">CHAPTER 01</div>
+        <div class="ch-title">所有权 · Ownership</div>
+        <div class="ch-kps">
+          <span class="kp-tag">为什么 Rust 要有 Ownership</span>
+          <span class="kp-tag">Move 语义</span>
+          <span class="kp-tag">Copy Trait</span>
+          <span class="kp-tag">Drop Trait 与 RAII</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch1.2_borrowing.html">
+        <div class="ch-number">CHAPTER 02</div>
+        <div class="ch-title">借用 · Borrowing</div>
+        <div class="ch-kps">
+          <span class="kp-tag">不可变引用 &amp;T</span>
+          <span class="kp-tag">可变引用 &amp;mut T</span>
+          <span class="kp-tag">借用规则：Aliasing XOR Mutability</span>
+          <span class="kp-tag">引用必须始终有效</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch1.3_lifetimes.html">
+        <div class="ch-number">CHAPTER 03</div>
+        <div class="ch-title">生命周期 · Lifetimes</div>
+        <div class="ch-kps">
+          <span class="kp-tag">生命周期参数 'a 语法</span>
+          <span class="kp-tag">生命周期省略规则</span>
+          <span class="kp-tag">'static 生命周期</span>
+          <span class="kp-tag">结构体中的生命周期</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch1.4_ownership_in_practice.html">
+        <div class="ch-number">CHAPTER 04</div>
+        <div class="ch-title">所有权的实际影响</div>
+        <div class="ch-kps">
+          <span class="kp-tag">为什么没有双重释放</span>
+          <span class="kp-tag">为什么没有数据竞争</span>
+          <span class="kp-tag">与 C++ 智能指针的对比</span>
+          <span class="kp-tag">所有权模式在实际项目中的体现</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="chapter-nav" style="max-width:900px;margin:0 auto;padding:24px 40px;">
+      <a href="../unit0_foundation/index.html">← Unit 0 · 环境与心态</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="../unit2_syntax/index.html">Unit 2 · 基础语法 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <span>Rust Learning · 2026</span>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit 3 · 标准库与项目实践 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="overview-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
+
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <span class="module-name" style="cursor:default">Unit 3 · 标准库与项目实践</span>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">5 chapters</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="overview-hero">
+      <div class="domain-tag">STDLIB</div>
+      <h1>Unit 3 · 标准库与项目实践</h1>
+      <p class="intro">字符串、集合、错误处理、模块系统、文件 I/O——用标准库构建真实项目的能力。</p>
+    </div>
+
+    <div class="chapter-grid">
+      <a class="chapter-card" href="ch3.1_strings.html">
+        <div class="ch-number">CHAPTER 01</div>
+        <div class="ch-title">字符串</div>
+        <div class="ch-kps">
+          <span class="kp-tag">String 与 &amp;str</span>
+          <span class="kp-tag">字符串操作</span>
+          <span class="kp-tag">字符串索引与切片</span>
+          <span class="kp-tag">字符串在所有权系统中的行为</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch3.2_collections.html">
+        <div class="ch-number">CHAPTER 02</div>
+        <div class="ch-title">集合类型</div>
+        <div class="ch-kps">
+          <span class="kp-tag">Vec&lt;T&gt;</span>
+          <span class="kp-tag">HashMap&lt;K,V&gt;</span>
+          <span class="kp-tag">HashSet&lt;T&gt;</span>
+          <span class="kp-tag">VecDeque 与 BTreeMap</span>
+          <span class="kp-tag">迭代器消费与收集</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch3.3_error_handling.html">
+        <div class="ch-number">CHAPTER 03</div>
+        <div class="ch-title">错误处理</div>
+        <div class="ch-kps">
+          <span class="kp-tag">panic! 与 unwinding</span>
+          <span class="kp-tag">Result&lt;T,E&gt; 详解</span>
+          <span class="kp-tag">? 运算符</span>
+          <span class="kp-tag">自定义错误类型</span>
+          <span class="kp-tag">anyhow 与 thiserror</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch3.4_modules_crates.html">
+        <div class="ch-number">CHAPTER 04</div>
+        <div class="ch-title">模块与 Crate</div>
+        <div class="ch-kps">
+          <span class="kp-tag">mod 与文件结构</span>
+          <span class="kp-tag">pub 与可见性</span>
+          <span class="kp-tag">use 与路径</span>
+          <span class="kp-tag">Cargo 与依赖管理</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch3.5_io_file.html">
+        <div class="ch-number">CHAPTER 05</div>
+        <div class="ch-title">I/O 与文件</div>
+        <div class="ch-kps">
+          <span class="kp-tag">Read / Write trait</span>
+          <span class="kp-tag">文件读写</span>
+          <span class="kp-tag">标准输入输出</span>
+          <span class="kp-tag">路径处理</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="chapter-nav" style="max-width:900px;margin:0 auto;padding:24px 40px;">
+      <a href="../unit2_syntax/index.html">← Unit 2 · 基础语法</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="../unit4_concurrency_async/index.html">Unit 4 · 并发与异步 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <span>Rust Learning · 2026</span>
+  </footer>
+</body>
+</html>

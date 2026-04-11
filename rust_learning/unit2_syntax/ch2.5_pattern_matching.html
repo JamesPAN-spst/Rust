@@ -1,319 +1,776 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.5 模式匹配 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.5 模式匹配 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch25-q1",
+        "question": "match 表达式必须满足什么条件？",
+        "options": ["A. 至少有两个分支", "B. 必须穷尽所有可能的模式", "C. 只能匹配整数", "D. 不能有默认分支"],
+        "answer": 1,
+        "explanation": "Rust 编译器要求 match 穷尽所有可能。遗漏任何变体都会编译错误。可以用 _ 作为通配符兜底。"
+      },
+      {
+        "id": "u2-ch25-q2",
+        "question": "match 和 if/else 的核心区别？",
+        "options": ["A. match 更慢", "B. match 是模式匹配且强制穷尽，if/else 是布尔条件", "C. 完全等价", "D. if/else 也要求穷尽"],
+        "answer": 1,
+        "explanation": "match 做结构化模式匹配并强制穷尽；if/else 只是布尔条件分支，不解构数据。"
+      },
+      {
+        "id": "u2-ch25-q3",
+        "question": "match 表达式可以返回值吗？",
+        "options": ["A. 不能", "B. 可以，所有分支必须返回相同类型", "C. 只有第一个分支能返回值", "D. 视编译器选项而定"],
+        "answer": 1,
+        "explanation": "match 是表达式，可以赋值：let x = match ... { ... }; 所有分支返回类型必须相同。"
+      },
+      {
+        "id": "u2-ch25-q4",
+        "question": "if let Some(x) = opt { ... } 等价于什么？",
+        "options": ["A. if opt == Some { ... }", "B. match opt { Some(x) => { ... }, _ => () }", "C. if opt.is_some() { let x = opt.unwrap(); ... }", "D. while let Some(x) = opt { ... }"],
+        "answer": 1,
+        "explanation": "if let 是 match 的语法糖，只匹配一个模式。匹配失败时走 else 分支（可选）或什么都不做。"
+      },
+      {
+        "id": "u2-ch25-q5",
+        "question": "while let 有什么用？",
+        "options": ["A. 语法错误", "B. 在模式匹配成功时循环，失败时退出", "C. 无限循环", "D. 只迭代一次"],
+        "answer": 1,
+        "explanation": "while let Some(x) = iter.next() { ... } 每次迭代尝试匹配，成功则执行循环体，失败则退出循环。"
+      },
+      {
+        "id": "u2-ch25-q6",
+        "question": "以下代码输出什么？\nlet point = (3, -5);\nmatch point {\n    (0, 0) => println!(\"origin\"),\n    (x, 0) => println!(\"on x-axis: {}\", x),\n    (0, y) => println!(\"on y-axis: {}\", y),\n    (x, y) => println!(\"({}, {})\", x, y),\n}",
+        "options": ["A. origin", "B. on x-axis: 3", "C. on y-axis: -5", "D. (3, -5)"],
+        "answer": 3,
+        "explanation": "(3, -5) 不匹配前三个模式，落入最后的通配模式 (x, y)，x=3, y=-5。"
+      },
+      {
+        "id": "u2-ch25-q7",
+        "question": "_ 在模式匹配中的含义？",
+        "options": ["A. 匹配特定值", "B. 通配符，匹配任何值并忽略", "C. 空值", "D. 错误"],
+        "answer": 1,
+        "explanation": "_ 是通配符模式，匹配任何值但不绑定到变量。常用于 match 的兜底分支。"
+      },
+      {
+        "id": "u2-ch25-q8",
+        "question": "match guard 是什么？",
+        "options": ["A. 守卫模式，在匹配后添加额外的 if 条件", "B. 安全模式", "C. 防止 panic 的模式", "D. 锁机制"],
+        "answer": 0,
+        "explanation": "match guard 在模式后加 if 条件：Some(x) if x > 0 => ...，只有模式匹配且条件为 true 时才执行。"
+      },
+      {
+        "id": "u2-ch25-q9",
+        "question": "@ 绑定的作用是什么？",
+        "options": ["A. 取地址", "B. 在匹配的同时将值绑定到变量", "C. 类型转换", "D. 宏调用"],
+        "answer": 1,
+        "explanation": "@ 在测试值是否匹配范围的同时将值绑定到变量：n @ 1..=12 => println!(\"month {}\", n)。"
+      },
+      {
+        "id": "u2-ch25-q10",
+        "question": "以下代码匹配什么？\nmatch msg {\n    Message::Move { x: 0, y } => ...,\n    _ => ...,\n}",
+        "options": ["A. 所有 Move 变体", "B. 只有 x == 0 的 Move 变体", "C. 只有 y == 0 的 Move 变体", "D. 编译错误"],
+        "answer": 1,
+        "explanation": "x: 0 要求 x 字段等于 0，y 绑定到变量。只匹配 x 为 0 的 Move。"
+      },
+      {
+        "id": "u2-ch25-q11",
+        "question": "可以在 let 语句中使用模式匹配吗？",
+        "options": ["A. 不能", "B. 可以，let (x, y) = point; 就是模式匹配", "C. 只有 match 能用模式", "D. 只有元组可以"],
+        "answer": 1,
+        "explanation": "let 语句左边就是模式。let (x, y) = (1, 2); let Point { x, y } = p; 都是合法的解构。"
+      },
+      {
+        "id": "u2-ch25-q12",
+        "question": "函数参数可以使用模式匹配吗？",
+        "options": ["A. 不能", "B. 可以，fn foo((x, y): (i32, i32)) 是合法的", "C. 只有闭包可以", "D. 只有元组可以"],
+        "answer": 1,
+        "explanation": "函数参数也是模式。fn foo(&(x, y): &(i32, i32)) 直接解构参数。闭包同理。"
+      },
+      {
+        "id": "u2-ch25-q13",
+        "question": "切片模式 [first, rest @ ..] 中 rest 是什么？",
+        "options": ["A. 第一个元素", "B. 剩余元素的切片", "C. 最后一个元素", "D. 编译错误"],
+        "answer": 1,
+        "explanation": "[first, rest @ ..] 将第一个元素绑定到 first，剩余绑定到 rest 切片。"
+      },
+      {
+        "id": "u2-ch25-q14",
+        "question": "| 在 match 模式中的含义？",
+        "options": ["A. 位或运算", "B. 匹配多个模式中的任意一个（OR 模式）", "C. 管道运算符", "D. 闭包"],
+        "answer": 1,
+        "explanation": "'a' | 'e' | 'i' | 'o' | 'u' 匹配其中任何一个字符。这是 OR 模式。"
+      },
+      {
+        "id": "u2-ch25-q15",
+        "question": "以下代码能编译吗？\nmatch x {\n    1 => println!(\"one\"),\n    2 => println!(\"two\"),\n}",
+        "options": ["A. 可以（如果 x 只能是 1 或 2）", "B. 不行，i32 有其他值没有匹配", "C. 可以，Rust 不要求穷尽", "D. 取决于编译选项"],
+        "answer": 1,
+        "explanation": "i32 有 2^32 个可能的值，只匹配了 2 个。编译器报错 non-exhaustive patterns。需要加 _ => {}。"
+      },
+      {
+        "id": "u2-ch25-q16",
+        "question": "ref 在模式中的作用？",
+        "options": ["A. 创建引用", "B. 匹配引用", "C. 在匹配时创建引用而非移动", "D. 解引用"],
+        "answer": 2,
+        "explanation": "ref 在模式中创建引用绑定：let ref r = x 等价于 let r = &x。在 match 中使用 ref 避免 move。"
+      },
+      {
+        "id": "u2-ch25-q17",
+        "question": "以下代码中，x 的类型是什么？\nif let Some(ref x) = some_option { ... }",
+        "options": ["A. T（值）", "B. &T（引用）", "C. &mut T", "D. Option<T>"],
+        "answer": 1,
+        "explanation": "ref 关键字使 x 成为内部值的引用而非移动。x 是 &T 类型。"
+      },
+      {
+        "id": "u2-ch25-q18",
+        "question": "..= 在模式中表示什么？",
+        "options": ["A. 赋值", "B. 包含端点的范围模式", "C. 相等比较", "D. 展开运算"],
+        "answer": 1,
+        "explanation": "'a'..='z' 匹配 a 到 z 的所有字符。1..=100 匹配 1 到 100 的所有整数。包含两端。"
+      },
+      {
+        "id": "u2-ch25-q19",
+        "question": "以下 match 分支的执行顺序是什么？",
+        "options": ["A. 随机", "B. 从上到下，第一个匹配的分支执行", "C. 最精确的分支优先", "D. 从下到上"],
+        "answer": 1,
+        "explanation": "match 从上到下依次检查，执行第一个匹配的分支。如果通配符 _ 在前面，后面的分支永远不会执行。"
+      },
+      {
+        "id": "u2-ch25-q20",
+        "question": "解构嵌套 enum 是否合法？\nmatch result {\n    Ok(Some(value)) => ...,\n    Ok(None) => ...,\n    Err(e) => ...,\n}",
+        "options": ["A. 不合法", "B. 合法，可以嵌套解构", "C. 只能解构一层", "D. 需要 unsafe"],
+        "answer": 1,
+        "explanation": "模式可以嵌套任意深度。Result<Option<T>, E> 可以直接解构到 Ok(Some(value))。"
+      },
+      {
+        "id": "u2-ch25-q21",
+        "question": "以下代码输出什么？\nlet v = vec![1, 2, 3];\nmatch v.as_slice() {\n    [1, ..] => println!(\"starts with 1\"),\n    [_, _, 3] => println!(\"ends with 3\"),\n    _ => println!(\"other\"),\n}",
+        "options": ["A. starts with 1", "B. ends with 3", "C. other", "D. 两个都打印"],
+        "answer": 0,
+        "explanation": "[1, ..] 匹配以 1 开头的切片（.. 匹配剩余任意个元素）。match 在第一个匹配就停止。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.5 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 match 表达式</a></li>
+      <li><a href="#kp2">02 if let / while let</a></li>
+      <li><a href="#kp3">03 解构</a></li>
+      <li><a href="#kp4">04 守卫与 @ 绑定</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html" class="active">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>模式匹配</h1>
+      <p class="chapter-intro">如果说所有权是 Rust 的灵魂，那模式匹配就是 Rust 的手术刀——它让你精确地拆解数据结构、分派逻辑分支，并在编译期保证穷尽所有情况。从 match 到 if let，从解构到守卫，本章全面覆盖。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">match：按值的形状来分支，而不是按 if 条件硬猜</a></li>
-            <li><a href="#kp-2">解构：tuple、struct、enum 都能按模式拆开</a></li>
-            <li><a href="#kp-3">if let 与 while let：为“只关心一种模式”而生</a></li>
-            <li><a href="#kp-4">守卫、范围与 _：模式不只会“等于某个值”</a></li>
-            <li><a href="#kp-5">穷尽性：编译器在逼你把状态空间想完整</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.5 模式匹配</h1>
-            <p class="chapter-description">到了 Rust，match 不是可有可无的语法糖，而是理解 enum、Option、Result 乃至数据解构的核心工具。本章会把 match、if let、while let、守卫和穷尽性放进同一个心智模型。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>match 表达式 — 穷尽性检查</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>C 的 switch 不强制处理所有 case，漏掉一个就是静默 bug。Rust 的 <code>match</code> 要求<strong>穷尽所有可能</strong>——编译器会检查你是不是遗漏了某个 enum 变体。这让你在添加新变体时，编译器会立刻告诉你哪些地方需要更新。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
             <ul>
-                <li>理解 match 如何把“按形状拆值”与“按情况分支”结合起来</li>
-                <li>掌握对 enum、tuple、struct 的常见解构方式</li>
-                <li>知道 if let / while let 适合解决什么问题，以及它们和 match 的取舍</li>
-                <li>建立对穷尽性检查、match guard 与 _ 占位的直觉</li>
+              <li><code>match</code> 是表达式——有返回值，可以赋给变量。</li>
+              <li><strong>穷尽性</strong>：必须覆盖被匹配类型的所有可能值。</li>
+              <li><strong>从上到下</strong>匹配，第一个匹配的分支执行。</li>
+              <li>所有分支的返回类型必须相同。</li>
+              <li><code>_</code> 是通配符，匹配任何值。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>match_basics.rs</span></div>
+              <pre><code>enum Coin {
+    Penny,
+    Nickel,
+    Dime,
+    Quarter,
+}
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先完成 struct、enum、Option、Result 的学习。本章假设你已经知道这些类型长什么样，但还没有系统建立“按模式拆解它们”的习惯。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.5.1 match：按值的形状来分支，而不是按 if 条件硬猜</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>面对 enum 或 Option，为什么 Rust 更推荐 match，而不是一层层 if else？</p>
-            </div>
-            <p>match 的优势不只是分支多，而是它把“我期待这个值长成什么样”写成了模式。读代码的人不仅知道走哪条路，还知道每条路拿到了哪些绑定值。</p>
-            <p><strong>正式规则：</strong>match 会从上到下尝试各个分支模式，命中后执行对应分支；整个 match 必须覆盖所有可能情况。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>match_option.rs</span></div>
-                <pre><code>fn main() {
-    let port = Some(8080);
-
-    match port {
-        Some(value) =&gt; println!(&quot;port = {value}&quot;),
-        None =&gt; println!(&quot;no port&quot;),
+fn value_in_cents(coin: &amp;Coin) -&gt; u32 {
+    match coin {
+        Coin::Penny =&gt; {
+            println!("Lucky penny!");
+            1
+        }
+        Coin::Nickel =&gt; 5,
+        Coin::Dime =&gt; 10,
+        Coin::Quarter =&gt; 25,
     }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>port = 8080</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>先想模式，再想逻辑：</strong>当值本身有明确形状时，<code>match</code> 往往比写若干布尔条件更直观，也更不容易漏掉某个分支。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="B" data-explanation="match 的关键优势是把值的形状和对应处理放在一起，同时要求覆盖所有可能情况。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 Option 常常和 match 搭配？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.5_pattern_matching-q1" value="A"> A. 因为 Option 不能写 if</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q1" value="B"> B. 因为 match 可以直接按 Some / None 的形状分支</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q1" value="C"> C. 因为 match 一定比 if 更短</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.5.2 解构：tuple、struct、enum 都能按模式拆开</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>模式匹配为什么常常让人有“像在拆包”的感觉？</p>
-            </div>
-            <p>因为模式本质上就是对数据形状的描述。你可以在 match 里直接把 tuple、struct、enum 里的内容拆出来，而不是先拿整个值、再点字段、再判断。</p>
-            <p>这让“数据长什么样”和“我需要哪些部分”紧密靠在一起，非常适合处理复杂返回值和嵌套状态。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>destructure.rs</span></div>
-                <pre><code>struct Point {
-    x: i32,
-    y: i32,
+    // 删除任何一个变体的处理 → 编译错误！
 }
 
 fn main() {
-    let point = Point { x: 3, y: 4 };
+    let coins = [Coin::Penny, Coin::Dime, Coin::Quarter];
+    let total: u32 = coins.iter().map(value_in_cents).sum();
+    println!("Total: {} cents", total);
 
-    match point {
-        Point { x, y: 0 } =&gt; println!(&quot;on x-axis: {x}&quot;),
-        Point { x, y } =&gt; println!(&quot;point = ({x}, {y})&quot;),
-    }
+    // match 作为表达式
+    let x = 42;
+    let description = match x {
+        0 =&gt; "zero",
+        1..=9 =&gt; "single digit",
+        10..=99 =&gt; "double digit",
+        _ =&gt; "large",          // 通配符兜底
+    };
+    println!("{} is {}", x, description);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>point = (3, 4)</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Lucky penny!
+Total: 36 cents
+42 is double digit</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>不要把模式理解成“只能配合 enum”：</strong>tuple、数组、struct 甚至字面量范围都能参与模式匹配；这也是 Rust 解构能力强大的原因。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：结构体模式里能只关心部分字段吗？</button>
-                <div class="collapsible-content">可以。你可以只绑定自己关心的字段，其余字段用 <code>..</code> 忽略。模式匹配强调“我要的形状”，不是“必须手动取出所有内容”。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="模式匹配不仅能判断 enum 变体，也能直接解构 tuple、struct 等复合数据。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于“解构”的说法，哪项正确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.5_pattern_matching-q2" value="A"> A. 模式可以一边匹配形状，一边把内部值绑定到变量</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q2" value="B"> B. 只有 tuple 能被解构</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q2" value="C"> C. 解构后原始值会自动深拷贝</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>enum dispatch</strong>——match 是处理 enum 的标准方式，编译器保证不漏分支。</li>
+              <li><strong>添加变体时</strong>——新增 enum 变体后，所有 match 都会编译报错，提醒你更新对应处理逻辑。</li>
+              <li><strong>避免过度 <code>_</code></strong>——虽然方便，但通配符可能隐藏新增变体的遗漏。只在确定不关心"其余情况"时使用。</li>
+              <li><strong>OR 模式</strong>——<code>Coin::Penny | Coin::Nickel =&gt; "small"</code> 合并相同处理的分支。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>match_option.rs</span></div>
+              <pre><code>fn describe_number(opt: Option&lt;i32&gt;) -&gt; String {
+    match opt {
+        Some(n) if n &gt; 0 =&gt; format!("positive: {}", n),
+        Some(0) =&gt; "zero".to_string(),
+        Some(n) =&gt; format!("negative: {}", n),
+        None =&gt; "nothing".to_string(),
+    }
+}
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.5.3 if let 与 while let：为“只关心一种模式”而生</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果你只想处理 Some(value) 这一种情况，完整写一个 match 会不会太重？</p>
+fn main() {
+    println!("{}", describe_number(Some(42)));
+    println!("{}", describe_number(Some(0)));
+    println!("{}", describe_number(Some(-3)));
+    println!("{}", describe_number(None));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>positive: 42
+zero
+negative: -3
+nothing</pre></div>
             </div>
-            <p>if let 适合“我只关心某一种模式，其余情况略过”；while let 则适合“只要某种模式持续成立就继续循环”。它们本质上是针对常见场景的 match 精简写法。</p>
-            <p><strong>正式规则：</strong>if let / while let 只处理一个成功匹配的模式，其余情况会走 else 或结束循环，因此不具备完整的穷尽性检查。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>if_while_let.rs</span></div>
-                <pre><code>fn main() {
+            <div class="warning-box">
+              <strong>易错</strong>：match 分支顺序很重要。如果把通配符 <code>_</code> 放在第一个，后面的分支永远不会执行。编译器会发出"unreachable pattern"警告。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么 Rust 编译器要求 match 穷尽所有模式？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '穷尽性和性能无关。')">A. 优化性能</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '穷尽性确保你不会遗漏任何情况，消除运行时的意外行为。')">B. 确保没有未处理的情况，消除运行时意外</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '这是安全设计，不是历史负担。')">C. 历史原因</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '穷尽性和格式无关。')">D. 代码格式要求</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>if let / while let — 简化单分支匹配</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>很多时候你只关心一个模式（比如 <code>Some(x)</code>），其余情况什么都不做。用完整的 match 就太啰嗦了。<code>if let</code> 是语法糖，让单分支匹配简洁明了。<code>while let</code> 则是"持续匹配直到失败"的循环版本。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>语法</th><th>等价 match</th><th>用途</th></tr></thead>
+              <tbody>
+                <tr><td><code>if let Pat = expr { A } else { B }</code></td><td><code>match expr { Pat =&gt; A, _ =&gt; B }</code></td><td>只关心一个模式</td></tr>
+                <tr><td><code>while let Pat = expr { body }</code></td><td>循环 match 直到匹配失败</td><td>逐个取元素</td></tr>
+                <tr><td><code>let else</code>（Rust 1.65+）</td><td><code>let Ok(x) = expr else { return/break }</code></td><td>不匹配时提前退出</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>if_let.rs</span></div>
+              <pre><code>fn main() {
+    let config_max: Option&lt;u32&gt; = Some(100);
+
+    // 啰嗦版
+    match config_max {
+        Some(max) =&gt; println!("Max is {}", max),
+        _ =&gt; (),
+    }
+
+    // 简洁版：if let
+    if let Some(max) = config_max {
+        println!("Max is {}", max);
+    }
+
+    // 带 else
+    if let Some(max) = config_max {
+        println!("Max: {}", max);
+    } else {
+        println!("No max configured");
+    }
+
+    // while let — 逐个弹出
     let mut stack = vec![1, 2, 3];
-
-    if let Some(top) = stack.last() {
-        println!(&quot;top = {top}&quot;);
+    while let Some(top) = stack.pop() {
+        println!("popped: {}", top);
     }
+    println!("stack is now empty: {:?}", stack);
 
-    while let Some(value) = stack.pop() {
-        println!(&quot;pop {value}&quot;);
+    // let-else（Rust 1.65+）
+    fn parse_or_return(s: &amp;str) -&gt; Option&lt;i32&gt; {
+        let Ok(n) = s.parse::&lt;i32&gt;() else {
+            return None;   // 不匹配时必须发散（return/break/continue/panic）
+        };
+        Some(n * 2)
     }
+    println!("parse: {:?}", parse_or_return("21"));
+    println!("parse: {:?}", parse_or_return("abc"));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>top = 3
-pop 3
-pop 2
-pop 1</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Max is 100
+Max is 100
+Max: 100
+popped: 3
+popped: 2
+popped: 1
+stack is now empty: []
+parse: Some(42)
+parse: None</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>取舍原则：</strong>如果你只关心一种模式，if let / while let 更简洁；如果每种情况都很重要，或者你想要穷尽性反馈，回到 match。</p>
-            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>if let 替代 is_some() + unwrap()</strong>——<code>if let Some(x) = opt { use(x) }</code> 比 <code>if opt.is_some() { use(opt.unwrap()) }</code> 更安全简洁。</li>
+              <li><strong>while let 处理通道</strong>——<code>while let Ok(msg) = receiver.recv() { handle(msg) }</code>。</li>
+              <li><strong>let-else 做早期卫语句</strong>——<code>let Some(x) = get_thing() else { return };</code> 简化错误退出。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>let_else.rs</span></div>
+              <pre><code>fn process_input(input: &amp;str) -&gt; Result&lt;String, String&gt; {
+    // let-else 做卫语句——不匹配就提前退出
+    let Some(first_word) = input.split_whitespace().next() else {
+        return Err("empty input".into());
+    };
 
-            <div class="quick-quiz" data-answer="C" data-explanation="if let / while let 的优势是简洁，但它们不会像完整 match 那样强制你处理所有可能分支。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>什么时候 if let 往往比 match 更合适？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.5_pattern_matching-q3" value="A"> A. 当你必须处理所有分支</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q3" value="B"> B. 当值不是 enum 也不是 Option</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q3" value="C"> C. 当你只想单独处理一种模式，其余情况忽略或简单 else</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    let Ok(number) = first_word.parse::&lt;i32&gt;() else {
+        return Err(format!("'{}' is not a number", first_word));
+    };
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.5.4 守卫、范围与 _：模式不只会“等于某个值”</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果你既想匹配模式，又想加一个额外条件，例如“Some(x) 且 x > 10”，该怎么写才不别扭？</p>
-            </div>
-            <p>Rust 允许在模式后加守卫 if，让你在成功匹配形状后再补充更细的条件。你也可以用字面量、范围、_ 占位和绑定名，把分支写得既精确又不冗长。</p>
-            <p><strong>正式规则：</strong>match guard 写作 <code>pattern if condition</code>；下划线 <code>_</code> 表示忽略某部分或整个剩余情况。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>match_guards.rs</span></div>
-                <pre><code>fn main() {
-    let code = Some(404);
-
-    match code {
-        Some(value) if value &gt;= 500 =&gt; println!(&quot;server error&quot;),
-        Some(404) =&gt; println!(&quot;not found&quot;),
-        Some(value @ 400..=499) =&gt; println!(&quot;client error: {value}&quot;),
-        Some(value) =&gt; println!(&quot;status: {value}&quot;),
-        None =&gt; println!(&quot;missing&quot;),
-    }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>not found</pre>
-                </div>
-            </div>
-            <div class="note-box warning">
-                <p><strong>注意顺序：</strong>match 会按分支顺序匹配。把宽泛模式写在前面，可能会让后面更具体的分支永远到不了。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 _ 很重要？</button>
-                <div class="collapsible-content">因为真实世界里并不是每个分支你都关心细节。<code>_</code> 能明确表示“其余情况我知道存在，但这里不需要逐一命名”。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="守卫允许在匹配到某个模式后继续加条件，而 _ 用于忽略不关心的情况或字段。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪项最能描述 match guard 和 _？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.5_pattern_matching-q4" value="A"> A. guard 会关闭穷尽性检查</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q4" value="B"> B. guard 用于补充条件，_ 用于显式忽略</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q4" value="C"> C. _ 只能在最后一个分支使用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.5.5 穷尽性：编译器在逼你把状态空间想完整</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 对 match 那么严格，甚至少写一个分支都不让过？这不是在增加心智负担吗？</p>
-            </div>
-            <p>恰恰相反，穷尽性检查是在帮你把“可能状态”一次性想清楚。尤其当 enum 后续新增变体时，编译器会把所有未更新的匹配点都找出来，这是一种非常强的重构保护。</p>
-            <p>把它理解成“类型驱动的待办清单”会比把它看成限制更有帮助：模型变了，编译器会提醒你哪些业务逻辑还没跟上。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>exhaustive.rs</span></div>
-                <pre><code>enum Mode {
-    Dev,
-    Prod,
+    Ok(format!("Parsed: {}", number * 2))
 }
 
-fn describe(mode: Mode) -&gt; &amp;&#x27;static str {
-    match mode {
-        Mode::Dev =&gt; &quot;developer mode&quot;,
-        Mode::Prod =&gt; &quot;production mode&quot;,
+fn main() {
+    println!("{:?}", process_input("42 hello"));
+    println!("{:?}", process_input("abc"));
+    println!("{:?}", process_input(""));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Ok("Parsed: 84")
+Err("'abc' is not a number")
+Err("empty input")</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>let-else</code> 的 else 块必须"发散"（diverge）——即 return、break、continue 或 panic。不能只是赋默认值。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>while let Some(x) = v.pop()</code> 何时停止？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不是固定次数，取决于 v 的长度。')">A. 执行固定次数</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, 'v.pop() 在 vec 空时返回 None，匹配 Some 失败，循环退出。')">B. 当 v.pop() 返回 None 时停止</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'while let 不会永远循环（除非 pop 永远返回 Some）。')">C. 永远不停止</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不需要 break，匹配失败自动停止。')">D. 必须手动 break</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>解构 — 拆解 struct / enum / tuple / slice</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>解构（destructuring）是模式匹配最实用的能力——直接把复合类型"拆"成独立的部分。Rust 的解构非常强大，支持嵌套、忽略、切片模式等。掌握解构让你的代码简洁且表意清晰。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>可以解构的地方：<code>let</code>、<code>match</code>、<code>if let</code>、<code>for</code>、函数参数。</p>
+            <p>可以解构的类型：struct、enum、tuple、数组/切片、引用。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>destructuring.rs</span></div>
+              <pre><code>struct Point {
+    x: f64,
+    y: f64,
+}
+
+enum Shape {
+    Circle(f64),
+    Rect { w: f64, h: f64 },
+}
+
+fn main() {
+    // 1. 解构 struct
+    let p = Point { x: 3.0, y: 4.0 };
+    let Point { x, y } = p;
+    println!("x={}, y={}", x, y);
+
+    // 重命名
+    let Point { x: px, y: py } = Point { x: 1.0, y: 2.0 };
+    println!("px={}, py={}", px, py);
+
+    // 2. 解构 enum
+    let shapes = vec![Shape::Circle(5.0), Shape::Rect { w: 10.0, h: 3.0 }];
+    for s in &amp;shapes {
+        match s {
+            Shape::Circle(r) =&gt; println!("circle r={}", r),
+            Shape::Rect { w, h } =&gt; println!("rect {}x{}", w, h),
+        }
+    }
+
+    // 3. 解构 tuple
+    let (a, b, c) = (1, "hello", true);
+    println!("a={}, b={}, c={}", a, b, c);
+
+    // 忽略部分字段
+    let (first, ..) = (1, 2, 3, 4);  // .. 忽略其余
+    println!("first={}", first);
+
+    // 4. 解构切片
+    let numbers = [1, 2, 3, 4, 5];
+    match numbers.as_slice() {
+        [first, second, rest @ ..] =&gt; {
+            println!("first={}, second={}, rest={:?}", first, second, rest);
+        }
+        _ =&gt; {}
+    }
+
+    // 5. 嵌套解构
+    let nested = Some(Point { x: 10.0, y: 20.0 });
+    if let Some(Point { x, y }) = nested {
+        println!("nested: ({}, {})", x, y);
+    }
+
+    // 6. 函数参数解构
+    fn distance(&amp;Point { x, y }: &amp;Point) -&gt; f64 {
+        (x * x + y * y).sqrt()
+    }
+    let p = Point { x: 3.0, y: 4.0 };
+    println!("distance = {}", distance(&amp;p));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>x=3, y=4
+px=1, py=2
+circle r=5
+rect 10x3
+a=1, b=hello, c=true
+first=1
+first=1, second=2, rest=[3, 4, 5]
+nested: (10, 20)
+distance = 5</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>for 循环解构</strong>——<code>for (i, val) in data.iter().enumerate()</code> 直接解构索引和值。</li>
+              <li><strong>忽略不关心的字段</strong>——<code>let Point { x, .. } = p;</code> 只取 x，忽略其余。</li>
+              <li><strong>切片模式</strong>——<code>[first, .., last]</code> 取首尾，<code>[head, tail @ ..]</code> 取头和尾切片。</li>
+              <li><strong>避免过深嵌套</strong>——超过 3 层的嵌套解构会降低可读性，考虑分步处理。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>slice_patterns.rs</span></div>
+              <pre><code>fn describe(list: &amp;[i32]) -&gt; &amp;str {
+    match list {
+        [] =&gt; "empty",
+        [_] =&gt; "single element",
+        [_, _] =&gt; "pair",
+        [1, ..] =&gt; "starts with one",
+        [.., 0] =&gt; "ends with zero",
+        _ =&gt; "something else",
     }
 }
 
 fn main() {
-    println!(&quot;{}&quot;, describe(Mode::Dev));
+    println!("{}", describe(&amp;[]));
+    println!("{}", describe(&amp;[42]));
+    println!("{}", describe(&amp;[1, 2]));
+    println!("{}", describe(&amp;[1, 2, 3]));
+    println!("{}", describe(&amp;[5, 4, 3, 0]));
+    println!("{}", describe(&amp;[9, 8, 7]));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>developer mode</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>empty
+single element
+pair
+starts with one
+ends with zero
+something else</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>把穷尽性当朋友：</strong>当你新增一个枚举变体时，编译错误往往正是在告诉你“还有哪些业务路径没设计完成”。</p>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>..</code> 在模式中只能出现一次（因为有歧义）。<code>[.., x, ..]</code> 不合法。
             </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 if let 不提供同等级保护？</button>
-                <div class="collapsible-content">因为它天生就只承诺处理一个模式，其余情况可直接忽略；而 <code>match</code> 的职责是对整个状态空间做显式分派。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="穷尽性检查能在模型扩展时帮你找到所有需要同步更新的逻辑，是一种设计反馈而不只是语法限制。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 强调 match 穷尽性的主要收益是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.5_pattern_matching-q5" value="A"> A. 让状态空间变化时更容易发现遗漏</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q5" value="B"> B. 让 match 一定比 if 更快</label>
-                    <label><input type="radio" name="ch2.5_pattern_matching-q5" value="C"> C. 防止使用 enum</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>let Point { x, .. } = p;</code> 中 <code>..</code> 表示什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '.. 表示忽略其余所有字段。只提取 x，忽略 y 等。')">A. 忽略其余字段</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '范围是 ..,  解构中 .. 是忽略。')">B. 范围运算</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不是扩展运算符。')">C. 展开运算</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '这是合法的语法。')">D. 语法错误</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>守卫与 @ 绑定 — 精细化匹配</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>有时候纯模式不够用：你想匹配 <code>Some(x)</code> 但只在 <code>x &gt; 0</code> 时执行；或者想匹配一个范围并同时获得具体值。Match guard 和 <code>@</code> 绑定是模式匹配的高级武器，让你写出更精确的分支。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
             <ul>
-                <li>match 按值的形状来分支，非常适合处理 enum、Option、Result 和结构化数据</li>
-                <li>模式可以直接解构 tuple、struct、enum，把“匹配”和“取值”合并在一起</li>
-                <li>if let / while let 是只关心单一模式时的简化工具，但不提供完整穷尽性检查</li>
-                <li>match guard、范围和 _ 让模式既精确又灵活，但分支顺序仍然重要</li>
-                <li>穷尽性检查是 Rust 的设计反馈机制，能在模型变化时主动暴露遗漏逻辑</li>
+              <li><strong>Match guard</strong>：<code>模式 if 条件 =&gt; 分支</code>——在结构匹配后加额外布尔条件。</li>
+              <li><strong>@ 绑定</strong>：<code>name @ 模式</code>——在检查模式的同时把值绑定到变量。</li>
+              <li><strong>OR 模式</strong>：<code>A | B =&gt; ...</code>——多个模式共享同一处理。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>guards_binding.rs</span></div>
+              <pre><code>fn main() {
+    // 1. Match guard
+    let num = Some(4);
+    match num {
+        Some(x) if x &lt; 0 =&gt; println!("negative: {}", x),
+        Some(x) if x == 0 =&gt; println!("zero"),
+        Some(x) =&gt; println!("positive: {}", x),
+        None =&gt; println!("nothing"),
+    }
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 写一个 match，输入 Option<i32>，分别打印 Some(value) 和 None。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 定义一个 Point struct，用 match 解构并区分“在 x 轴上”和“普通点”两种情况。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 把一个 while 循环改写成 while let：不断从 Vec 弹出元素直到为空，并说明这样写为什么更贴合数据形状。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设想你在写一个解析器：输入可能是数字、标识符或非法 token。请用 enum + match 设计处理流程，并说明穷尽性检查能帮到什么。</li>
-            </ol>
-        </section>
+    // 2. @ 绑定——匹配范围并获取具体值
+    let age = 25;
+    let category = match age {
+        n @ 0..=12 =&gt; format!("child ({})", n),
+        n @ 13..=17 =&gt; format!("teen ({})", n),
+        n @ 18..=64 =&gt; format!("adult ({})", n),
+        n @ 65.. =&gt; format!("senior ({})", n),
+        _ =&gt; unreachable!(),
+    };
+    println!("{}", category);
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+    // 3. @ 在 enum 中
+    enum Event {
+        Click { x: i32, y: i32 },
+        KeyPress(char),
+    }
+
+    let event = Event::Click { x: 100, y: 200 };
+    match event {
+        Event::Click { x: x @ 0..=800, y: y @ 0..=600 } =&gt; {
+            println!("valid click at ({}, {})", x, y);
+        }
+        Event::Click { x, y } =&gt; println!("out of bounds: ({}, {})", x, y),
+        Event::KeyPress(c @ 'a'..='z') =&gt; println!("lowercase: {}", c),
+        Event::KeyPress(c) =&gt; println!("key: {}", c),
+    }
+
+    // 4. OR 模式
+    let c = 'e';
+    let is_vowel = matches!(c, 'a' | 'e' | 'i' | 'o' | 'u');
+    println!("'{}' is vowel: {}", c, is_vowel);
+
+    // OR 模式在 match 中
+    let code = 404;
+    match code {
+        200 | 201 =&gt; println!("success"),
+        301 | 302 =&gt; println!("redirect"),
+        400..=499 =&gt; println!("client error"),
+        500..=599 =&gt; println!("server error"),
+        _ =&gt; println!("other"),
+    }
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>positive: 4
+adult (25)
+valid click at (100, 200)
+'e' is vowel: true
+client error</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch19-00-patterns.html">The Rust Programming Language · Patterns and Matching</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch06-02-match.html">The Rust Programming Language · Enums and Pattern Matching</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/flow_control/match.html">Rust By Example · match</a></li>
+              <li><strong><code>matches!</code> 宏</strong>——快速检查值是否匹配模式：<code>matches!(x, Some(1..=10))</code> 返回 bool。</li>
+              <li><strong>Guard 不影响穷尽性</strong>——编译器无法分析 guard 的完整性，所以即使你的 guard 覆盖了所有情况，仍需要通配分支。</li>
+              <li><strong>@ 替代重复代码</strong>——不用先匹配范围再在分支内获取值，一步到位。</li>
             </ul>
-        </section>
-    </main>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>http_status.rs</span></div>
+              <pre><code>fn describe_status(code: u16) -&gt; &amp;'static str {
+    match code {
+        200 =&gt; "OK",
+        201 =&gt; "Created",
+        204 =&gt; "No Content",
+        301 | 302 =&gt; "Redirect",
+        400 =&gt; "Bad Request",
+        401 =&gt; "Unauthorized",
+        403 =&gt; "Forbidden",
+        404 =&gt; "Not Found",
+        c @ 405..=499 =&gt; {
+            // 可以用 c 做日志，但这里只返回通用描述
+            let _ = c;
+            "Client Error"
+        }
+        500 =&gt; "Internal Server Error",
+        502 | 503 =&gt; "Service Unavailable",
+        _ =&gt; "Unknown",
+    }
+}
 
-    <script src="../assets/js/main.js"></script>
+fn main() {
+    for code in [200, 301, 404, 418, 500, 999] {
+        println!("{}: {}", code, describe_status(code));
+    }
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>200: OK
+301: Redirect
+404: Not Found
+418: Client Error
+500: Internal Server Error
+999: Unknown</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：Match guard 会"偷走"模式的穷尽性保证。<code>Some(x) if x &gt; 0</code> 和 <code>Some(x) if x &lt;= 0</code> 看起来覆盖了所有 Some，但编译器不会这么推导——你仍需要一个兜底分支。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>n @ 1..=12</code> 中 <code>n</code> 绑定到什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '不是范围本身。')">A. 范围 1..=12</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '@ 在检查值是否在 1..=12 范围内的同时，将实际值绑定到 n。')">B. 匹配到的具体值（1 到 12 之间）</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '绑定的是具体匹配值，不是 bool。')">C. true 或 false</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '不是绑定到元组。')">D. (1, 12) 元组</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch2.4_struct_enum.html">← Ch 2.4 Struct 与 Enum</a>
+      <a class="nav-next" href="ch2.6_traits.html">Ch 2.6 Trait 系统 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

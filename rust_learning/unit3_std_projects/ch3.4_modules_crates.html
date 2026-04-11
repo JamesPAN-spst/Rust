@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 3.4 模块与 Crate — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u3-ch34-q1","question":"Rust 中 crate 的含义是？","options":["A. 一个源文件","B. 编译的最小单元——一个库或二进制程序","C. 一个函数","D. 一个模块"],"answer":1,"explanation":"crate 是 Rust 的编译单元。每个 crate 被编译成一个库（lib）或二进制（bin）。一个 package 可以包含多个 crate。"},
+      {"id":"u3-ch34-q2","question":"crate root 是什么？","options":["A. Cargo.toml 文件","B. 编译器开始构建 crate 模块树的源文件","C. target 目录","D. main 函数"],"answer":1,"explanation":"对于 bin crate 是 src/main.rs，对于 lib crate 是 src/lib.rs。编译器从这个文件开始构建模块树。"},
+      {"id":"u3-ch34-q3","question":"mod my_module; 声明的作用是？","options":["A. 定义一个内联模块","B. 告诉编译器去加载 my_module.rs 或 my_module/mod.rs","C. 导入外部 crate","D. 创建一个新文件"],"answer":1,"explanation":"mod name; 是一个模块声明（非定义），编译器会去查找 name.rs 或 name/mod.rs 文件作为该模块的内容。"},
+      {"id":"u3-ch34-q4","question":"Rust 2018 edition 中，子模块的文件结构推荐哪种？","options":["A. my_module/mod.rs","B. my_module.rs + my_module/ 目录","C. 两种都可以，但推荐 B 的扁平化方式","D. 只能用 mod.rs"],"answer":2,"explanation":"2018 edition 支持扁平化：my_module.rs 作为模块定义，my_module/sub.rs 作为子模块。避免大量 mod.rs 文件。两种方式都有效。"},
+      {"id":"u3-ch34-q5","question":"pub 关键字的默认可见性是？","options":["A. 所有地方都可见","B. 只在当前 crate 内可见","C. 不加 pub 默认私有（仅当前模块和子模块）","D. 只在当前文件可见"],"answer":2,"explanation":"Rust 中不加 pub 的项默认私有，只有定义它的模块及其子模块可以访问。pub 让它对外可见。"},
+      {"id":"u3-ch34-q6","question":"pub(crate) 表示什么？","options":["A. 对所有人可见","B. 只在当前 crate 内可见，外部 crate 不可见","C. 只在当前模块可见","D. 只在父模块可见"],"answer":1,"explanation":"pub(crate) 是 crate 级可见性——同一个 crate 内的任何模块都能访问，但外部 crate 不能。"},
+      {"id":"u3-ch34-q7","question":"pub(super) 表示什么？","options":["A. 对所有人可见","B. 对父模块可见","C. 对子模块可见","D. 超级管理员权限"],"answer":1,"explanation":"pub(super) 让该项对父模块可见。适合子模块之间共享但不想暴露给 crate 外部的情况。"},
+      {"id":"u3-ch34-q8","question":"use 关键字的作用？","options":["A. 定义新类型","B. 将路径引入当前作用域，避免写完整路径","C. 声明模块","D. 导出符号"],"answer":1,"explanation":"use 创建一个快捷方式，让你可以用短名字代替完整路径。如 use std::collections::HashMap;"},
+      {"id":"u3-ch34-q9","question":"use crate::module::Type 中的 crate 指什么？","options":["A. 外部依赖","B. 当前 crate 的根模块","C. 标准库","D. 当前文件"],"answer":1,"explanation":"crate 是绝对路径的起点，指当前 crate 的根。类似文件系统中的 /。"},
+      {"id":"u3-ch34-q10","question":"self 和 super 在路径中的区别？","options":["A. self 指当前模块，super 指父模块","B. 没有区别","C. self 指当前 crate，super 指外部 crate","D. self 指当前函数"],"answer":0,"explanation":"self 指当前模块（类似 ./），super 指父模块（类似 ../）。用于相对路径引用。"},
+      {"id":"u3-ch34-q11","question":"pub use 的作用（re-export）？","options":["A. 私有导入","B. 将其他模块的项重新导出，改变公开 API 的结构","C. 删除导入","D. 延迟导入"],"answer":1,"explanation":"pub use 让被导入的项通过当前模块重新导出。常用于简化深层路径，让用户不必了解内部模块结构。"},
+      {"id":"u3-ch34-q12","question":"Cargo.toml 中 [dependencies] 的作用？","options":["A. 声明编译选项","B. 声明当前 crate 依赖的外部 crate","C. 声明测试用例","D. 声明二进制目标"],"answer":1,"explanation":"[dependencies] 列出项目依赖，Cargo 会自动从 crates.io 下载、编译并链接这些 crate。"},
+      {"id":"u3-ch34-q13","question":"Cargo workspace 的用途？","options":["A. 远程协作","B. 在一个仓库中管理多个相关 crate，共享 Cargo.lock","C. 虚拟环境","D. 容器化部署"],"answer":1,"explanation":"workspace 让多个 crate 共享编译产物和 Cargo.lock，减少编译时间。适合 monorepo 风格的项目。"},
+      {"id":"u3-ch34-q14","question":"[features] 在 Cargo.toml 中用于？","options":["A. 定义 Rust 版本","B. 条件编译——让用户选择启用哪些可选功能","C. 定义测试","D. 设置环境变量"],"answer":1,"explanation":"features 允许 crate 提供可选功能。用户通过 cargo add crate --features feature_name 启用。减少不必要的编译和依赖。"},
+      {"id":"u3-ch34-q15","question":"use std::io::{self, Read, Write} 的含义？","options":["A. 导入 io 模块和 Read、Write trait","B. 只导入 Read 和 Write","C. 导入 std 的所有内容","D. 编译错误"],"answer":0,"explanation":"花括号语法可以在一行导入多个项。self 表示 std::io 模块本身，Read 和 Write 是 trait。"},
+      {"id":"u3-ch34-q16","question":"use my_module::* 的含义？","options":["A. 导入 my_module 中所有 pub 的项","B. 只导入函数","C. 导入包括私有项在内的所有项","D. 编译错误"],"answer":0,"explanation":"glob import（*）导入模块中所有公开的项。通常不推荐在库中使用（可能导致命名冲突），但在 prelude 和测试中常见。"},
+      {"id":"u3-ch34-q17","question":"extern crate 在 Rust 2018+ 中还需要写吗？","options":["A. 每个依赖都要写","B. 大多数情况不需要，Cargo.toml 的依赖会自动引入","C. 只有标准库需要","D. 只有 macro 需要"],"answer":1,"explanation":"Rust 2018 edition 起，extern crate 声明对大多数情况不再必需。Cargo.toml 中声明的依赖自动可用。少数例外（如 #[macro_use]）可能仍需要。"},
+      {"id":"u3-ch34-q18","question":"结构体的字段默认可见性是？","options":["A. pub","B. 私有——即使结构体是 pub 的","C. pub(crate)","D. 取决于结构体的可见性"],"answer":1,"explanation":"即使 struct 标记为 pub，其字段默认仍是私有的。每个字段需要单独标记 pub 才能从外部访问。"},
+      {"id":"u3-ch34-q19","question":"以下路径写法哪个是正确的？","options":["A. use ::std::io","B. use crate::std::io","C. use std::io","D. A 和 C 都正确"],"answer":3,"explanation":"use std::io 是最常用的写法（外部 crate 默认在根命名空间）。use ::std::io 也是合法的绝对路径写法。"},
+      {"id":"u3-ch34-q20","question":"mod tests { } 通常搭配什么属性使用？","options":["A. #[derive(Debug)]","B. #[cfg(test)]——只在测试时编译","C. #[allow(unused)]","D. #[inline]"],"answer":1,"explanation":"#[cfg(test)] 让该模块只在 cargo test 时才被编译，不会出现在正式构建中。这是 Rust 的单元测试惯例。"},
+      {"id":"u3-ch34-q21","question":"cargo add serde --features derive 的作用？","options":["A. 安装 serde 并启用 derive feature","B. 创建新项目","C. 运行测试","D. 编译项目"],"answer":0,"explanation":"cargo add 向 Cargo.toml 添加依赖，--features 指定要启用的可选功能。serde 的 derive feature 启用 #[derive(Serialize, Deserialize)]。"},
+      {"id":"u3-ch34-q22","question":"一个 package 最多能有几个 lib crate？","options":["A. 无限个","B. 1 个","C. 2 个","D. 取决于文件数"],"answer":1,"explanation":"一个 package 最多有 1 个 lib crate（src/lib.rs）和多个 bin crate（src/main.rs + src/bin/*.rs）。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="chapter-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
+
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <a href="../index.html" class="module-name">Unit 3 · 标准库与项目实践</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.4 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 mod 与文件结构</a></li>
+      <li><a href="#kp2">02 pub 与可见性</a></li>
+      <li><a href="#kp3">03 use 与路径</a></li>
+      <li><a href="#kp4">04 Cargo 与依赖管理</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 3 · 标准库与项目实践</p>
+      <h1>模块与 Crate</h1>
+      <p class="chapter-intro">Rust 的模块系统通过 mod、pub、use 三个关键字管理代码的组织和可见性。Cargo 作为构建工具和包管理器，将模块系统与外部生态无缝连接。掌握这套机制是编写可维护大型项目的基础。</p>
+    </header>
+
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>mod 与文件结构</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>随着项目增长，把所有代码放在一个文件里会变得极难维护。Rust 的模块系统让你把代码拆分到不同文件和目录，同时保持清晰的层级关系。关键是理解<strong>模块树和文件系统</strong>的映射规则。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 的模块系统有三个核心概念：</p>
+            <ul>
+              <li><strong>Package</strong>：一个 Cargo.toml 描述的项目，包含一个或多个 crate</li>
+              <li><strong>Crate</strong>：编译单元（lib 或 bin），有一个根文件（crate root）</li>
+              <li><strong>Module</strong>：crate 内部的代码组织单元，形成树形结构</li>
+            </ul>
+            <p><code>mod</code> 关键字有两种用法：</p>
+            <ul>
+              <li><strong>内联定义</strong>：<code>mod name { ... }</code> 直接在当前文件中定义</li>
+              <li><strong>文件声明</strong>：<code>mod name;</code> 告诉编译器去查找同名文件</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>project_structure</span></div>
+              <pre><code>my_project/
+├── Cargo.toml
+└── src/
+    ├── main.rs          ← bin crate root
+    ├── lib.rs           ← lib crate root（可选）
+    ├── config.rs        ← mod config;
+    ├── db/
+    │   ├── mod.rs       ← mod db;（传统方式）
+    │   └── pool.rs      ← mod pool; （在 db/mod.rs 中声明）
+    └── handlers.rs      ← mod handlers;</code></pre>
+            </div>
+
+            <p><strong>2018 Edition 扁平化风格（推荐）：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>flat_structure</span></div>
+              <pre><code>my_project/
+├── Cargo.toml
+└── src/
+    ├── main.rs
+    ├── db.rs            ← mod db; 的内容（替代 db/mod.rs）
+    └── db/
+        └── pool.rs      ← db 子模块，在 db.rs 中 mod pool;</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>main.rs</span></div>
+              <pre><code>// 声明模块——编译器查找对应文件
+mod config;      // → src/config.rs
+mod db;          // → src/db.rs 或 src/db/mod.rs
+mod handlers;    // → src/handlers.rs
+
+fn main() {
+    config::load();
+    db::pool::connect();
+    handlers::handle_request();
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>db.rs</span></div>
+              <pre><code>// db 模块的内容
+pub mod pool;    // 声明子模块 → src/db/pool.rs
+
+pub fn init() {
+    println!("数据库初始化");
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>db/pool.rs</span></div>
+              <pre><code>// db::pool 子模块
+pub fn connect() {
+    println!("连接数据库");
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>推荐扁平化</strong>：2018 edition 的 <code>module.rs</code> + <code>module/</code> 风格比满屏 <code>mod.rs</code> 更清晰</li>
+              <li><strong>mod 只在 crate root 和父模块中声明</strong>：子文件不需要再次 <code>mod</code> 自己</li>
+              <li><strong>模块树 ≠ 文件树</strong>：内联 <code>mod</code> 可以在任何文件中定义子模块，不需要额外文件</li>
+              <li><strong>常见结构</strong>：main.rs 做入口和模块声明，lib.rs 做库 API，具体逻辑放在子模块</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>common_mistakes.rs</span></div>
+              <pre><code>// ❌ 错误：在子模块文件中再次 mod 声明自己
+// src/config.rs 中写：
+// mod config { ... }  ← 错！这会创建 config::config
+
+// ✅ 正确：config.rs 直接写内容
+pub fn load() -> String {
+    "prod".to_string()
+}
+
+// ❌ 错误：忘记在父模块中声明
+// src/utils.rs 存在但 main.rs 中没有 mod utils;
+// → 编译器不会自动发现文件！
+
+// ❌ 错误：同时有 db.rs 和 db/mod.rs
+// → 编译错误！两种风格不能同时存在于同一个模块</code></pre>
+            </div>
+            <p class="warning-text">⚠ Rust 编译器不会自动扫描目录中的文件。每个模块都必须通过 <code>mod name;</code> 显式声明。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">mod config; 在 main.rs 中声明后，编译器去哪里找模块内容？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不会自动创建文件。')">A. 自动生成 config.rs</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！编译器查找 src/config.rs 或 src/config/mod.rs。')">B. src/config.rs 或 src/config/mod.rs</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不是在任意路径。')">C. 当前目录下的任何 .rs 文件</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'Cargo.toml 不声明模块。')">D. Cargo.toml 中声明的路径</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>pub 与可见性</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>可见性控制是 API 设计的核心。暴露太多内部细节会限制未来的重构空间；暴露太少则用户无法完成需求。Rust 提供了非常细粒度的可见性控制，让你精确决定每个函数、类型、字段的公开范围。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>可见性</th><th>含义</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td>（无修饰）</td><td>私有——当前模块及子模块可见</td><td>内部实现</td></tr>
+                <tr><td><code>pub</code></td><td>完全公开</td><td>公共 API</td></tr>
+                <tr><td><code>pub(crate)</code></td><td>crate 内部公开</td><td>跨模块共享但不暴露给外部</td></tr>
+                <tr><td><code>pub(super)</code></td><td>父模块可见</td><td>兄弟模块间共享</td></tr>
+                <tr><td><code>pub(in path)</code></td><td>指定路径可见</td><td>精确控制（少用）</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>visibility.rs</span></div>
+              <pre><code>// === 模块级可见性 ===
+mod outer {
+    pub fn public_fn() {}        // 任何人都能调用
+    fn private_fn() {}           // 只有 outer 及其子模块可调用
+    pub(crate) fn crate_fn() {}  // 同 crate 内可调用
+
+    pub mod inner {
+        pub fn inner_public() {}
+        pub(super) fn for_parent() {}  // 只有 outer 可调用
+
+        fn demo() {
+            super::private_fn();   // ✅ 子模块可访问父模块的私有项
+            super::public_fn();    // ✅
+        }
+    }
+}
+
+fn main() {
+    outer::public_fn();           // ✅
+    // outer::private_fn();       // ❌ 私有
+    outer::crate_fn();            // ✅ 同 crate
+    outer::inner::inner_public(); // ✅
+    // outer::inner::for_parent(); // ❌ pub(super) 只对 outer 可见
+}</code></pre>
+            </div>
+
+            <p><strong>结构体字段的可见性：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>struct_visibility.rs</span></div>
+              <pre><code>mod api {
+    // 结构体是 pub 的，但字段各有不同
+    pub struct User {
+        pub name: String,         // 外部可访问
+        pub(crate) email: String, // 仅 crate 内可访问
+        password_hash: String,    // 私有！
+    }
+
+    impl User {
+        // 构造函数——外部唯一创建 User 的方式
+        pub fn new(name: String, email: String, password: &str) -> Self {
+            User {
+                name,
+                email,
+                password_hash: hash(password),
+            }
+        }
+
+        pub fn verify(&self, password: &str) -> bool {
+            hash(password) == self.password_hash
+        }
+    }
+
+    fn hash(s: &str) -> String {
+        format!("hashed_{}", s)  // 简化示例
+    }
+}
+
+fn main() {
+    let user = api::User::new(
+        "Alice".into(), "alice@x.com".into(), "secret"
+    );
+    println!("{}", user.name);         // ✅ pub
+    println!("{}", user.email);        // ✅ pub(crate)
+    // println!("{}", user.password_hash); // ❌ 私有
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>最小暴露原则</strong>：默认私有，只在需要时提升可见性</li>
+              <li><strong>pub 的结构体</strong>：如果有私有字段，必须提供 <code>pub fn new()</code> 构造函数</li>
+              <li><strong>enum 变体</strong>：pub enum 的所有变体自动 pub（和 struct 不同）</li>
+              <li><strong>pub(crate)</strong>：最实用的中间层级——跨模块共享内部 helper 而不污染公共 API</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>enum_vs_struct.rs</span></div>
+              <pre><code>// pub enum：所有变体自动 pub
+pub enum Color {
+    Red,        // 自动 pub
+    Green,      // 自动 pub
+    Blue,       // 自动 pub
+}
+
+// pub struct：字段默认私有
+pub struct Point {
+    x: f64,     // 私有！
+    y: f64,     // 私有！
+}
+
+// ❌ 外部不能这样创建
+// let p = Point { x: 1.0, y: 2.0 }; // 编译错误
+
+// ✅ 必须提供构造方法
+impl Point {
+    pub fn new(x: f64, y: f64) -> Self {
+        Point { x, y }
+    }
+    pub fn x(&self) -> f64 { self.x }
+    pub fn y(&self) -> f64 { self.y }
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ pub struct 有私有字段时，外部无法用字段语法 <code>Struct { field: value }</code> 构造。这是一个有意的设计——强制用户通过构造函数入口，方便后续修改内部表示。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">pub enum 和 pub struct 在字段/变体可见性上的区别？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '两者不同。')">A. 完全一样</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！pub enum 的变体自动 pub，pub struct 的字段默认私有。')">B. enum 变体自动 pub，struct 字段默认私有</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '恰好反了。')">C. struct 字段自动 pub，enum 变体默认私有</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '两者都有可见性控制。')">D. 两者都是全部公开</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>use 与路径</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>没有 <code>use</code>，每次调用函数都要写完整路径 <code>std::collections::HashMap::new()</code>。<code>use</code> 引入快捷方式减少冗余，而 <code>pub use</code>（re-export）更是库 API 设计的利器——它让用户面对简洁的接口，而非复杂的内部结构。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 的路径系统类比文件系统：</p>
+            <ul>
+              <li><strong><code>crate::</code></strong> = 绝对路径的根（类似 <code>/</code>）</li>
+              <li><strong><code>self::</code></strong> = 当前模块（类似 <code>./</code>）</li>
+              <li><strong><code>super::</code></strong> = 父模块（类似 <code>../</code>）</li>
+              <li><strong>外部 crate 名</strong>直接作为路径起点（如 <code>std::</code>、<code>serde::</code>）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>use_paths.rs</span></div>
+              <pre><code>// === 绝对路径（从 crate 根开始） ===
+use crate::config::Settings;
+
+// === 外部 crate ===
+use std::collections::HashMap;
+use serde::Serialize;
+
+// === 相对路径 ===
+use self::helpers::validate;   // 当前模块的 helpers 子模块
+use super::shared::Config;     // 父模块的 shared 子模块
+
+// === 嵌套导入 ===
+use std::io::{self, Read, Write};  // io 模块本身 + Read + Write
+use std::collections::{HashMap, HashSet, BTreeMap};
+
+// === 别名 ===
+use std::io::Result as IoResult;
+use std::fmt::Result as FmtResult;
+
+// === glob（通配符）导入 ===
+use std::prelude::v1::*;  // 通常只在 prelude 和测试中使用</code></pre>
+            </div>
+
+            <p><strong>pub use — 重新导出：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>reexport.rs</span></div>
+              <pre><code>// src/lib.rs
+mod internal {
+    pub mod deep {
+        pub struct Config { pub name: String }
+    }
+}
+
+// 没有 pub use 时，用户需要写：
+// my_crate::internal::deep::Config
+
+// 通过 pub use 简化公开 API
+pub use internal::deep::Config;
+
+// 现在用户只需要：
+// my_crate::Config
+
+// === 常见的 pub use 模式 ===
+// 创建 prelude 模块，集中导出常用类型
+pub mod prelude {
+    pub use crate::Config;
+    pub use crate::Error;
+    pub use crate::Result;
+}
+// 用户：use my_crate::prelude::*;</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>惯用导入风格</strong>：函数用 <code>use module::function;</code>，类型/trait 直接导入名字</li>
+              <li><strong>同名冲突</strong>：用 <code>as</code> 别名或只导入到父模块级别</li>
+              <li><strong>pub use 简化 API</strong>：让用户不必了解内部模块结构</li>
+              <li><strong>prelude 模式</strong>：为常用类型创建 prelude 模块，方便 <code>use crate::prelude::*;</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>use_conventions.rs</span></div>
+              <pre><code>// ✅ 推荐：函数导入到父模块
+use std::io;
+io::stdin();     // 明确知道 stdin 来自 io
+
+// ✅ 推荐：类型直接导入
+use std::collections::HashMap;
+let map = HashMap::new();
+
+// ❌ 不推荐：函数直接导入（来源不清）
+use std::io::stdin;
+stdin();  // 读者不知道 stdin 来自哪里
+
+// ✅ 处理同名类型
+use std::fmt::Result as FmtResult;
+use std::io::Result as IoResult;
+
+// 或者只导入到模块级别
+use std::fmt;
+use std::io;
+fn example() -> fmt::Result { Ok(()) }
+fn read() -> io::Result&lt;()&gt; { Ok(()) }</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">pub use 的主要作用是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '那是 mod 的作用。')">A. 声明一个新模块</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！pub use 将内部路径的项重新导出，简化公开 API。')">B. 将内部模块中的项重新导出到当前模块的公开 API 中</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'use 不能让私有项变成公开的。')">C. 把私有项变成公开</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '那是 cargo add 的作用。')">D. 安装外部依赖</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>Cargo 与依赖管理</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Cargo 不只是编译工具——它是一个完整的项目和依赖管理系统。理解 Cargo.toml 的结构、workspace、features 等概念，是在真实项目中高效工作的前提。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Cargo 的核心职责：</p>
+            <ul>
+              <li><strong>构建</strong>：编译 crate 及其依赖（<code>cargo build</code>）</li>
+              <li><strong>依赖管理</strong>：从 crates.io 下载、解析版本、锁定依赖</li>
+              <li><strong>项目管理</strong>：创建项目、运行测试、生成文档、发布 crate</li>
+              <li><strong>Workspace</strong>：管理多 crate 的 monorepo</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>TOML</span><span>Cargo.toml</span></div>
+              <pre><code>[package]
+name = "my-project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"                    # 简写：只指定版本
+
+[dev-dependencies]               # 仅测试时的依赖
+assert_cmd = "2"
+tempfile = "3"
+
+[build-dependencies]             # 构建脚本的依赖
+cc = "1"
+
+[features]
+default = ["json"]               # 默认启用的 features
+json = ["serde/derive"]          # 自定义 feature
+advanced = []
+
+[[bin]]                          # 额外的二进制目标
+name = "cli"
+path = "src/bin/cli.rs"</code></pre>
+            </div>
+
+            <p><strong>Workspace 配置：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>TOML</span><span>workspace Cargo.toml</span></div>
+              <pre><code># 根目录 Cargo.toml
+[workspace]
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/web",
+]
+
+# 共享依赖版本
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+
+# 子 crate 的 Cargo.toml:
+[dependencies]
+serde = { workspace = true }     # 引用 workspace 级别的定义</code></pre>
+            </div>
+
+            <p><strong>常用 Cargo 命令：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>BASH</span><span>cargo_commands</span></div>
+              <pre><code>cargo new my_project          # 创建新项目
+cargo new my_lib --lib        # 创建库项目
+cargo build                   # 编译（debug）
+cargo build --release         # 编译（优化）
+cargo run                     # 编译并运行
+cargo test                    # 运行所有测试
+cargo doc --open              # 生成并打开文档
+cargo add serde               # 添加依赖
+cargo add serde --features derive  # 带 features
+cargo check                   # 快速检查编译错误（不生成二进制）
+cargo clippy                  # 代码审查（lint）
+cargo fmt                     # 格式化代码</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>版本约束</strong>：<code>"1.0"</code> 等价于 <code>">=1.0.0, &lt;2.0.0"</code>（SemVer 兼容）</li>
+              <li><strong>Cargo.lock</strong>：锁定精确版本——bin crate 应提交到 VCS，lib crate 通常不提交</li>
+              <li><strong>features 设计</strong>：用 features 做条件编译，避免拉入不需要的依赖</li>
+              <li><strong>cargo check</strong>：比 <code>cargo build</code> 快很多，日常开发首选</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>cfg_feature.rs</span></div>
+              <pre><code>// 条件编译：根据 feature 引入不同的依赖
+#[cfg(feature = "json")]
+use serde_json;
+
+#[cfg(feature = "json")]
+pub fn parse_json(s: &str) -> Result&lt;Value, serde_json::Error&gt; {
+    serde_json::from_str(s)
+}
+
+// 不启用 json feature 时，这个函数不存在
+// 用户不会为不需要的功能付出编译时间和二进制大小
+
+// Cargo.toml 中对应：
+// [features]
+// json = ["dep:serde_json"]
+// [dependencies]
+// serde_json = { version = "1", optional = true }</code></pre>
+            </div>
+            <p class="warning-text">⚠ 依赖某个 crate 的 feature 被启用后是全局的——如果 crate A 和 crate B 都依赖 crate C 但启用不同的 features，最终 crate C 会启用两者的并集。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">cargo check 和 cargo build 的区别是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者都检查编译错误。')">A. check 不检查编译错误</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！check 只做类型检查和借用检查，不生成二进制文件，因此更快。')">B. check 只做类型/借用检查不生成二进制，更快</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者使用同一套规则。')">C. check 使用不同的编译器</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者都检查所有代码。')">D. 没有区别</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <p class="exercises-intro">共 22 道题，涵盖模块声明、可见性控制、路径系统和 Cargo 使用。</p>
+      <div id="quiz-container"></div>
+      <div class="quiz-controls">
+        <button class="btn" onclick="checkAnswers()">提交答案</button>
+        <button class="btn btn-outline" onclick="resetQuiz()">重置</button>
+      </div>
+      <div id="quiz-result"></div>
+    </section>
+
+    <!-- ==================== 章节导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="ch3.3_error_handling.html" class="prev-chapter">
+        <span class="nav-arrow">←</span>
+        <span class="nav-info">
+          <span class="nav-label">上一章</span>
+          <span class="nav-title">错误处理</span>
+        </span>
+      </a>
+      <a href="ch3.5_io_file.html" class="next-chapter">
+        <span class="nav-info">
+          <span class="nav-label">下一章</span>
+          <span class="nav-title">I/O 与文件</span>
+        </span>
+        <span class="nav-arrow">→</span>
+      </a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
+</body>
+</html>

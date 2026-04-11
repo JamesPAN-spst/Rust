@@ -1,318 +1,750 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 4.1 线程并发 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 4.1 线程并发 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u4-ch41-q1","question":"std::thread::spawn 接收什么参数？","options":["A. 一个函数指针","B. 一个实现了 FnOnce() + Send + 'static 的闭包","C. 一个实现了 Fn() 的闭包","D. 任意可调用对象"],"answer":1,"explanation":"spawn 要求闭包是 FnOnce（只执行一次）、Send（可跨线程传递）、'static（不引用栈上临时数据）。"},
+      {"id":"u4-ch41-q2","question":"JoinHandle::join() 的作用？","options":["A. 终止子线程","B. 阻塞当前线程直到子线程结束，并返回其结果","C. 将两个线程合并为一个","D. 检查线程是否存活"],"answer":1,"explanation":"join() 阻塞调用者线程，等待子线程执行完毕。返回 Result<T, Box<dyn Any>>——Ok 包含返回值，Err 表示 panic。"},
+      {"id":"u4-ch41-q3","question":"忽略 JoinHandle（不调用 join）会怎样？","options":["A. 编译错误","B. 子线程变成 detached，主线程退出时可能被强制终止","C. 子线程自动取消","D. 程序 panic"],"answer":1,"explanation":"不 join 的线程会 detach。如果 main 函数返回，整个进程退出，detached 线程被强制终止，可能丢失工作。"},
+      {"id":"u4-ch41-q4","question":"为什么 spawn 的闭包通常需要 move？","options":["A. 提高性能","B. 因为子线程可能比创建者活得久，必须拥有数据的所有权","C. 语法要求","D. 防止数据竞争"],"answer":1,"explanation":"如果闭包只借用栈上数据，而子线程比栈帧活得久，就会悬垂引用。move 将数据的所有权转移给闭包，保证安全。"},
+      {"id":"u4-ch41-q5","question":"以下代码能编译吗？\nlet s = String::from(\"hi\");\nthread::spawn(|| println!(\"{}\", s));","options":["A. 能","B. 不能——闭包借用了 s，但 spawn 要求 'static","C. 不能——println 不支持 String","D. 能，但有运行时错误"],"answer":1,"explanation":"闭包默认借用 s，但 spawn 要求 'static lifetime。编译器会提示加 move 关键字以转移所有权。"},
+      {"id":"u4-ch41-q6","question":"move 闭包中使用 i32 等 Copy 类型时，原变量是否还能使用？","options":["A. 不能，所有权被转移了","B. 能，Copy 类型 move 时是复制而非转移","C. 编译错误","D. 取决于编译器优化"],"answer":1,"explanation":"Copy 类型在 move 闭包中会被复制一份。原变量仍然可用，因为 Copy 语义是按位复制。"},
+      {"id":"u4-ch41-q7","question":"mpsc 代表什么？","options":["A. Multiple Producer, Single Consumer","B. Multi-Producer Single-Channel","C. Message Passing Single Channel","D. Multiple Parallel Synchronized Communication"],"answer":0,"explanation":"mpsc = Multiple Producer, Single Consumer。多个发送端可以 clone，但只有一个接收端。"},
+      {"id":"u4-ch41-q8","question":"mpsc::channel() 返回什么？","options":["A. 一个 Channel 对象","B. (Sender<T>, Receiver<T>) 元组","C. 一个 Stream","D. (Reader, Writer) 元组"],"answer":1,"explanation":"channel() 返回发送端和接收端的元组。Sender 可以 clone 给多个线程，Receiver 只有一个。"},
+      {"id":"u4-ch41-q9","question":"tx.send(val) 之后，val 还能使用吗？","options":["A. 能","B. 不能——send 转移了 val 的所有权","C. 取决于类型","D. 能，但是是旧值"],"answer":1,"explanation":"send 的签名对 T 取所有权。发送后原变量不可用，这从类型系统层面防止了数据竞争。"},
+      {"id":"u4-ch41-q10","question":"rx.recv() 和 rx.try_recv() 的区别？","options":["A. 没有区别","B. recv 阻塞等待消息，try_recv 立刻返回 Ok 或 Err","C. try_recv 更快","D. recv 返回 Option，try_recv 返回 Result"],"answer":1,"explanation":"recv() 阻塞直到收到消息或所有 Sender 被 drop。try_recv() 非阻塞，队列为空返回 Err(TryRecvError::Empty)。"},
+      {"id":"u4-ch41-q11","question":"所有 Sender 被 drop 后，rx.recv() 会怎样？","options":["A. 永远阻塞","B. 返回 Err(RecvError)","C. panic","D. 返回 None"],"answer":1,"explanation":"当所有发送端都被 drop，channel 被关闭。recv() 返回 Err 表示不会再有新消息了。"},
+      {"id":"u4-ch41-q12","question":"如何实现多个生产者？","options":["A. 创建多个 channel","B. clone Sender 给每个生产者线程","C. 用 Arc 包装 Sender","D. 共享 Receiver"],"answer":1,"explanation":"Sender 实现了 Clone。tx.clone() 得到一个新的发送端，多个线程各持一个即可。Receiver 无法 clone。"},
+      {"id":"u4-ch41-q13","question":"Arc 是什么的缩写？","options":["A. Automatic Reference Counting","B. Atomically Reference Counted","C. Async Runtime Context","D. Allocated Resource Container"],"answer":1,"explanation":"Arc = Atomically Reference Counted。与 Rc 类似但使用原子操作计数，可安全跨线程共享。"},
+      {"id":"u4-ch41-q14","question":"为什么不能直接在线程间共享 Rc<T>？","options":["A. Rc 太慢","B. Rc 的引用计数不是原子操作，多线程并发修改会导致数据竞争","C. Rc 不支持 Clone","D. Rc 不能放在堆上"],"answer":1,"explanation":"Rc 用普通加减操作维护计数器。两个线程同时 clone/drop 可能导致计数错误。所以 Rc: !Send。"},
+      {"id":"u4-ch41-q15","question":"Arc<Mutex<T>> 中 Mutex 的作用？","options":["A. 跨线程共享","B. 提供内部可变性——同一时刻只有一个线程能获取锁并修改数据","C. 自动垃圾回收","D. 异步等待"],"answer":1,"explanation":"Arc 解决共享问题，Mutex 解决可变性问题。lock() 返回 MutexGuard，出作用域自动释放锁。"},
+      {"id":"u4-ch41-q16","question":"mutex.lock() 返回什么？","options":["A. &mut T","B. Result<MutexGuard<T>, PoisonError>","C. Option<T>","D. T"],"answer":1,"explanation":"lock() 返回 Result。正常时 Ok(MutexGuard)，持锁线程 panic 则 Err(PoisonError)。"},
+      {"id":"u4-ch41-q17","question":"什么是 Mutex 中毒（poisoned）？","options":["A. 死锁","B. 持有锁的线程 panic 了，锁被标记为 poisoned","C. 超时","D. 内存损坏"],"answer":1,"explanation":"线程 panic 时 MutexGuard 被 drop，锁释放但被标记为 poisoned。后续 lock() 返回 Err。"},
+      {"id":"u4-ch41-q18","question":"Send trait 的含义是？","options":["A. 类型可以发送网络消息","B. 类型的所有权可以安全地转移到另一个线程","C. 类型可以序列化","D. 类型可以 clone"],"answer":1,"explanation":"T: Send 意味着把 T 的值从一个线程 move 到另一个线程是安全的。大部分类型是 Send，Rc 不是。"},
+      {"id":"u4-ch41-q19","question":"Sync trait 的含义是？","options":["A. 类型支持同步 I/O","B. &T 可以安全地在多个线程间共享","C. 类型支持锁","D. 类型不可变"],"answer":1,"explanation":"T: Sync 等价于 &T: Send。即不可变引用可以安全跨线程传递。"},
+      {"id":"u4-ch41-q20","question":"以下哪个类型不是 Send？","options":["A. String","B. Vec<i32>","C. Rc<String>","D. Arc<String>"],"answer":2,"explanation":"Rc 的引用计数非原子，跨线程使用会数据竞争，因此 Rc: !Send。Arc 是其线程安全替代品。"},
+      {"id":"u4-ch41-q21","question":"如何选择 channel 还是 Mutex？","options":["A. 总是用 channel","B. 数据流式传递用 channel，共享可变状态用 Mutex","C. 总是用 Mutex","D. 看心情"],"answer":1,"explanation":"channel 适合消息传递模式（数据沿管道流动），Mutex 适合共享状态模式（多线程读写同一份数据）。"},
+      {"id":"u4-ch41-q22","question":"thread::spawn 创建的是什么级别的线程？","options":["A. 绿色线程 / 协程","B. 操作系统原生线程（1:1 模型）","C. 线程池中的工作线程","D. 虚拟线程"],"answer":1,"explanation":"Rust 标准库采用 1:1 线程模型，每个 std::thread 对应一个 OS 线程。如需 M:N 模型，可用 tokio 等异步运行时。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit4_concurrency_async" style="--domain-color: var(--c-concurrency);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 4 · 并发与异步</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit3_std_projects/ch3.6_project_practice.html">上一单元：实战项目</a></li>
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">CONCURRENCY</span>
+      <a href="../index.html" class="module-name">Unit 4 · 并发与异步</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.1 / 3</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 4 正式页面</li>
-            <li><a href="./ch4.1_threads.html" class="active">4.1 线程并发</a></li>
-            <li><a href="./ch4.2_async_programming.html">4.2 异步编程</a></li>
-            <li><a href="./ch4.3_async_ecosystem.html">4.3 异步生态</a></li>
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 std::thread 与 spawn</a></li>
+      <li><a href="#kp2">02 move 语义与线程</a></li>
+      <li><a href="#kp3">03 channel 消息传递</a></li>
+      <li><a href="#kp4">04 Arc 与 Mutex 共享状态</a></li>
+      <li><a href="#kp5">05 Send 与 Sync</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">综合练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">线程为何仍然重要</a></li>
-            <li><a href="#kp-2">move 进入线程</a></li>
-            <li><a href="#kp-3">channel 消息传递</a></li>
-            <li><a href="#kp-4">Arc / Mutex 基础</a></li>
-            <li><a href="#kp-5">Send / Sync 直觉</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 4 · 并发与异步</p>
+      <h1>线程并发</h1>
+      <p class="chapter-intro">Rust 的并发模型被称为"无畏并发"——编译器通过所有权和类型系统在编译期阻止数据竞争。本章从 OS 线程出发，依次掌握 spawn、move 闭包、消息传递、共享状态和 Send/Sync 两大 marker trait，构建线程安全编程的完整心智模型。</p>
+    </header>
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 4 · 并发与异步</span>
-            <h1>Ch 4.1 线程并发</h1>
-            <p class="chapter-description">这一章先把 Rust 的线程并发放回工程语境：为什么还需要 OS 线程、所有权为什么会在并发场景变得更严格，以及消息传递与共享状态两条路线分别适合什么问题。</p>
-        </header>
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>std::thread 与 spawn</h2>
+      <div class="mental-chain">
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>现代 CPU 都是多核的。如果程序只跑在一个核心上，其余核心都在空转。线程是操作系统提供的最基本的并行执行单元——掌握它，才能让 Rust 程序真正利用多核能力。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>std::thread::spawn</code> 创建一个新的 OS 线程并执行传入的闭包。它返回一个 <code>JoinHandle&lt;T&gt;</code>，调用 <code>join()</code> 可以等待线程结束并获取返回值。</p>
             <ul>
-                <li>理解 <code>std::thread</code> 的基本用法与线程 join 的意义</li>
-                <li>掌握为什么闭包进入线程时经常需要 <code>move</code></li>
-                <li>理解 channel、<code>Arc</code>、<code>Mutex</code> 三类并发协作手段的区别</li>
-                <li>建立对 <code>Send</code> / <code>Sync</code> 的直觉，知道编译器在阻止什么风险</li>
+              <li><strong>1:1 模型</strong>：每个 Rust 线程 = 一个 OS 线程，调度由操作系统管理</li>
+              <li><strong>JoinHandle</strong>：join() 阻塞当前线程直到子线程完成；忽略它线程变成 detached</li>
+              <li><strong>线程 vs 异步</strong>：线程适合 CPU 密集型任务；异步适合大量 I/O 等待</li>
             </ul>
-        </section>
+          </div>
+        </div>
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先完成 Ownership、Borrowing、Trait 和错误处理章节。线程相关报错往往不是“并发语法难”，而是所有权、生命周期和共享可变性在并发环境下被放大了。</p>
-        </section>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>thread_basic.rs</span></div>
+              <pre><code>use std::thread;
+use std::time::Duration;
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>4.1.1 为什么在 Rust 里还要学线程？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>既然 Unit 4 还会讲 async，为什么还不能直接把“并发 = 异步”画等号？</p>
+fn main() {
+    // spawn 返回 JoinHandle&lt;T&gt;
+    let handle = thread::spawn(|| {
+        for i in 1..=3 {
+            println!("子线程: {}", i);
+            thread::sleep(Duration::from_millis(100));
+        }
+        42 // 线程的返回值
+    });
+
+    println!("主线程继续执行...");
+
+    // join() 等待子线程结束，unwrap 取出返回值
+    let result = handle.join().unwrap();
+    println!("子线程返回: {}", result);
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>主线程继续执行...
+子线程: 1
+子线程: 2
+子线程: 3
+子线程返回: 42</pre>
+              </div>
             </div>
-            <p>线程是操作系统调度的执行单元，适合 CPU 密集工作、阻塞式库、以及需要真正并行跑在多个核心上的任务。异步更像是在较少线程上高效复用等待时间，它不等于自动并行。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong><code>std::thread::spawn</code> 会启动新线程并返回 <code>JoinHandle</code>；调用 <code>join()</code> 可以等待子线程完成并拿回结果或 panic 信息。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>spawn_join.rs</span></div>
-                <pre><code>use std::thread;
+            <p><strong>关键签名</strong>：<code>pub fn spawn&lt;F, T&gt;(f: F) -&gt; JoinHandle&lt;T&gt; where F: FnOnce() -&gt; T + Send + 'static, T: Send + 'static</code></p>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>始终 join</strong>：忽略 JoinHandle 会导致 main 退出时子线程被强制终止</li>
+              <li><strong>错误处理</strong>：join().unwrap() 在子线程 panic 时也会 panic；生产代码应匹配 Err</li>
+              <li><strong>线程数量</strong>：OS 线程有栈开销（默认 ~2–8MB），不要创建数千个；大量并行任务用线程池或异步</li>
+              <li><strong>命名线程</strong>：<code>thread::Builder::new().name("worker".into()).spawn(...)</code> 方便调试</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>thread_panic.rs</span></div>
+              <pre><code>use std::thread;
 
 fn main() {
     let handle = thread::spawn(|| {
-        for n in 1..=3 {
-            println!("worker: {n}");
-        }
+        panic!("子线程炸了！");
     });
 
-    handle.join().unwrap();
-    println!("main done");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>worker: 1
-worker: 2
-worker: 3
-main done</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="线程擅长真正并行执行和承载阻塞式工作；异步则更擅长把等待时间复用起来。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪项最准确描述了线程和异步的关系？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u4-1-q1" value="A"> A. 学了异步后就完全不需要线程</label>
-                    <label><input type="radio" name="u4-1-q1" value="B"> B. 线程偏向并行与阻塞工作，异步偏向高效等待</label>
-                    <label><input type="radio" name="u4-1-q1" value="C"> C. 两者只是写法不同，运行模型完全一样</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    // join 返回 Err，不会让主线程 panic
+    match handle.join() {
+        Ok(_) =&gt; println!("正常结束"),
+        Err(_) =&gt; println!("子线程发生了 panic"),
+    }
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>4.1.2 为什么线程闭包经常要写 <code>move</code>？</h2>
-            <div class="think-box">
-                <div class="think-icon">🧠</div>
-                <p>如果主线程可能先结束，而子线程还在跑，那么子线程里借来的数据到底还能不能活着？</p>
+    println!("主线程仍在运行");
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>子线程发生了 panic
+主线程仍在运行</pre>
+              </div>
             </div>
-            <p>线程闭包往往会比当前作用域活得更久，因此直接借用外部局部变量通常不安全。<code>move</code> 会把需要的数据所有权转移进线程，让线程自己负责那份值的生命周期。</p>
-            <div class="note-box warning">
-                <p><strong>直觉重点：</strong><code>move</code> 不是“为了语法通过”；它是在说“这份数据之后归新线程管理”。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>move_into_thread.rs</span></div>
-                <pre><code>use std::thread;
+            <p><strong>易错点</strong>：子线程的 panic 不会自动传播到主线程。如果不 join 不 match，子线程的错误会被静默吞掉。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">thread::spawn 的闭包要求满足哪些 trait bound？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'Fn 允许多次调用，但 spawn 的闭包只执行一次，且缺少 Send 和 \'static。')">A. Fn() + Clone</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！FnOnce 表示只执行一次，Send 允许跨线程，\'static 保证无临时引用。')">B. FnOnce() + Send + 'static</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'FnMut 不是必须的，且缺少 \'static。')">C. FnMut() + Send</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'Sync 描述的是共享引用的安全性，spawn 参数需要的是 Send。')">D. FnOnce() + Sync</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>move 语义与线程</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>线程需要数据才能工作，但子线程可能比创建它的作用域活得更久。如果只是借用栈上数据，数据被释放后线程就拿着悬垂引用了。<code>move</code> 闭包是 Rust 解决这个问题的方式——编译期强制你交出所有权。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>move || { ... }</code> 告诉编译器：闭包内使用的所有外部变量都要转移所有权到闭包中。这满足了 <code>'static</code> 约束——闭包不再借用任何临时数据。</p>
+            <ul>
+              <li><strong>非 move</strong>：闭包默认借用（&amp; 或 &amp;mut）外部变量</li>
+              <li><strong>move</strong>：强制将所有捕获的变量 move 进闭包</li>
+              <li><strong>Copy 类型的特殊情况</strong>：move 对 Copy 类型是复制，对非 Copy 类型是转移</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>move_closure.rs</span></div>
+              <pre><code>use std::thread;
 
 fn main() {
-    let values = vec![10, 20, 30];
+    let name = String::from("Rust");
+    let count = 3; // i32 是 Copy
 
+    // move 将 name 的所有权和 count 的副本移入闭包
     let handle = thread::spawn(move || {
-        println!("child got: {:?}", values);
+        println!("Hello from thread: {} (count={})", name, count);
     });
+
+    // println!("{}", name); // ❌ 编译错误！name 已被 move
+    println!("count = {}", count); // ✅ i32 是 Copy，原变量仍可用
 
     handle.join().unwrap();
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>child got: [10, 20, 30]</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>count = 3
+Hello from thread: Rust (count=3)</pre>
+              </div>
             </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：用了 <code>move</code> 之后，主线程还能再用 <code>values</code> 吗？</button>
-                <div class="collapsible-content">通常不能，因为所有权已经转进了线程闭包。如果你还要在主线程保留一份，就需要显式 clone，或者改成借用且确保生命周期安全。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="子线程可能比当前作用域活得更久；move 让线程拥有它使用的数据，而不是悬空借用外部局部变量。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>线程闭包里常用 <code>move</code> 的核心原因是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u4-1-q2" value="A"> A. 让线程跑得更快</label>
-                    <label><input type="radio" name="u4-1-q2" value="B"> B. 让所有类型自动实现 <code>Copy</code></label>
-                    <label><input type="radio" name="u4-1-q2" value="C"> C. 避免线程持有对外部局部变量的不安全借用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>4.1.3 channel：让线程通过消息，而不是抢同一份数据</h2>
-            <div class="think-box">
-                <div class="think-icon">📨</div>
-                <p>两个线程协作时，一定要共享同一个可变变量吗？如果只是“把结果交给另一边”，有没有更干净的方式？</p>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>需要在多个线程中使用同一数据？</strong>先 clone 再 move 各自的副本进去</li>
+              <li><strong>大数据不想 clone？</strong>用 <code>Arc</code> 共享（详见 KP4）</li>
+              <li><strong>闭包内只用引用的一部分？</strong>可以在闭包外先 let 绑定子字段，再 move 进去，避免 move 整个结构体</li>
+            </ul>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>clone_then_move.rs</span></div>
+              <pre><code>use std::thread;
+
+fn main() {
+    let data = vec![1, 2, 3];
+
+    // 两个线程都需要 data——各 clone 一份
+    let data_clone = data.clone();
+    let h1 = thread::spawn(move || {
+        println!("线程1: {:?}", data_clone);
+    });
+    let h2 = thread::spawn(move || {
+        println!("线程2: {:?}", data);
+    });
+
+    h1.join().unwrap();
+    h2.join().unwrap();
+}</code></pre>
             </div>
-            <p>Rust 标准库的 channel 提供“发送者—接收者”模型。发送端把值 move 进去，接收端再取出来，这样资源归属会随着消息流动而转移，而不是两边同时修改同一份状态。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong><code>std::sync::mpsc</code> 是 multi-producer, single-consumer；每条消息都有明确所有权流向，适合任务分发和结果回传。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>move_loop.rs</span></div>
+              <pre><code>use std::thread;
+
+fn main() {
+    let mut handles = vec![];
+
+    for i in 0..3 {
+        // i 是 i32 (Copy)，每次循环 move 的是 i 的副本
+        let handle = thread::spawn(move || {
+            println!("线程 {}", i);
+            i * 10
+        });
+        handles.push(handle);
+    }
+
+    for h in handles {
+        println!("结果: {}", h.join().unwrap());
+    }
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>线程 0
+线程 1
+线程 2
+结果: 0
+结果: 10
+结果: 20</pre>
+              </div>
             </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>channel.rs</span></div>
-                <pre><code>use std::sync::mpsc;
+            <p><strong>易错点</strong>：循环变量 <code>i</code> 是 Copy 类型，每次循环 move 的是副本。如果要传 String 类型到多个线程，必须在循环内 clone。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">move 闭包捕获一个 i32 变量后，原变量还能用吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'move 确实转移所有权，但 i32 是 Copy 类型，move 实际是复制。')">A. 不能，所有权已转移</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！i32 实现了 Copy，move 时是按位复制，原变量仍然有效。')">B. 能，i32 是 Copy 类型，move 实际是复制</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不取决于闭包执行时机，而是取决于类型是否 Copy。')">C. 取决于闭包是否已执行</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '编译器不会报错，因为 Copy 类型 move 就是复制。')">D. 编译错误</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>channel 消息传递</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Go 语言有句名言："不要通过共享内存来通信，而要通过通信来共享内存"。Rust 的 <code>mpsc::channel</code> 就是这种思路——数据通过管道在线程间传递，所有权跟着数据走，从类型系统层面杜绝数据竞争。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>mpsc</strong> = Multiple Producer, Single Consumer</li>
+              <li><code>channel()</code> 返回 <code>(Sender&lt;T&gt;, Receiver&lt;T&gt;)</code></li>
+              <li><code>tx.send(val)</code> 转移 val 的所有权到 channel 中</li>
+              <li><code>rx.recv()</code> 从 channel 取出数据（阻塞），获得所有权</li>
+              <li>Sender 可以 clone（多生产者），Receiver 不能 clone（单消费者）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>channel_basic.rs</span></div>
+              <pre><code>use std::sync::mpsc;
 use std::thread;
 
 fn main() {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        tx.send(String::from("job finished")).unwrap();
+        let msg = String::from("hello from thread");
+        tx.send(msg).unwrap();
+        // println!("{}", msg); // ❌ msg 所有权已 send 出去
     });
 
-    let message = rx.recv().unwrap();
-    println!("received: {message}");
+    // recv() 阻塞直到收到消息
+    let received = rx.recv().unwrap();
+    println!("收到: {}", received);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>received: job finished</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>收到: hello from thread</pre>
+              </div>
             </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="channel 的价值在于通过消息传递移动数据所有权，减少共享可变状态带来的锁竞争和同步复杂度。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>channel 最突出的优点是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u4-1-q3" value="A"> A. 用消息传递替代直接共享可变状态</label>
-                    <label><input type="radio" name="u4-1-q3" value="B"> B. 自动让所有线程串行执行</label>
-                    <label><input type="radio" name="u4-1-q3" value="C"> C. 不再需要所有权规则</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>4.1.4 <code>Arc&lt;Mutex&lt;T&gt;&gt;</code>：共享状态路线的最小起点</h2>
-            <div class="think-box">
-                <div class="think-icon">🔒</div>
-                <p>如果多个线程确实需要共同维护一个计数器、缓存或队列，消息传递还够用吗？</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>channel_multi_producer.rs</span></div>
+              <pre><code>use std::sync::mpsc;
+use std::thread;
+
+fn main() {
+    let (tx, rx) = mpsc::channel();
+
+    for id in 0..3 {
+        let tx_clone = tx.clone();
+        thread::spawn(move || {
+            tx_clone.send(format!("来自线程 {}", id)).unwrap();
+        });
+    }
+    drop(tx); // 原始 tx 不再需要，drop 掉避免 channel 不关闭
+
+    // 用 for-in 迭代 rx——所有 sender drop 后自动结束
+    for msg in rx {
+        println!("{}", msg);
+    }
+}</code></pre>
+              <div class="code-output">
+                <strong>输出（顺序可能不同）</strong>
+                <pre>来自线程 0
+来自线程 1
+来自线程 2</pre>
+              </div>
             </div>
-            <p>这时就会走“共享状态”路线：<code>Arc</code> 负责让多个线程共享所有权，<code>Mutex</code> 负责保证同一时刻只有一个线程能修改内部数据。两者组合是 Rust 并发入门最常见的模式。</p>
-            <div class="note-box warning">
-                <p><strong>使用边界：</strong><code>Arc</code> 解决的是“谁持有”，<code>Mutex</code> 解决的是“谁此刻能改”；它们不是同一个问题。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>记得 drop 原始 tx</strong>：clone 了 Sender 后，原始的如果不 drop，channel 永远不会关闭，rx 迭代会永远阻塞</li>
+              <li><strong>有界 channel</strong>：<code>mpsc::sync_channel(cap)</code> 限制缓冲区大小，发送端在满时阻塞——天然背压机制</li>
+              <li><strong>适用场景</strong>：日志收集、任务分发、pipeline 数据处理</li>
+              <li><strong>替代方案</strong>：crossbeam-channel 提供 MPMC 和 select!，更适合复杂场景</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>channel_iter.rs</span></div>
+              <pre><code>use std::sync::mpsc;
+use std::thread;
+
+fn main() {
+    let (tx, rx) = mpsc::channel();
+
+    thread::spawn(move || {
+        for val in vec!["hello", "world", "!"] {
+            tx.send(val.to_string()).unwrap();
+        }
+        // tx 在这里被 drop —— channel 关闭
+    });
+
+    // ⚠️ 安全写法：for 循环在 channel 关闭时自动结束
+    for msg in rx {
+        println!("{}", msg);
+    }
+    // ❌ 不要用 loop { rx.recv().unwrap() }——channel 关闭时会 panic
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>hello
+world
+!</pre>
+              </div>
             </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>arc_mutex.rs</span></div>
-                <pre><code>use std::sync::{Arc, Mutex};
+            <p><strong>易错点</strong>：<code>rx.recv().unwrap()</code> 在 channel 关闭时会 panic。生产代码应该用 <code>for msg in rx</code> 或 <code>while let Ok(msg) = rx.recv()</code>。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">tx.send(val) 之后，val 还能在发送端线程中使用吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！send 会转移 val 的所有权。这从类型系统层面防止发送后继续修改数据。')">A. 不能——send 转移了所有权</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'send 的签名中 T 是值传递，不是引用，所以所有权被转移了。')">B. 能——send 只是复制</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '对于非 Copy 类型，send 后一定不能用。题目问的是一般情况。')">C. 取决于是否 Copy</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'channel 关闭与变量可用性无关。')">D. 取决于 channel 是否关闭</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>Arc 与 Mutex 共享状态</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>有些场景下数据不适合通过 channel "传来传去"——比如共享配置、计数器、缓存。多线程需要读/写同一份数据。Rust 用 <code>Arc</code>（原子引用计数）+ <code>Mutex</code>（互斥锁）的组合来安全地共享可变状态。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>Arc&lt;T&gt;</strong>：原子引用计数，允许多个线程持有同一数据的共享所有权</li>
+              <li><strong>Mutex&lt;T&gt;</strong>：互斥锁，保证同一时刻只有一个线程能访问内部数据</li>
+              <li><strong>组合使用</strong>：<code>Arc&lt;Mutex&lt;T&gt;&gt;</code> = 跨线程共享（Arc） + 安全可变（Mutex）</li>
+              <li><strong>lock()</strong> 返回 <code>MutexGuard</code>——RAII 机制，出作用域自动释放锁</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>arc_mutex_counter.rs</span></div>
+              <pre><code>use std::sync::{Arc, Mutex};
 use std::thread;
 
 fn main() {
     let counter = Arc::new(Mutex::new(0));
     let mut handles = vec![];
 
-    for _ in 0..3 {
-        let counter = Arc::clone(&counter);
-        handles.push(thread::spawn(move || {
-            let mut value = counter.lock().unwrap();
-            *value += 1;
-        }));
+    for _ in 0..10 {
+        let counter = Arc::clone(&amp;counter); // 克隆 Arc，引用计数 +1
+        let handle = thread::spawn(move || {
+            let mut num = counter.lock().unwrap(); // 获取锁
+            *num += 1;
+            // MutexGuard 在此 drop，锁自动释放
+        });
+        handles.push(handle);
     }
 
-    for handle in handles {
-        handle.join().unwrap();
+    for h in handles {
+        h.join().unwrap();
     }
 
-    println!("count = {}", *counter.lock().unwrap());
+    println!("最终计数: {}", *counter.lock().unwrap());
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>count = 3</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>最终计数: 10</pre>
+              </div>
             </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么不能只用 <code>Rc&lt;RefCell&lt;T&gt;&gt;</code>？</button>
-                <div class="collapsible-content"><code>Rc</code> 不是线程安全的引用计数，<code>RefCell</code> 也只做单线程下的运行时借用检查。跨线程共享状态时，需要 <code>Arc</code> 和真正的同步原语，如 <code>Mutex</code>。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="Arc 负责跨线程共享所有权；Mutex 负责受控地访问内部可变数据。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>在 <code>Arc&lt;Mutex&lt;T&gt;&gt;</code> 中，<code>Mutex</code> 的核心职责是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u4-1-q4" value="A"> A. 复制一份独立数据给每个线程</label>
-                    <label><input type="radio" name="u4-1-q4" value="B"> B. 保护共享数据，避免多个线程同时修改</label>
-                    <label><input type="radio" name="u4-1-q4" value="C"> C. 让值实现 <code>Clone</code></label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>4.1.5 <code>Send</code> / <code>Sync</code>：编译器如何表达“能不能跨线程”</h2>
-            <div class="think-box">
-                <div class="think-icon">🧭</div>
-                <p>为什么有的类型可以放心在线程间转移，有的类型一跨线程编译器就会拦下来？</p>
-            </div>
-            <p><code>Send</code> 的直觉是“这个值的所有权可以安全地转移到另一个线程”；<code>Sync</code> 的直觉是“这个类型的共享引用 <code>&amp;T</code> 可以安全地在多线程之间共享”。它们是 Rust 并发安全模型的重要边界说明。</p>
-            <div class="note-box tip">
-                <p><strong>记忆方式：</strong><code>Send</code> 关注“搬过去是否安全”，<code>Sync</code> 关注“大家一起看这份值是否安全”。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>send_sync_intuition.rs</span></div>
-                <pre><code>use std::sync::Arc;
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>锁的粒度</strong>：持锁时间尽量短。用 <code>{ let mut g = m.lock().unwrap(); *g += 1; }</code> 块限定 guard 生命周期</li>
+              <li><strong>避免死锁</strong>：不要嵌套获取多个锁；如果必须，保持一致的加锁顺序</li>
+              <li><strong>RwLock</strong>：读多写少时用 <code>RwLock&lt;T&gt;</code>——允许多个读者同时访问，写者独占</li>
+              <li><strong>原子类型</strong>：简单计数器可用 <code>AtomicUsize</code> 等原子类型，无需 Mutex 开销</li>
+              <li><strong>中毒处理</strong>：<code>lock().unwrap()</code> 在持锁线程 panic 后会 panic——生产代码可用 <code>.lock().unwrap_or_else(|e| e.into_inner())</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>mutex_guard_scope.rs</span></div>
+              <pre><code>use std::sync::{Arc, Mutex};
 use std::thread;
 
 fn main() {
-    let data = Arc::new(vec![1, 2, 3]);
-    let shared = Arc::clone(&data);
+    let data = Arc::new(Mutex::new(vec![1, 2, 3]));
 
+    let data_clone = Arc::clone(&amp;data);
     let handle = thread::spawn(move || {
-        println!("child sees {}", shared[0]);
+        let mut vec = data_clone.lock().unwrap();
+        vec.push(4);
+        println!("子线程: {:?}", *vec);
+        // MutexGuard 在函数结束时 drop
     });
 
-    handle.join().unwrap();
-    println!("main sees {}", data[1]);
+    handle.join().unwrap(); // 等子线程释放锁
+
+    let vec = data.lock().unwrap();
+    println!("主线程: {:?}", *vec);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>child sees 1
-main sees 2</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>子线程: [1, 2, 3, 4]
+主线程: [1, 2, 3, 4]</pre>
+              </div>
             </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="Send 关心所有权跨线程转移；Sync 关心共享引用是否能被多个线程同时持有。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪项对 <code>Send</code> / <code>Sync</code> 的理解最准确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u4-1-q5" value="A"> A. 它们只是提升线程性能的优化标记</label>
-                    <label><input type="radio" name="u4-1-q5" value="B"> B. 只要用了 <code>Mutex</code>，所有类型都自动无条件安全</label>
-                    <label><input type="radio" name="u4-1-q5" value="C"> C. 它们在类型层面表达跨线程转移和共享引用是否安全</label>
-                </div>
-                <div class="quiz-feedback"></div>
+            <p><strong>易错点</strong>：在 <code>println!("{:?}", data.lock().unwrap())</code> 中，MutexGuard 的临时变量在整个语句结束后才 drop。如果链式调用不当，锁的持有时间可能比你预期的长。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么不能用 Rc&lt;Mutex&lt;T&gt;&gt; 在线程间共享数据？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Mutex 本身没问题，问题出在 Rc 上。')">A. Mutex 不支持多线程</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！Rc 的引用计数操作不是原子的，跨线程使用会导致数据竞争。所以 Rc: !Send，编译器会阻止。')">B. Rc 不是 Send——引用计数非原子操作，跨线程不安全</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '锁的开销与 Rc/Arc 选择无关。')">C. 锁的开销太大</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Rc 可以 clone，但它的引用计数不是线程安全的。')">D. Rc 不能 clone</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>Send 与 Sync</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>前面讲的"spawn 要求 Send"、"Rc 不能跨线程"都涉及一个底层机制：Rust 用两个 marker trait——<code>Send</code> 和 <code>Sync</code>——在类型系统层面编码并发安全。理解它们，就能理解编译器为什么允许或拒绝某些跨线程操作。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>Send</strong>：T 的值可以安全地从一个线程 move 到另一个线程</li>
+              <li><strong>Sync</strong>：&amp;T 可以安全地被多个线程同时持有（即 T 的不可变引用可跨线程共享）</li>
+              <li><strong>等价关系</strong>：T: Sync ⟺ &amp;T: Send</li>
+              <li><strong>自动推导</strong>：如果结构体的所有字段都是 Send，那结构体自动是 Send；Sync 同理</li>
+              <li><strong>marker trait</strong>：没有方法，纯粹是编译期标记</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <table style="width:100%; border-collapse:collapse; margin:1em 0;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border-color);">
+                  <th style="text-align:left; padding:0.5em;">类型</th>
+                  <th style="text-align:center; padding:0.5em;">Send?</th>
+                  <th style="text-align:center; padding:0.5em;">Sync?</th>
+                  <th style="text-align:left; padding:0.5em;">原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding:0.4em;"><code>i32, bool, String</code></td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="padding:0.4em;">无内部共享状态</td></tr>
+                <tr><td style="padding:0.4em;"><code>Vec&lt;T&gt;</code> (T: Send)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="padding:0.4em;">所有字段 Send+Sync</td></tr>
+                <tr><td style="padding:0.4em;"><code>Rc&lt;T&gt;</code></td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="padding:0.4em;">引用计数非原子</td></tr>
+                <tr><td style="padding:0.4em;"><code>Arc&lt;T&gt;</code> (T: Send+Sync)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="padding:0.4em;">原子引用计数</td></tr>
+                <tr><td style="padding:0.4em;"><code>Mutex&lt;T&gt;</code> (T: Send)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="padding:0.4em;">锁保护了内部数据</td></tr>
+                <tr><td style="padding:0.4em;"><code>Cell&lt;T&gt;</code></td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="padding:0.4em;">内部可变但无锁保护</td></tr>
+                <tr><td style="padding:0.4em;"><code>*mut T</code></td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="padding:0.4em;">裸指针无安全保证</td></tr>
+              </tbody>
+            </table>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>send_sync_demo.rs</span></div>
+              <pre><code>use std::sync::{Arc, Mutex};
+
+// 泛型约束：T 可以跨线程传递和共享
+fn share_across_threads&lt;T: Send + Sync + 'static + std::fmt::Debug&gt;(val: T) {
+    let shared = Arc::new(Mutex::new(val));
+    let c = Arc::clone(&amp;shared);
+    std::thread::spawn(move || {
+        let data = c.lock().unwrap();
+        println!("子线程看到: {:?}", *data);
+    }).join().unwrap();
+}
+
+fn main() {
+    share_across_threads(42);
+    share_across_threads(String::from("hello"));
+    // share_across_threads(std::rc::Rc::new(1));
+    // ❌ 编译错误: Rc&lt;i32&gt; 不满足 Send
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>子线程看到: 42
+子线程看到: "hello"</pre>
+              </div>
             </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>线程适合真正并行的 CPU 工作，以及无法避免的阻塞式任务。</li>
-                <li>线程闭包常用 <code>move</code>，因为子线程需要拥有自己使用的数据。</li>
-                <li>channel 解决消息传递，<code>Arc&lt;Mutex&lt;T&gt;&gt;</code> 解决共享状态，它们适用于不同协作模型。</li>
-                <li><code>Send</code> / <code>Sync</code> 把“能否跨线程安全使用”编码进了类型系统。</li>
+              <li><strong>大部分类型自动满足 Send + Sync</strong>，你很少需要手动实现</li>
+              <li><strong>unsafe impl Send/Sync</strong>：只有在封装 FFI 或裸指针时才需要手动标记，且必须确保安全性</li>
+              <li><strong>泛型约束</strong>：编写跨线程通用代码时，别忘了加 <code>T: Send + 'static</code> 约束</li>
+              <li><strong>编译器是你的盟友</strong>：如果忘了 Send/Sync 约束，编译器会明确告诉你哪个类型不满足</li>
             </ul>
-        </section>
+          </div>
+        </div>
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 解释为什么把局部变量借给子线程通常会被编译器拒绝。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 写一个小例子：主线程创建 3 个工作线程，每个线程通过 channel 发回一个字符串结果。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 比较 “channel 汇总结果” 和 “<code>Arc&lt;Mutex&lt;Vec&lt;T&gt;&gt;</code> 共享结果列表” 两种方案的权衡。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 设计一个并发日志计数器：说明哪些状态该共享、哪些值更适合直接 move 给工作线程。</li>
-            </ol>
-        </section>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>not_send.rs</span></div>
+              <pre><code>use std::rc::Rc;
+use std::thread;
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch16-00-concurrency.html">The Rust Programming Language · Fearless Concurrency</a></li>
-                <li><a href="https://doc.rust-lang.org/std/thread/">std::thread 文档</a></li>
-                <li><a href="https://doc.rust-lang.org/std/sync/">std::sync 文档</a></li>
-            </ul>
-        </section>
-    </main>
+fn main() {
+    let data = Rc::new(42);
 
-    <script src="../assets/js/main.js"></script>
+    // ❌ 编译错误：Rc&lt;i32&gt; cannot be sent between threads safely
+    // thread::spawn(move || {
+    //     println!("{}", data);
+    // });
+
+    // ✅ 改用 Arc
+    use std::sync::Arc;
+    let data = Arc::new(42);
+    let data_clone = Arc::clone(&amp;data);
+    thread::spawn(move || {
+        println!("Arc 版本: {}", data_clone);
+    }).join().unwrap();
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>Arc 版本: 42</pre>
+              </div>
+            </div>
+            <p><strong>易错点</strong>：编译错误 "<code>Rc&lt;T&gt; cannot be sent between threads safely</code>" 的根本原因是 <code>Rc: !Send</code>。解决方案是换成 <code>Arc</code>，而不是用 unsafe 绕过。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">T: Sync 等价于什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, 'Send 和 Sync 是不同的 trait，不能混淆。')">A. T: Send</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '正确！T 是 Sync 意味着多个线程可以安全地持有 &amp;T，即不可变引用可以跨线程传递（Send）。')">B. &amp;T: Send</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '&amp;mut T: Send 描述的是独占引用的跨线程安全，不等价于 Sync。')">C. &amp;mut T: Send</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, 'T: Copy 是值语义相关的 trait，与线程安全无关。')">D. T: Copy</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 综合练习 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2>综合练习</h2>
+      <div id="quiz-zone"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="../unit3_std_projects/ch3.5_io_file.html">← Ch 3.5 I/O 与文件</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="ch4.2_async_programming.html">Ch 4.2 异步编程 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

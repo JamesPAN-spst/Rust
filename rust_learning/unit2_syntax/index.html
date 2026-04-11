@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit 2 · 基础语法 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="overview-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <span class="module-name" style="cursor:default">Unit 2 · 基础语法</span>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">6 chapters</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="overview-hero">
+      <div class="domain-tag">SYNTAX</div>
+      <h1>Unit 2 · 基础语法</h1>
+      <p class="intro">类型系统、控制流、函数与闭包、Struct/Enum、模式匹配、Trait——Rust 日常编码的全部基础。</p>
+    </div>
+
+    <div class="chapter-grid">
+      <a class="chapter-card" href="ch2.1_basic_types_variables.html">
+        <div class="ch-number">CHAPTER 01</div>
+        <div class="ch-title">基本类型与变量</div>
+        <div class="ch-kps">
+          <span class="kp-tag">let / mut / const / static</span>
+          <span class="kp-tag">标量类型</span>
+          <span class="kp-tag">复合类型</span>
+          <span class="kp-tag">Shadowing</span>
+          <span class="kp-tag">类型转换</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch2.2_control_flow.html">
+        <div class="ch-number">CHAPTER 02</div>
+        <div class="ch-title">控制流</div>
+        <div class="ch-kps">
+          <span class="kp-tag">if/else 是表达式</span>
+          <span class="kp-tag">loop / while / for</span>
+          <span class="kp-tag">break 返回值与循环标签</span>
+          <span class="kp-tag">迭代器与 for</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch2.3_functions_closures.html">
+        <div class="ch-number">CHAPTER 03</div>
+        <div class="ch-title">函数与闭包</div>
+        <div class="ch-kps">
+          <span class="kp-tag">fn 签名与返回值</span>
+          <span class="kp-tag">闭包语法与环境捕获</span>
+          <span class="kp-tag">Fn / FnMut / FnOnce</span>
+          <span class="kp-tag">闭包作为参数和返回值</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch2.4_struct_enum.html">
+        <div class="ch-number">CHAPTER 04</div>
+        <div class="ch-title">Struct 与 Enum</div>
+        <div class="ch-kps">
+          <span class="kp-tag">struct 三种形式</span>
+          <span class="kp-tag">impl 块与方法</span>
+          <span class="kp-tag">enum 与代数数据类型</span>
+          <span class="kp-tag">Option&lt;T&gt;</span>
+          <span class="kp-tag">Result&lt;T, E&gt;</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch2.5_pattern_matching.html">
+        <div class="ch-number">CHAPTER 05</div>
+        <div class="ch-title">模式匹配</div>
+        <div class="ch-kps">
+          <span class="kp-tag">match 表达式</span>
+          <span class="kp-tag">if let / while let</span>
+          <span class="kp-tag">解构</span>
+          <span class="kp-tag">守卫与 @ 绑定</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch2.6_traits.html">
+        <div class="ch-number">CHAPTER 06</div>
+        <div class="ch-title">Trait 系统</div>
+        <div class="ch-kps">
+          <span class="kp-tag">定义与实现 Trait</span>
+          <span class="kp-tag">默认方法</span>
+          <span class="kp-tag">Trait Bound</span>
+          <span class="kp-tag">derive 宏</span>
+          <span class="kp-tag">impl Trait</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="chapter-nav" style="max-width:900px;margin:0 auto;padding:24px 40px;">
+      <a href="../unit1_ownership/index.html">← Unit 1 · 所有权系统</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="../unit3_std_projects/index.html">Unit 3 · 标准库与项目 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <span>Rust Learning · 2026</span>
+  </footer>
+</body>
+</html>

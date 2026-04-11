@@ -1,307 +1,784 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.1 基本类型与变量 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.1 基本类型与变量 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch21-q1",
+        "question": "以下哪个声明创建了一个可变绑定？",
+        "options": ["A. let x = 5;", "B. let mut x = 5;", "C. const X: i32 = 5;", "D. static X: i32 = 5;"],
+        "answer": 1,
+        "explanation": "let mut 声明一个可变绑定，允许后续修改值。let 默认不可变，const/static 也不可变（static mut 需 unsafe）。"
+      },
+      {
+        "id": "u2-ch21-q2",
+        "question": "const 和 static 的核心区别是什么？",
+        "options": ["A. const 在栈上，static 在堆上", "B. const 编译时内联，static 有固定内存地址", "C. const 可变，static 不可变", "D. 没有区别"],
+        "answer": 1,
+        "explanation": "const 值在编译时被内联到使用处，没有固定地址；static 在程序整个生命周期内有固定内存地址。"
+      },
+      {
+        "id": "u2-ch21-q3",
+        "question": "i32 的取值范围是？",
+        "options": ["A. 0 到 2^32-1", "B. -2^31 到 2^31-1", "C. -2^32 到 2^32", "D. 0 到 2^31"],
+        "answer": 1,
+        "explanation": "i32 是 32 位有符号整数，使用补码表示，范围为 -2^31 到 2^31-1，即 -2147483648 到 2147483647。"
+      },
+      {
+        "id": "u2-ch21-q4",
+        "question": "以下代码输出什么？\nlet x = 5;\nlet x = x + 1;\nlet x = x * 2;\nprintln!(\"{}\", x);",
+        "options": ["A. 5", "B. 6", "C. 12", "D. 编译错误：x 不可变"],
+        "answer": 2,
+        "explanation": "这是 shadowing：每次 let x 创建新的绑定。5 → 6 → 12。shadowing 允许重新绑定，不需要 mut。"
+      },
+      {
+        "id": "u2-ch21-q5",
+        "question": "Shadowing 和 mut 的关键区别是什么？",
+        "options": ["A. 完全等价", "B. Shadowing 可以改变类型，mut 只能改变值", "C. mut 可以改变类型，Shadowing 只能改变值", "D. Shadowing 需要 unsafe"],
+        "answer": 1,
+        "explanation": "Shadowing 创建全新的绑定，可以改变类型（如 let x = \"hello\"; let x = x.len();）。mut 只允许修改同一个绑定的值。"
+      },
+      {
+        "id": "u2-ch21-q6",
+        "question": "char 类型在 Rust 中占多少字节？",
+        "options": ["A. 1 字节", "B. 2 字节", "C. 4 字节", "D. 取决于字符"],
+        "answer": 2,
+        "explanation": "Rust 的 char 表示一个 Unicode 标量值（U+0000 到 U+D7FF, U+E000 到 U+10FFFF），固定占 4 字节。"
+      },
+      {
+        "id": "u2-ch21-q7",
+        "question": "以下代码能编译吗？\nlet tup = (1, 2.0, 'a');\nlet (x, y, z) = tup;\nprintln!(\"{}\", y);",
+        "options": ["A. 不能，元组不能解构", "B. 可以，输出 2", "C. 可以，y 的类型是 f64", "D. 不能，类型不一致"],
+        "answer": 2,
+        "explanation": "元组可以解构。y 被绑定为 f64 类型的 2.0，使用 {} 格式化输出为 2。"
+      },
+      {
+        "id": "u2-ch21-q8",
+        "question": "数组 [i32; 5] 和 Vec<i32> 的核心区别？",
+        "options": ["A. 没有区别", "B. 数组长度固定在编译期，Vec 可以动态增长", "C. 数组在堆上，Vec 在栈上", "D. Vec 不能存放 i32"],
+        "answer": 1,
+        "explanation": "数组 [T; N] 的长度 N 是编译期常量，存在栈上；Vec<T> 是堆上动态数组，可 push/pop。"
+      },
+      {
+        "id": "u2-ch21-q9",
+        "question": "以下代码会怎样？\nlet a = [3; 5];",
+        "options": ["A. 创建 [3, 5]", "B. 创建 [3, 3, 3, 3, 3]", "C. 编译错误", "D. 创建 [5, 5, 5]"],
+        "answer": 1,
+        "explanation": "[value; count] 语法创建一个包含 count 个 value 的数组。[3; 5] 即 [3, 3, 3, 3, 3]。"
+      },
+      {
+        "id": "u2-ch21-q10",
+        "question": "以下哪个类型转换是安全的（不会丢失数据）？",
+        "options": ["A. i32 as i8", "B. i32 as i64", "C. f64 as i32", "D. u64 as u8"],
+        "answer": 1,
+        "explanation": "小范围到大范围的整数转换（i32 → i64）不会丢失数据。其余转换都可能截断或丢失精度。"
+      },
+      {
+        "id": "u2-ch21-q11",
+        "question": "以下代码输出什么？\nlet x: u8 = 255;\nlet y: u8 = x.wrapping_add(1);\nprintln!(\"{}\", y);",
+        "options": ["A. 256", "B. 0", "C. 编译错误", "D. panic"],
+        "answer": 1,
+        "explanation": "wrapping_add 执行回绕加法：255 + 1 = 0（对 u8 而言溢出后回到 0）。在 debug 模式直接 + 会 panic。"
+      },
+      {
+        "id": "u2-ch21-q12",
+        "question": "Rust 中 bool 类型占多少空间？",
+        "options": ["A. 1 bit", "B. 1 byte", "C. 4 bytes", "D. 取决于平台"],
+        "answer": 1,
+        "explanation": "虽然 bool 只有两个值（true/false），但在内存中占 1 字节（8 bits），因为这是最小可寻址单位。"
+      },
+      {
+        "id": "u2-ch21-q13",
+        "question": "以下哪个不是合法的整数字面量？",
+        "options": ["A. 1_000_000", "B. 0xff", "C. 0b1111_0000", "D. 0d255"],
+        "answer": 3,
+        "explanation": "Rust 支持十进制 (无前缀)、十六进制 (0x)、八进制 (0o)、二进制 (0b)，但没有 0d 前缀。"
+      },
+      {
+        "id": "u2-ch21-q14",
+        "question": "以下代码的 x 是什么类型？\nlet x = 42;",
+        "options": ["A. i32（默认推断）", "B. i64", "C. u32", "D. usize"],
+        "answer": 0,
+        "explanation": "未标注类型的整数字面量默认推断为 i32。浮点字面量默认推断为 f64。"
+      },
+      {
+        "id": "u2-ch21-q15",
+        "question": "From 和 Into trait 的关系是什么？",
+        "options": ["A. From 比 Into 快", "B. 实现 From<T> for U 自动获得 Into<U> for T", "C. Into 比 From 更安全", "D. 完全无关"],
+        "answer": 1,
+        "explanation": "标准库有 blanket impl：impl<T, U> Into<U> for T where U: From<T>。所以实现 From 就自动获得 Into。"
+      },
+      {
+        "id": "u2-ch21-q16",
+        "question": "以下代码能编译吗？\nlet s = \"hello\";\nlet s = s.len();\nprintln!(\"{}\", s);",
+        "options": ["A. 不能，s 已经是 &str 不能变 usize", "B. 可以，shadowing 允许改变类型", "C. 不能，需要 let mut s", "D. 可以，但输出是 \"hello\""],
+        "answer": 1,
+        "explanation": "Shadowing 创建全新的绑定，第二个 s 是 usize 类型。输出 5。"
+      },
+      {
+        "id": "u2-ch21-q17",
+        "question": "const 声明必须满足什么条件？",
+        "options": ["A. 必须是整数类型", "B. 必须显式标注类型，且值在编译期可求值", "C. 只能在函数外部声明", "D. 可以在运行时求值"],
+        "answer": 1,
+        "explanation": "const 必须标注类型，其值必须是编译期常量表达式。const 可以在函数内部或外部声明。"
+      },
+      {
+        "id": "u2-ch21-q18",
+        "question": "数组越界访问时会发生什么？",
+        "options": ["A. 返回默认值", "B. 未定义行为", "C. 运行时 panic", "D. 返回 None"],
+        "answer": 2,
+        "explanation": "Rust 数组索引在运行时检查边界。越界访问会触发 panic（index out of bounds），而不是 C 中的未定义行为。"
+      },
+      {
+        "id": "u2-ch21-q19",
+        "question": "以下代码中 y 的类型是什么？\nlet x: (i32, f64, u8) = (500, 6.4, 1);\nlet y = x.1;",
+        "options": ["A. i32", "B. f64", "C. u8", "D. (i32, f64, u8)"],
+        "answer": 1,
+        "explanation": "元组用 .0, .1, .2 按索引访问。x.1 获取第二个元素 6.4，类型为 f64。"
+      },
+      {
+        "id": "u2-ch21-q20",
+        "question": "usize 的大小取决于什么？",
+        "options": ["A. 总是 4 字节", "B. 总是 8 字节", "C. 目标平台的指针宽度", "D. 取决于编译器版本"],
+        "answer": 2,
+        "explanation": "usize 和 isize 的大小等于平台的指针宽度。64位系统上为 8 字节，32位系统上为 4 字节。"
+      },
+      {
+        "id": "u2-ch21-q21",
+        "question": "以下代码的结果是什么？\nlet a: [i32; 0] = [];",
+        "options": ["A. 编译错误", "B. 创建了一个长度为 0 的空数组", "C. 运行时 panic", "D. 创建了 None"],
+        "answer": 1,
+        "explanation": "Rust 允许长度为 0 的数组。[i32; 0] 是合法的零长度数组类型。"
+      },
+      {
+        "id": "u2-ch21-q22",
+        "question": "300i32 as u8 的结果是？",
+        "options": ["A. 300", "B. 44", "C. panic", "D. 255"],
+        "answer": 1,
+        "explanation": "as 对整数执行截断：取低位字节。300 % 256 = 44。不会 panic 也不会饱和。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.1 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 let / mut / const / static</a></li>
+      <li><a href="#kp2">02 标量类型</a></li>
+      <li><a href="#kp3">03 复合类型</a></li>
+      <li><a href="#kp4">04 Shadowing</a></li>
+      <li><a href="#kp5">05 类型转换</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html" class="active">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>基本类型与变量</h1>
+      <p class="chapter-intro">Rust 的类型系统从第一行 let 开始就在引导你写出安全的代码。本章系统梳理四种绑定方式、标量与复合类型、shadowing 的设计意图，以及类型转换的最佳实践。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">变量绑定为什么默认不可变？</a></li>
-            <li><a href="#kp-2">标量类型：推断够用，但别忘了边界</a></li>
-            <li><a href="#kp-3">Shadowing 不是可变性的替代品</a></li>
-            <li><a href="#kp-4">复合类型：元组适合打包，数组强调固定长度</a></li>
-            <li><a href="#kp-5">const vs let：编译期常量不是“永远不变的变量”</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>let / mut / const / static — 四种绑定</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>在 C/C++ 中，变量默认可变，程序员需要自律添加 <code>const</code>。Rust 反转了默认——<strong>let 绑定默认不可变</strong>。这不是语法糖，而是"安全第一"哲学在最底层的体现：修改数据的地方越少，bug 就越少。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>关键字</th><th>可变性</th><th>作用域</th><th>值的性质</th></tr></thead>
+              <tbody>
+                <tr><td><code>let</code></td><td>不可变</td><td>局部</td><td>运行时求值</td></tr>
+                <tr><td><code>let mut</code></td><td>可变</td><td>局部</td><td>运行时求值</td></tr>
+                <tr><td><code>const</code></td><td>不可变</td><td>任意（编译期内联）</td><td>编译期常量表达式</td></tr>
+                <tr><td><code>static</code></td><td>不可变*</td><td>全局（固定内存地址）</td><td>程序全生命周期</td></tr>
+              </tbody>
+            </table>
+            <p><em>*<code>static mut</code> 存在但需要 <code>unsafe</code>，实际开发中几乎不用。</em></p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>bindings.rs</span></div>
+              <pre><code>fn main() {
+    // 1. let：不可变绑定
+    let x = 10;
+    // x = 20; // ❌ 编译错误：cannot assign twice to immutable variable
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.1 基本类型与变量</h1>
-            <p class="chapter-description">这一章解决 Rust 初学者最常见的第一批问题：变量到底绑定了什么、什么时候需要 mut、推断何时足够、元组和数组适合放什么数据，以及为什么 const 和 let 不能混用。学完后，你会更容易读懂编译器提示。</p>
-        </header>
+    // 2. let mut：可变绑定
+    let mut y = 10;
+    y = 20; // ✅ OK
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+    // 3. const：编译期常量，必须标注类型
+    const MAX_POINTS: u32 = 100_000;
+
+    // 4. static：全局变量，有固定内存地址
+    static LANGUAGE: &amp;str = "Rust";
+
+    println!("x={}, y={}, MAX={}, LANG={}", x, y, MAX_POINTS, LANGUAGE);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>x=10, y=20, MAX=100000, LANG=Rust</pre></div>
+            </div>
+            <p><strong>关键区别</strong>：<code>const</code> 的值会被编译器内联到每个使用处（类似 C 的 <code>#define</code>，但有类型检查）；<code>static</code> 有固定的内存地址，可以取引用 <code>&amp;LANGUAGE</code>。</p>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>理解 Rust 中“绑定”与“值”的关系，区分可变绑定与不可变绑定</li>
-                <li>掌握常见标量类型与复合类型的使用方式和适用场景</li>
-                <li>理解 shadowing、类型推断和显式注解分别在解决什么问题</li>
-                <li>避免 const、数组长度、越界访问、错误类型假设等入门阶段常见错误</li>
+              <li><strong>默认用 <code>let</code></strong>，只在需要修改时才加 <code>mut</code>——代码审查时一眼看出哪些变量会变。</li>
+              <li><strong>用 <code>const</code> 做配置常量</strong>：<code>const TIMEOUT_MS: u64 = 5000;</code>，替代魔法数字。</li>
+              <li><strong>用 <code>static</code> 做全局单例</strong>：配合 <code>std::sync::OnceLock</code> 或 <code>lazy_static!</code> 做延迟初始化。</li>
+              <li><code>static mut</code> 几乎永远不要用——用 <code>Mutex</code>/<code>RwLock</code>/<code>AtomicXxx</code> 替代。</li>
             </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>默认你已经能运行一个最小的 Rust 程序，并知道 fn main()、println! 和基本编译流程。本章不讨论所有权细节，但会偶尔提到“绑定”和“值”不是一回事。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.1.1 变量绑定为什么默认不可变？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 不像很多语言那样默认允许变量随时改值，而是要求你显式写 mut？</p>
-            </div>
-            <p>Rust 里的 let 更像“给一个值起名字并绑定到当前作用域”，而不是“创建一个随时可改的盒子”。默认不可变能让编译器更早发现意外修改，也让阅读代码时更容易判断状态是否会变化。</p>
-            <p><strong>正式规则：</strong>使用 let 创建的绑定默认不可变；只有 let mut 才允许通过该绑定修改值。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>bindings.rs</span></div>
-                <pre><code>fn main() {
-    let language = &quot;Rust&quot;;
-    let mut version = 1.77;
-
-    println!(&quot;{language}&quot;);
-    version = 1.78;
-    println!(&quot;version = {version}&quot;);
-
-    // language = &quot;Rustacean&quot;;
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>Rust
-version = 1.78</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>实践建议：</strong>先写不可变绑定，只有确实需要更新状态时再补 mut。这样通常会让后续借用和重构更轻松。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="B" data-explanation="mut 修饰的是绑定，不是“这个类型天生可变”。没有 mut 时，即使类型本身支持修改，也不能通过该绑定重新赋值。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪句话最准确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q1" value="A"> A. Rust 中所有基本类型都默认可变</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q1" value="B"> B. mut 修饰的是绑定是否允许修改</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q1" value="C"> C. 写了 let 就等于写了 let mut</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.1.2 标量类型：推断够用，但别忘了边界</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 let x = 42; 常常没问题，但一旦调用 parse() 或做数值运算，编译器又会要求你写类型？</p>
-            </div>
-            <p>Rust 会尽量根据上下文推断整数、浮点、布尔和字符类型，但当信息不够时，编译器不会靠猜测来冒险。你需要用注解告诉它“这里应该是哪一种标量”。</p>
-            <p><strong>正式规则：</strong>Rust 的标量类型包括整数、浮点数、布尔和字符；当上下文不足以唯一确定类型时，必须添加显式注解。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>scalar_types.rs</span></div>
-                <pre><code>fn main() {
-    let retries: u8 = 3;
-    let ratio = 0.5f32;
-    let is_ready = true;
-    let initial = &#x27;R&#x27;;
-    let port: u16 = &quot;8080&quot;.parse().expect(&quot;端口必须是数字&quot;);
-
-    println!(&quot;{retries}, {ratio}, {is_ready}, {initial}, {port}&quot;);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>3, 0.5, true, R, 8080</pre>
-                </div>
-            </div>
-
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：`'R'` 和 `"R"` 有什么区别？</button>
-                <div class="collapsible-content">`'R'` 是 <code>char</code>，表示单个 Unicode 标量值；`"R"` 是字符串切片 <code>&amp;str</code>。初学者经常把字符和字符串字面量混为一谈。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="parse() 可以解析成很多类型，单看字符串本身无法确定目标类型，所以通常需要变量注解或 turbofish 指定。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么 let port = "8080".parse().unwrap(); 往往需要补类型信息？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q2" value="A"> A. 因为字符串不能解析成数字</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q2" value="B"> B. 因为 unwrap() 会清空类型信息</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q2" value="C"> C. 因为编译器不知道要解析成哪种数字类型</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.1.3 Shadowing 不是可变性的替代品</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 既有 mut，又允许你再次写 let spaces = spaces.len();？它们看起来都像“改值”。</p>
-            </div>
-            <p>mut 是在同一个绑定上修改值；shadowing 则是创建一个同名的新绑定，把旧绑定遮蔽掉。它的好处是你可以在保留名称的同时改变类型、缩小生命周期或者分阶段清洗数据。</p>
-            <p><strong>正式规则：</strong>同一作用域内可以使用新的 let 对已有名称进行 shadowing；新绑定与旧绑定是两个不同的绑定。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>shadowing.rs</span></div>
-                <pre><code>fn main() {
-    let input = &quot; 42 &quot;;
-    let input = input.trim();
-    let input: i32 = input.parse().expect(&quot;必须是整数&quot;);
-
-    println!(&quot;parsed = {input}&quot;);
-
-    let mut counter = 1;
-    counter += 1;
-    println!(&quot;counter = {counter}&quot;);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>parsed = 42
-counter = 2</pre>
-                </div>
-            </div>
-            <div class="note-box warning">
-                <p><strong>常见误区：</strong>想把 <code>String</code> 处理成长度时，不能在同一绑定上直接换类型；这时应该用 shadowing。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="A" data-explanation="shadowing 会创建新的绑定，因此可以改变类型；mut 只能让同一绑定上的值可变，但类型必须保持一致。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>什么时候更适合用 shadowing 而不是 mut？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q3" value="A"> A. 当你想保留同名变量，但把 &amp;str 转成 usize 之类的新类型</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q3" value="B"> B. 当你只想把 counter 从 1 改成 2</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q3" value="C"> C. 当你想绕过编译器的不可变检查</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.1.4 复合类型：元组适合打包，数组强调固定长度</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果你想把一个函数的多个返回值放在一起，或者需要一个长度固定的配置表，应该用同一种类型吗？</p>
-            </div>
-            <p>Rust 的复合类型里，元组可以把不同类型组合在一起，常用于返回多个结果；数组要求所有元素类型相同且长度固定，适合已知大小的数据块、缓冲区和查表场景。</p>
-            <p><strong>正式规则：</strong>元组元素类型可不同，通过解构或 .0、.1 访问；数组写作 [T; N]，其中长度 N 是类型的一部分。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>tuples_arrays.rs</span></div>
-                <pre><code>fn main() {
-    let http_status: (u16, &amp;str) = (200, &quot;OK&quot;);
-    let (code, message) = http_status;
-
-    let weekdays = [&quot;Mon&quot;, &quot;Tue&quot;, &quot;Wed&quot;, &quot;Thu&quot;, &quot;Fri&quot;];
-    let zeros = [0; 4];
-
-    println!(&quot;{code} {message}&quot;);
-    println!(&quot;first = {}, len = {}&quot;, weekdays[0], weekdays.len());
-    println!(&quot;zeros = {:?}&quot;, zeros);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>200 OK
-first = Mon, len = 5
-zeros = [0, 0, 0, 0]</pre>
-                </div>
-            </div>
-
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：数组越界会怎样？</button>
-                <div class="collapsible-content">运行时索引越界会 panic，因为 Rust 不允许悄悄读到非法内存。编译器无法在所有情况下静态证明索引安全时，会把越界检查保留到运行时。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="数组长度是类型的一部分，所以 [i32; 3] 和 [i32; 4] 是不同类型；元组更适合组合不同类型的固定字段。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪项最适合作为数组的特征描述？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q4" value="A"> A. 元素类型可以不同，只要顺序固定</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q4" value="B"> B. 元素类型相同，长度固定且写进类型里</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q4" value="C"> C. 它和 Vec 完全一样，只是写法更短</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.1.5 const vs let：编译期常量不是“永远不变的变量”</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>配置端口、重试上限、数组长度这些值，什么时候应该写成 const，什么时候普通 let 就够了？</p>
-            </div>
-            <p>let 绑定的是运行时值；const 定义的是编译期常量，必须显式写类型，而且值必须能在编译期求出。二者都可以不可变，但它们服务的阶段不同。</p>
-            <p><strong>正式规则：</strong>const 需要类型注解，不能依赖运行时计算；let 可以配合推断在运行时绑定值，并且可以被 shadowing。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>const_vs_let.rs</span></div>
-                <pre><code>const MAX_RETRIES: u8 = 5;
-const BUFFER_SIZE: usize = 1024;
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>const_vs_static.rs</span></div>
+              <pre><code>const PI: f64 = 3.14159265358979;
+static GREETING: &amp;str = "hello";
 
 fn main() {
-    let filename = &quot;config.toml&quot;;
-    let retry_delay_ms = 200;
+    // const 每次使用可能产生不同的内联副本
+    // static 有唯一固定的内存地址
+    let g: &amp;'static str = GREETING;
+    println!("{}, PI={}", g, PI);
 
-    println!(&quot;file = {filename}&quot;);
-    println!(&quot;retries = {MAX_RETRIES}, buffer = {BUFFER_SIZE}, delay = {retry_delay_ms}&quot;);
+    // static 可以取地址比较
+    let ptr1 = &amp;GREETING as *const _;
+    let ptr2 = &amp;GREETING as *const _;
+    println!("same address: {}", std::ptr::eq(ptr1, ptr2));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>file = config.toml
-retries = 5, buffer = 1024, delay = 200</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>hello, PI=3.14159265358979
+same address: true</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>入门高频错误清单：</strong>把 <code>const</code> 当作“全局 let”、忘记给 <code>const</code> 写类型、认为 <code>mut</code> 可以改变变量类型、把 <code>char</code> 写成字符串、以为数组和 <code>Vec</code> 一样可伸缩。</p>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>const</code> 不能用于非 <code>const fn</code> 的函数调用。例如 <code>const V: Vec&lt;i32&gt; = Vec::new();</code> 可以（Vec::new 是 const fn），但 <code>const S: String = String::from("hi");</code> 不行。
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下哪个声明的读写需要 <code>unsafe</code>？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'let mut 是安全的可变绑定。')">A. let mut x = 5;</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'const 是编译期常量，完全安全。')">B. const X: i32 = 5;</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '对 static mut 的任何读写都需要 unsafe 块，因为存在数据竞争风险。')">C. static mut COUNTER: i32 = 0;</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '不可变 static 是安全的。')">D. static NAME: &amp;str = "rust";</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-            <div class="quick-quiz" data-answer="C" data-explanation="const 代表编译期常量，必须显式标注类型，且其值需要在编译期可确定。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪一项最符合 const 的要求？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q5" value="A"> A. 可以省略类型，只要编译器能猜出来</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q5" value="B"> B. 可以依赖用户输入动态生成</label>
-                    <label><input type="radio" name="ch2.1_basic_types_variables-q5" value="C"> C. 必须在编译期就能确定，并显式写出类型</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>标量类型 — 整数、浮点、布尔、字符</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 是强类型语言，不会像 C 一样隐式转换 <code>int + float</code>。选错类型不只是"跑不动"——可能导致溢出 panic 或截断丢数据。掌握每种标量的宽度和行为是避免运行时 bug 的基础。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 有四类标量：</p>
+            <table class="info-table">
+              <thead><tr><th>类别</th><th>类型</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>有符号整数</td><td><code>i8 / i16 / i32 / i64 / i128 / isize</code></td><td>补码表示</td></tr>
+                <tr><td>无符号整数</td><td><code>u8 / u16 / u32 / u64 / u128 / usize</code></td><td>非负</td></tr>
+                <tr><td>浮点数</td><td><code>f32, f64</code></td><td>IEEE 754；默认 f64</td></tr>
+                <tr><td>布尔</td><td><code>bool</code></td><td>true / false，1 字节</td></tr>
+                <tr><td>字符</td><td><code>char</code></td><td>Unicode 标量值，4 字节</td></tr>
+              </tbody>
+            </table>
+            <p><strong>默认推断</strong>：整数字面量 → <code>i32</code>，浮点字面量 → <code>f64</code>。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>scalars.rs</span></div>
+              <pre><code>fn main() {
+    // 整数字面量的多种写法
+    let decimal = 98_222;        // 下划线增加可读性
+    let hex     = 0xff;          // 十六进制
+    let octal   = 0o77;          // 八进制
+    let binary  = 0b1111_0000;   // 二进制
+    let byte    = b'A';          // u8 字节字面量 = 65
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+    // 类型后缀
+    let x = 42u8;                // 明确指定 u8
+    let y = 3.14f32;             // 明确指定 f32
+
+    // bool
+    let t = true;
+    let f: bool = false;
+
+    // char — 注意是单引号，支持 Unicode
+    let c = 'z';
+    let emoji = '🦀';
+    println!("decimal={}, hex={}, byte={}", decimal, hex, byte);
+    println!("char size: {} bytes", std::mem::size_of::&lt;char&gt;());
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>decimal=98222, hex=255, byte=65
+char size: 4 bytes</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>let 创建的是绑定，默认不可变；let mut 才允许通过该绑定修改值</li>
-                <li>标量类型通常可由上下文推断，但在 parse()、边界敏感数值和公共 API 中应主动注解</li>
-                <li>shadowing 适合分阶段转换数据或改变类型，mut 适合同一类型上的状态更新</li>
-                <li>元组适合组合异构返回值，数组适合同构且固定长度的数据</li>
-                <li>const 是编译期常量，和普通不可变 let 的使用场景不同</li>
+              <li><strong>索引用 <code>usize</code></strong>——数组索引、<code>.len()</code> 返回值都是 <code>usize</code>。</li>
+              <li><strong>网络/文件用固定宽度</strong>——协议解析中用 <code>u16</code>/<code>u32</code> 精确匹配字段宽度。</li>
+              <li><strong>溢出处理四兄弟</strong>——<code>checked_add</code>（返回 Option）/ <code>wrapping_add</code>（回绕）/ <code>saturating_add</code>（饱和）/ <code>overflowing_add</code>（返回元组）。debug 模式下直接 <code>+</code> 溢出会 panic。</li>
+              <li><strong>避免 <code>f32</code> 做精度敏感计算</strong>——金融场景用整数（分为单位）或专用 decimal 库。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>overflow.rs</span></div>
+              <pre><code>fn main() {
+    let a: u8 = 255;
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 写出一个包含 bool、char、u32 的最小示例，并说明每个字面量为什么会被推断成该类型。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 把字符串 " 256 " 依次经过 trim、parse，最终得到 u16。要求保留同一个变量名，思考该用 shadowing 还是 mut。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 解释为什么下面代码会报错：let mut name = String::from("rust"); name = name.len(); 并给出两种修正方式。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 假设你在写一个网络服务配置模块：哪些字段适合写成 const，哪些值应该在 main 里用 let 绑定？请给出理由。</li>
-            </ol>
-        </section>
+    // debug 模式：直接 a + 1 会 panic!
+    // let b = a + 1; // thread 'main' panicked at 'attempt to add with overflow'
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+    // 四种安全替代方案
+    let b = a.checked_add(1);     // None（溢出）
+    let c = a.wrapping_add(1);    // 0（回绕）
+    let d = a.saturating_add(1);  // 255（饱和到最大值）
+    let (e, overflowed) = a.overflowing_add(1); // (0, true)
+
+    println!("checked:     {:?}", b);
+    println!("wrapping:    {}", c);
+    println!("saturating:  {}", d);
+    println!("overflowing: {} (overflow={})", e, overflowed);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>checked:     None
+wrapping:    0
+saturating:  255
+overflowing: 0 (overflow=true)</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：不要混用 <code>usize</code> 和 <code>i32</code>——Rust 不会隐式转换，需要显式 <code>as usize</code> 或 <code>try_into()</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">在 64 位系统上，<code>usize</code> 等价于哪个类型？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'u32 是 32 位无符号，只在 32 位系统上才与 usize 一致。')">A. u32</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '在 64 位系统上 usize 为 8 字节，等价于 u64。')">B. u64</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'i64 是有符号的，usize 是无符号的。')">C. i64</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'u128 是 128 位，太大了。')">D. u128</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>复合类型 — 元组与数组</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>标量只存单个值。需要把多个值打包时，Rust 提供两种编译期固定大小的复合类型：<strong>元组</strong>（不同类型的组合）和<strong>数组</strong>（相同类型的序列）。它们在栈上分配，不涉及堆，是最轻量的组合结构。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>特征</th><th>元组 <code>(T1, T2, ...)</code></th><th>数组 <code>[T; N]</code></th></tr></thead>
+              <tbody>
+                <tr><td>元素类型</td><td>可以不同</td><td>必须相同</td></tr>
+                <tr><td>长度</td><td>编译期固定</td><td>编译期固定</td></tr>
+                <tr><td>访问方式</td><td><code>.0 .1 .2</code> 或解构</td><td><code>[index]</code> 或切片</td></tr>
+                <tr><td>存储位置</td><td>栈</td><td>栈</td></tr>
+              </tbody>
+            </table>
+            <p><strong>切片 <code>&amp;[T]</code></strong> 是数组/Vec 的动态视图——不拥有数据，只包含 (指针, 长度)。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>compound.rs</span></div>
+              <pre><code>fn main() {
+    // ---- 元组 ----
+    let tup: (i32, f64, char) = (42, 6.28, '🦀');
+    let (x, y, z) = tup;           // 解构
+    println!("x={}, y={}, z={}", x, y, z);
+    println!("tup.0 = {}", tup.0); // 索引访问
+
+    // 单元素元组需要逗号区分
+    let single = (42,);    // 元组 (i32,)
+    let not_tuple = (42);  // 只是 i32
+
+    // 空元组 = unit type ()
+    let _unit: () = ();
+
+    // ---- 数组 ----
+    let arr = [1, 2, 3, 4, 5];        // [i32; 5]
+    let zeros = [0; 10];              // [i32; 10]，10 个 0
+    let first = arr[0];
+    println!("first={}, len={}", first, arr.len());
+
+    // ---- 切片 ----
+    let slice: &amp;[i32] = &amp;arr[1..4];   // [2, 3, 4]
+    println!("slice={:?}, len={}", slice, slice.len());
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>x=42, y=6.28, z=🦀
+tup.0 = 42
+first=1, len=5
+slice=[2, 3, 4], len=3</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html">The Rust Programming Language · Variables and Mutability</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch03-02-data-types.html">The Rust Programming Language · Data Types</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/primitives.html">Rust By Example · Primitives</a></li>
+              <li><strong>函数返回多个值</strong>——用元组：<code>fn divide(a: i32, b: i32) -&gt; (i32, i32) { (a / b, a % b) }</code></li>
+              <li><strong>固定大小缓冲区</strong>——<code>let buf: [u8; 1024] = [0; 1024];</code> 栈分配，零开销。</li>
+              <li><strong>参数传切片</strong>——<code>fn sum(data: &amp;[i32])</code> 比 <code>fn sum(data: [i32; 5])</code> 更通用，能接受任意长度。</li>
+              <li><strong>超过 3 个字段</strong>——用命名 struct 而非元组，提高可读性。</li>
             </ul>
-        </section>
-    </main>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>slice_fn.rs</span></div>
+              <pre><code>fn sum(data: &amp;[i32]) -&gt; i32 {
+    let mut total = 0;
+    for val in data {
+        total += val;
+    }
+    total
+}
 
-    <script src="../assets/js/main.js"></script>
+fn main() {
+    let arr = [10, 20, 30, 40, 50];
+    println!("sum all:  {}", sum(&amp;arr));        // 传整个数组的切片
+    println!("sum 1..3: {}", sum(&amp;arr[1..3])); // 传子切片 [20, 30]
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>sum all:  150
+sum 1..3: 50</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>[T; N]</code> 和 <code>[T; M]</code> 是<em>不同类型</em>（N ≠ M 时）。不能把 <code>[i32; 3]</code> 传给期望 <code>[i32; 5]</code> 的函数。用切片 <code>&amp;[i32]</code> 消除长度约束。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>let a = (42);</code> 的类型是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '需要逗号 (42,) 才是元组。')">A. 包含 42 的元组</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '括号只是分组，没有逗号不构成元组。(42) 就是 i32。')">B. i32</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不是数组语法。')">C. [i32; 1]</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '这不会编译失败。')">D. 编译错误</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>Shadowing — 重新绑定的艺术</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>很多语言禁止同名变量重复声明，但 Rust 有意允许 <strong>shadowing</strong>（遮蔽）。这不是设计缺陷——它让你能在数据转换管道中复用变量名，同时保持每一步都是不可变绑定，兼具可读性和安全性。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Shadowing 的本质：用 <code>let</code> 重新声明同名变量，<strong>创建全新的绑定</strong>，旧绑定被遮蔽。</p>
+            <table class="info-table">
+              <thead><tr><th>对比</th><th>Shadowing</th><th>mut</th></tr></thead>
+              <tbody>
+                <tr><td>类型改变</td><td>✅ 可以</td><td>❌ 不行</td></tr>
+                <tr><td>本质</td><td>创建新绑定</td><td>修改现有绑定的值</td></tr>
+                <tr><td>旧值</td><td>被遮蔽（但仍在内存中直到作用域结束）</td><td>被覆盖</td></tr>
+                <tr><td>适用场景</td><td>类型转换管道</td><td>原地累加/计数器</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>shadowing.rs</span></div>
+              <pre><code>fn main() {
+    // 1. 值变化 + 类型不变
+    let x = 5;
+    let x = x + 1;   // 6
+    let x = x * 2;   // 12
+    println!("x = {}", x);
+
+    // 2. 类型变化——mut 做不到！
+    let spaces = "   ";         // &amp;str
+    let spaces = spaces.len();  // usize
+    println!("spaces = {}", spaces);
+
+    // 3. mut 不能改变类型
+    // let mut s = "hello";
+    // s = s.len(); // ❌ expected &amp;str, found usize
+
+    // 4. 内部作用域 shadowing
+    let y = 10;
+    {
+        let y = y + 5;  // 内部 y = 15
+        println!("inner y = {}", y);
+    }
+    println!("outer y = {}", y); // 外部 y = 10
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>x = 12
+spaces = 3
+inner y = 15
+outer y = 10</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>输入解析管道</strong>——<code>let input = read_line(); let input = input.trim(); let input: i32 = input.parse().unwrap();</code> 每步都用 <code>input</code>，类型渐变。</li>
+              <li><strong>避免命名焦虑</strong>——不用想 <code>input_str</code>、<code>input_trimmed</code>、<code>input_num</code>。</li>
+              <li><strong>保持不可变</strong>——每步都是不可变绑定，编译器能更好地分析和优化。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>parsing_pipeline.rs</span></div>
+              <pre><code>use std::io;
+
+fn main() {
+    println!("请输入一个数字：");
+    let mut input = String::new();
+    io::stdin().read_line(&amp;mut input).unwrap();
+
+    // shadowing 管道：每步类型不同
+    let input = input.trim();               // &amp;str
+    let input: f64 = input.parse()          // f64
+        .expect("请输入有效数字");
+    let input = (input * 100.0) as i64;     // i64（转为分）
+
+    println!("转换为分：{}", input);
+}</code></pre>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：Shadowing 遮蔽旧变量但不立即释放其内存（等到作用域结束）。一般来说编译器会优化掉不再使用的旧绑定，不需要担心。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下代码能编译吗？<br><code>let mut x = "hello"; x = x.len();</code></div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'mut 只允许改变值，不允许改变类型。')">A. 可以，mut 允许修改</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'mut 不能改变绑定类型。需要 let x = x.len(); 进行 shadowing。')">B. 不行，mut 不能改变类型</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '这是编译错误，不会到运行时。')">C. 可以运行但会 panic</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&str 可以赋给 let mut，问题不在这里。')">D. 不行，&amp;str 不能赋值给 mut</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>类型转换 — as、From/Into 与 TryFrom</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 没有隐式类型转换。每次类型不匹配都是编译错误。你需要显式选择转换方式——这看起来啰嗦，但它防止了整数溢出、精度丢失等隐蔽 bug。理解三种转换方式的安全性级别，是写出健壮代码的关键。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>方式</th><th>安全性</th><th>适用场景</th></tr></thead>
+              <tbody>
+                <tr><td><code>as</code></td><td>⚠️ 可能截断/溢出</td><td>已知安全的 primitive 转换</td></tr>
+                <tr><td><code>From / Into</code></td><td>✅ 编译期保证无损</td><td>无损转换（i32 → i64）</td></tr>
+                <tr><td><code>TryFrom / TryInto</code></td><td>✅ 返回 Result</td><td>可能失败的转换（i64 → i32）</td></tr>
+                <tr><td><code>.parse()</code></td><td>✅ 返回 Result</td><td>字符串 → 数值</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>conversion.rs</span></div>
+              <pre><code>fn main() {
+    // 1. as — 原始类型强制转换
+    let x: i32 = 42;
+    let y: i64 = x as i64;        // 安全：小→大
+    let z: i8  = x as i8;         // 42 在 i8 范围内 OK，但更大值会截断
+
+    let big: i32 = 300;
+    let truncated: u8 = big as u8; // 300 % 256 = 44
+    println!("300 as u8 = {}", truncated);
+
+    // 2. From / Into — 安全无损
+    let n: i64 = i64::from(42i32);   // From
+    let m: i64 = 42i32.into();       // Into（编译器推断目标类型）
+    println!("from={}, into={}", n, m);
+
+    // 3. TryFrom / TryInto — 可能失败
+    use std::convert::TryFrom;
+    let big_val: i64 = 300;
+    let result = i8::try_from(big_val);   // Err：超出范围
+    println!("try_from 300→i8: {:?}", result);
+
+    let small_val: i64 = 42;
+    let ok = i8::try_from(small_val);     // Ok(42)
+    println!("try_from 42→i8:  {:?}", ok);
+
+    // 4. parse — 字符串转数值
+    let pi: f64 = "3.14".parse().unwrap();
+    println!("parsed: {}", pi);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>300 as u8 = 44
+from=42, into=42
+try_from 300→i8: Err(TryFromIntError(()))
+try_from 42→i8:  Ok(42)
+parsed: 3.14</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>优先用 <code>From/Into</code></strong>——编译期保证无损。自定义类型也应该实现 <code>From</code>。</li>
+              <li><strong>外部输入用 <code>TryFrom</code></strong>——网络、文件、用户输入等不可信数据。</li>
+              <li><strong><code>as</code> 仅在确定安全时</strong>——如 <code>u8 as u32</code>（小→大）。避免大→小的 <code>as</code>。</li>
+              <li><strong>实现 <code>From</code> 自动获得 <code>Into</code></strong>——只需实现 <code>From</code>，标准库 blanket impl 自动提供 <code>Into</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>custom_from.rs</span></div>
+              <pre><code>struct Celsius(f64);
+struct Fahrenheit(f64);
+
+impl From&lt;Celsius&gt; for Fahrenheit {
+    fn from(c: Celsius) -&gt; Self {
+        Fahrenheit(c.0 * 9.0 / 5.0 + 32.0)
+    }
+}
+
+fn main() {
+    let boiling = Celsius(100.0);
+    let f: Fahrenheit = boiling.into(); // 自动获得 Into
+    println!("100°C = {}°F", f.0);
+
+    // 反向：Fahrenheit → Celsius 需要另外实现
+    // let c: Celsius = f.into(); // ❌ 没有实现
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>100°C = 212°F</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>as</code> 转换不会报错也不会 panic，悄悄截断。<code>let x: i32 = 256; let y = x as u8;</code> 得到 0，不是 256。在不确定范围时用 <code>TryFrom</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>300i32 as u8</code> 的结果是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '300 超出 u8 范围 (0-255)。')">A. 300</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '300 % 256 = 44。as 对整数取低位字节截断。')">B. 44</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, 'as 不会 panic，它直接截断。')">C. panic</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, 'as 不会饱和，那是 saturating 系列方法的行为。')">D. 255</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="../unit1_ownership/ch1.4_ownership_in_practice.html">← Ch 1.4 所有权实践</a>
+      <a class="nav-next" href="ch2.2_control_flow.html">Ch 2.2 控制流 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

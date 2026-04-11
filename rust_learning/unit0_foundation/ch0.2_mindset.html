@@ -1,325 +1,935 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 0.2 心态建设 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 0.2 心态建设 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    /* ── 课后练习题数据 ── */
+    const QUESTIONS = [
+      {
+        "id": "u0-ch02-q1",
+        "question": "Rust 和 C++ 在内存安全保障上的核心区别是什么？",
+        "options": ["A. Rust 不允许使用指针", "B. Rust 在编译期拦截大部分内存错误", "C. C++ 运行速度更快所以不需要安全检查", "D. Rust 使用垃圾回收机制"],
+        "answer": 1,
+        "explanation": "Rust 通过所有权系统在编译期拦截悬垂引用、双重释放等内存错误。C++ 允许编译通过但可能在运行时崩溃。Rust 不使用 GC。"
+      },
+      {
+        "id": "u0-ch02-q2",
+        "question": "在 C++ 中，use-after-free 通常在什么阶段被发现？",
+        "options": ["A. 编译期", "B. 链接期", "C. 运行时（可能是随机崩溃）", "D. 代码审查时"],
+        "answer": 2,
+        "explanation": "C++ 编译器不检查 use-after-free，这类错误在运行时才暴露，可能以 segfault 或隐蔽的数据损坏形式出现。"
+      },
+      {
+        "id": "u0-ch02-q3",
+        "question": "Rust 的 borrow checker 在编译期拒绝代码时，意味着什么？",
+        "options": ["A. 你的代码逻辑一定是错的", "B. 编译器发现了潜在的内存安全问题", "C. Rust 不支持这种编程模式", "D. 你需要切换到 unsafe 模式"],
+        "answer": 1,
+        "explanation": "borrow checker 拒绝代码说明存在潜在的内存安全风险（如悬垂引用、数据竞争）。通常可以通过调整数据结构或借用方式修复。"
+      },
+      {
+        "id": "u0-ch02-q4",
+        "question": ""Fighting the borrow checker" 最常发生在哪个阶段？",
+        "options": ["A. 学习 Rust 超过 3 年之后", "B. 学习前 1-3 个月", "C. 只在写 unsafe 代码时", "D. 只在写并发代码时"],
+        "answer": 1,
+        "explanation": "几乎所有 Rust 学习者在前几个月都会频繁遇到 borrow checker 报错。这是正常的学习曲线，随着经验积累会大幅减少。"
+      },
+      {
+        "id": "u0-ch02-q5",
+        "question": "当你遇到一个编译器错误又看不懂时，最高效的做法是？",
+        "options": ["A. 随便改代码直到编译通过", "B. 查看错误码说明并阅读编译器的 help 建议", "C. 切换到 Python 重写", "D. 加 unsafe 绕过检查"],
+        "answer": 1,
+        "explanation": "编译器的 help 建议和 rustc --explain EXXXX 是最直接的学习资源。随便改或用 unsafe 绕过都不是正确的学习方式。"
+      },
+      {
+        "id": "u0-ch02-q6",
+        "question": "Rust 编译期检查相比 C++ 运行期发现 bug，工程成本如何？",
+        "options": ["A. 编译期修 bug 成本更高", "B. 两者成本差不多", "C. 编译期修 bug 成本远低于运行期", "D. 取决于代码行数"],
+        "answer": 2,
+        "explanation": "编译期发现的 bug 修复成本远低于部署后的运行时崩溃。线上 segfault 可能需要数小时调试和紧急修复。"
+      },
+      {
+        "id": "u0-ch02-q7",
+        "question": "以下哪个 C++ 问题在 Rust 中被编译器完全阻止？",
+        "options": ["A. 算法复杂度过高", "B. 悬垂引用（dangling reference）", "C. 逻辑错误导致错误结果", "D. 网络超时"],
+        "answer": 1,
+        "explanation": "Rust 的所有权和借用系统在编译期阻止悬垂引用。算法错误、逻辑错误和外部 I/O 问题不在编译器的检查范围内。"
+      },
+      {
+        "id": "u0-ch02-q8",
+        "question": "初学者在 Rust 中最容易卡在哪个概念上？",
+        "options": ["A. for 循环语法", "B. 所有权和借用规则", "C. println! 宏用法", "D. 变量命名规范"],
+        "answer": 1,
+        "explanation": "所有权和借用是 Rust 独有的概念，也是编译器拒绝代码最常见的原因。这是学习曲线中最陡峭的部分。"
+      },
+      {
+        "id": "u0-ch02-q9",
+        "question": "经验丰富的 Rust 开发者遇到 borrow checker 报错时的典型反应是？",
+        "options": ["A. 加 unsafe 绕过", "B. 重新思考数据结构和所有权设计", "C. 切换到其他语言", "D. 提交 Rust 编译器 bug report"],
+        "answer": 1,
+        "explanation": "成熟的做法是把编译器报错当作设计信号——也许数据结构需要调整，也许所有权关系需要重新规划。"
+      },
+      {
+        "id": "u0-ch02-q10",
+        "question": "rustc --explain E0505 用来做什么？",
+        "options": ["A. 自动修复 E0505 错误", "B. 显示该错误码的详细文档和示例", "C. 编译名为 E0505 的文件", "D. 禁用 E0505 检查"],
+        "answer": 1,
+        "explanation": "--explain 输出错误码的完整文档，包括原因分析、代码示例和修复方向。是读懂编译器错误的最佳入口。"
+      },
+      {
+        "id": "u0-ch02-q11",
+        "question": "Rust Playground 的主要用途是什么？",
+        "options": ["A. 在线部署 Rust Web 应用", "B. 快速试运行小段 Rust 代码", "C. 管理 Rust 项目依赖", "D. 下载 Rust 工具链"],
+        "answer": 1,
+        "explanation": "Rust Playground (play.rust-lang.org) 是在线 Rust 编辑器，可以快速编写、编译、运行小段代码，非常适合实验和学习。"
+      },
+      {
+        "id": "u0-ch02-q12",
+        "question": "在 Rust 中为什么没有传统意义上的 REPL？",
+        "options": ["A. 因为 Rust 开发者不需要交互式环境", "B. 因为 Rust 是编译型语言，类型检查和所有权规则需要完整编译", "C. 因为 REPL 太慢了", "D. 因为 Rust 不支持表达式求值"],
+        "answer": 1,
+        "explanation": "Rust 的编译期检查（类型推断、所有权、借用）需要完整的代码上下文。不过 evcxr 等项目提供了部分 REPL 功能。"
+      },
+      {
+        "id": "u0-ch02-q13",
+        "question": "\"小步迭代\"学习 Rust 的含义是？",
+        "options": ["A. 一次写完整个项目再编译", "B. 每次只改几行代码，频繁编译验证", "C. 先学完所有理论再写代码", "D. 跳过编译错误继续写后面的代码"],
+        "answer": 1,
+        "explanation": "小步迭代意味着每次只做微小的改动，立即编译检查。这能帮你快速定位编译器报错的原因，避免错误堆积。"
+      },
+      {
+        "id": "u0-ch02-q14",
+        "question": "\"编译器是你的导师\" 这句话的含义是？",
+        "options": ["A. 编译器会自动写代码", "B. 编译器的错误信息包含学习线索和修复建议", "C. 编译器能替代文档", "D. 编译器永远是对的"],
+        "answer": 1,
+        "explanation": "Rust 编译器的错误信息结构化且带有修复建议，它就像一个严格但耐心的导师，帮你理解规则。"
+      },
+      {
+        "id": "u0-ch02-q15",
+        "question": "以下哪种做法最能帮助 Rust 初学者度过 borrow checker 的学习曲线？",
+        "options": ["A. 尽量避免写带引用的代码", "B. 多用 .clone() 先让代码编译通过，再逐步优化", "C. 所有数据都用全局变量", "D. 只写 unsafe 代码"],
+        "answer": 1,
+        "explanation": "初学阶段多用 .clone() 是实用的策略——先让代码能跑，理解了 ownership 模型后再考虑优化。这比一上来就追求零拷贝有效得多。"
+      },
+      {
+        "id": "u0-ch02-q16",
+        "question": "C++ 中 double free 的典型后果是？",
+        "options": ["A. 编译错误", "B. 链接错误", "C. 未定义行为（可能崩溃或数据损坏）", "D. 编译器自动修复"],
+        "answer": 2,
+        "explanation": "C++ 的 double free 是未定义行为，可能表现为 segfault、数据损坏甚至\"看起来正常\"。Rust 在编译期就阻止了这种情况。"
+      },
+      {
+        "id": "u0-ch02-q17",
+        "question": "Rust Playground 支持以下哪种操作？",
+        "options": ["A. 选择 stable / beta / nightly 版本编译", "B. 安装外部 crate 到本地", "C. 部署到生产服务器", "D. 调试设置断点"],
+        "answer": 0,
+        "explanation": "Playground 支持切换 stable/beta/nightly、选择 edition、查看 ASM/MIR 输出。它面向快速实验，不支持完整的项目管理和调试。"
+      },
+      {
+        "id": "u0-ch02-q18",
+        "question": "学习 Rust 时，测试驱动的方法是指？",
+        "options": ["A. 只运行别人写的测试", "B. 先写小测试验证理解，再扩展代码", "C. 跳过测试直接部署", "D. 测试只在 Release 模式运行"],
+        "answer": 1,
+        "explanation": "先写小测试，编译，看结果，逐步加入新概念——这种反馈循环是学习 Rust ownership 模型最有效的方法。"
+      },
+      {
+        "id": "u0-ch02-q19",
+        "question": "当编译器报 error[E0382]: use of moved value 时，最合理的思路是？",
+        "options": ["A. 删掉报错的代码", "B. 分析所有权流动方向，决定该 clone、借用还是重构", "C. 把所有变量改成全局变量", "D. 关闭编译器检查"],
+        "answer": 1,
+        "explanation": "E0382 意味着值的所有权已经转移。正确的思路是理解所有权流动，然后决定是 clone、借用（&）还是调整数据结构。"
+      },
+      {
+        "id": "u0-ch02-q20",
+        "question": "Rust 学习曲线的典型特征是？",
+        "options": ["A. 一开始很轻松，后期变难", "B. 前期陡峭（编译器频繁报错），度过后效率快速提升", "C. 始终困难，没有变轻松的时候", "D. 和 Python 的学习曲线一样"],
+        "answer": 1,
+        "explanation": "Rust 前期因为所有权系统学习曲线陡峭，但一旦建立了思维模型，编码效率和代码质量都会显著提升。"
+      },
+      {
+        "id": "u0-ch02-q21",
+        "question": "相比 C++，Rust 的 \"安全税\" 体现在哪里？",
+        "options": ["A. 运行速度慢 50%", "B. 编译时间更长、前期学习曲线更陡", "C. 不能做系统编程", "D. 不能使用多线程"],
+        "answer": 1,
+        "explanation": "Rust 的安全税主要是编译时间（编译器需要做更多检查）和学习初期的思维转换成本。运行时性能与 C++ 相当。"
+      },
+      {
+        "id": "u0-ch02-q22",
+        "question": "以下哪项不是有效的 Rust 学习反馈循环策略？",
+        "options": ["A. 在 Playground 上试代码片段", "B. 每改几行就 cargo check 一次", "C. 一次写 500 行再编译", "D. 写小函数并用 #[test] 验证"],
+        "answer": 2,
+        "explanation": "一次写大量代码再编译会导致错误堆积，难以定位。小步迭代、频繁编译才是有效的学习策略。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit0_foundation"
+      style="--domain-color: var(--c-foundation);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 0 · 环境与心态</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
+  <!-- ── Topbar ── -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">FOUNDATION</span>
+      <a href="../index.html" class="module-name">Unit 0 · 环境与心态</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.2 / 2</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 0 正式页面</li>
-            <li><a href="./ch0.1_toolchain.html">0.1 工具链</a></li>
-            <li><a href="./ch0.2_mindset.html" class="active">0.2 心态建设</a></li>
+  <!-- ── TOC Sidebar ── -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 · Rust 与 C++ 的本质区别</a></li>
+      <li><a href="#kp2">02 · "Fighting the borrow checker"</a></li>
+      <li><a href="#kp3">03 · 编译器信息是学习资源</a></li>
+      <li><a href="#kp4">04 · 建立有效的学习反馈循环</a></li>
+      <li><a href="#exercises">综合练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">接受前陡后缓的学习曲线</a></li>
-            <li><a href="#kp-2">把编译器当老师</a></li>
-            <li><a href="#kp-3">预期 ownership 挫败感</a></li>
-            <li><a href="#kp-4">建立 cargo 反馈循环</a></li>
-            <li><a href="#kp-5">少用 clone，多想借用</a></li>
-            <li><a href="#summary">章节总结</a></li>
-        </ul>
-    </nav>
+  <!-- ── Main Content ── -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 0 · 环境与心态</p>
+      <h1>Ch 0.2 心态建设</h1>
+      <p class="chapter-intro">
+        Rust 的学习体验和大多数语言不同——编译器会频繁拒绝你的代码，而这恰恰是它在帮你。
+        本章帮你建立正确的预期：理解 Rust 与 C++ 的根本差异、认识"和 borrow checker 搏斗"是正常阶段、
+        学会从编译器错误中提取学习信号、以及用小步迭代的方式高效练习。
+      </p>
+    </header>
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 0 · 环境与心态</span>
-            <h1>Ch 0.2 心态建设</h1>
-            <p class="chapter-description">
-                Rust 的难点不只在语法，而在它会持续逼你解释“谁拥有数据、谁只借用、什么时候释放”。
-                本章的目标不是让你少犯错，而是帮你把这些错误变成可重复利用的学习反馈循环。
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- KP1: Rust 与 C++ 的本质区别                               -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>Rust 与 C++ 的本质区别</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>
+              如果你有 C/C++ 背景，可能会把 Rust 当作"加了一堆限制的 C++"。
+              这种心态会让你在编译器频繁拒绝代码时感到沮丧。理解两者的根本差异，能帮你建立正确的预期：
+              Rust 不是在给你添麻烦，而是在帮你把本该在线上 3am 发现的 bug 提前到编译阶段解决。
             </p>
-        </header>
+          </div>
+        </div>
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>C++ 和 Rust 对内存安全采取了截然不同的策略：</p>
             <ul>
-                <li>理解 Rust 学习曲线为什么常常是“前期陡、后期稳”</li>
-                <li>建立“编译器是老师，不是敌人”的阅读报错方式</li>
-                <li>提前预期所有权与借用阶段的正常挫败感</li>
-                <li>形成 <code>cargo check</code> / <code>cargo test</code> / <code>cargo clippy</code> 的迭代工作流</li>
-                <li>遇到 borrow checker 时优先重画数据流，而不是立刻堆 <code>clone()</code></li>
+              <li><strong>C++ 的哲学</strong>："信任程序员"。编译器不检查你有没有 use-after-free、double-free 或数据竞争。出了问题是未定义行为，可能崩溃，也可能"看起来对了"却在生产环境爆炸。</li>
+              <li><strong>Rust 的哲学</strong>："编译期验证"。编译器通过所有权和借用规则，在编译阶段拒绝任何可能导致内存不安全的代码。代价是更严格的编译检查，收益是几乎消除运行时内存错误。</li>
             </ul>
-        </section>
+            <p>核心区别不是"严格 vs 宽松"，而是<strong>在哪个阶段付出安全成本</strong>：编译期（修改代码即可）vs 运行期（可能需要紧急修线上 bug）。</p>
+          </div>
+        </div>
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>
-                建议你已经完成 Ch 0.1，对 rustup、cargo、clippy 和基本项目结构有印象。
-                本章不要求你彻底掌握 ownership；相反，它会告诉你在还没掌握时，应该如何练习和排错。
-            </p>
-        </section>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p>对比：同一个"悬垂引用"场景在 C++ 和 Rust 中的结果——</p>
+            <p><strong>C++ 版本</strong>（编译通过，运行时未定义行为）：</p>
+            <div class="code-block">
+              <div class="code-header"><span>C++</span><span>dangling.cpp</span></div>
+              <pre><code>// 危险！C++ 编译通过但运行结果不可预测
+#include &lt;iostream&gt;
+#include &lt;string&gt;
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>0.2.1 Rust 的学习曲线为什么会“前陡后缓”？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么很多语言都能先“写着跑起来”，Rust 却常常在很早阶段就要求你回答所有权、借用和生命周期问题？</p>
+std::string&amp; get_greeting() {
+    std::string s = "hello";
+    return s;  // 返回局部变量的引用 → 悬垂引用
+}
+
+int main() {
+    std::string&amp; ref = get_greeting();
+    std::cout &lt;&lt; ref;  // 未定义行为
+}</code></pre>
+              <div class="code-error">
+                <strong>运行时后果</strong>
+                <pre>未定义行为：可能打印垃圾数据、崩溃、或"看起来正常"但数据已损坏。
+编译器最多给一个 warning——但很多项目禁了这个 warning。</pre>
+              </div>
             </div>
-            <p>
-                Rust 把很多原本可能在运行期暴露的问题，提前挪到了编译期。你感受到的“难”，很多时候不是语法更复杂，
-                而是语言要求你更早表达资源关系。前期会慢，是因为你在补一套别的语言经常推迟处理的工程约束。
-            </p>
-            <div class="note-box tip">
-                <p><strong>正式理解：</strong> Rust 的学习曲线通常是前期投入较大，因为编译器会尽早要求程序员明确数据所有权、可变性和作用域边界。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>src/main.rs</span></div>
-                <pre><code>fn print_name(name: &str) {
-    println!("hello, {name}");
+            <p><strong>Rust 版本</strong>（编译阶段直接拒绝）：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>dangling.rs</span></div>
+              <pre><code>// Rust 编译器直接拒绝这段代码
+// fn get_greeting() -> &amp;str {
+//     let s = String::from("hello");
+//     &amp;s  // ← 编译错误：s 在函数结束时被释放
+// }
+
+// 正确做法：返回拥有的值，而非引用
+fn get_greeting() -> String {
+    let s = String::from("hello");
+    s  // 返回所有权，不是引用
 }
 
 fn main() {
-    let name = String::from("Ferris");
-    print_name(&name);
-    println!("still usable: {name}");
+    let greeting = get_greeting();
+    println!("{greeting}");
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>hello, Ferris
-still usable: Ferris</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>hello</pre>
+              </div>
             </div>
-            <p>这段代码说明：一旦你开始主动区分“只读借用”和“转移所有权”，Rust 反而会让后续行为更可预测。</p>
-            <div class="quick-quiz" data-answer="B" data-explanation="Rust 的前期阻力主要来自更早暴露资源与作用域规则，而不是单纯为了制造难度。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>Rust 初学阶段常见的“卡住感”最准确的来源是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u0m-q1" value="A"> A. 只是因为关键字更多</label>
-                    <label><input type="radio" name="u0m-q1" value="B"> B. 编译器更早要求你说明资源关系</label>
-                    <label><input type="radio" name="u0m-q1" value="C"> C. Rust 不能写小程序</label>
-                </div>
-                <div class="quiz-feedback"></div>
+            <p>如果取消注释错误版本，编译器报：</p>
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>error_output</span></div>
+              <pre><code>error[E0106]: missing lifetime specifier
+ --> src/main.rs:1:24
+  |
+1 | fn get_greeting() -> &amp;str {
+  |                        ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value,
+          but there is nothing to borrow from</code></pre>
+              <div class="code-error">
+                <strong>关键信息</strong>
+                <pre>编译器发现返回的引用没有合法的来源——它不允许返回指向即将销毁的局部变量的引用。</pre>
+              </div>
             </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>0.2.2 把编译器当老师：先读规则，再读情绪</h2>
-            <div class="think-box">
-                <div class="think-icon">🧭</div>
-                <p>看到一大段红字时，你是先紧张，还是先定位“谁被 move 了、谁借用冲突了、编译器建议了什么”？</p>
-            </div>
-            <p>
-                Rust 编译器最有价值的地方，是它往往不仅指出错误，还会告诉你被违反的规则和可能的修改方向。
-                真正有效的习惯不是“背所有错误码”，而是用固定顺序读：主错误句 → 标注位置 → help / note。
-            </p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong> 报错输出首先回答的是“哪条语言规则被破坏”，不是“你这个人不适合学 Rust”。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>borrow_error.rs</span></div>
-                <pre><code>fn main() {
-    let text = String::from("rust");
-    let moved = text;
-    println!("{}", text);
-    println!("{}", moved);
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>C++ 的线上故障模式</strong>：use-after-free 是 CVE 评级中最危险的漏洞类型之一。Chrome、Firefox、Windows 的安全公告中大量出现这类 bug。微软报告称其 70% 的安全漏洞是内存安全问题。</p>
+            <p><strong>Rust 的工程价值</strong>：用 Rust 重写的模块（如 Android 蓝牙栈、Linux 内核驱动）显著减少了内存安全漏洞。这不是因为 Rust 程序员更优秀，而是编译器在帮所有人兜底。</p>
+            <p><strong>成本对比</strong>：编译期修 bug 的成本（改几行代码）远低于运行期（调试 core dump、分析生产日志、紧急回滚）。Rust 选择"前期多花 5 分钟改编译错误"，换取"不用在凌晨 3 点被 pager 叫醒"。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <p>另一个经典场景——双重释放：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>double_free_prevented.rs</span></div>
+              <pre><code>fn main() {
+    let original = String::from("data");
+    let moved = original;  // 所有权转移
+
+    // println!("{original}"); // ← 编译错误：original 已失效
+    // 在 C++ 中，这里可能导致 double free
+
+    println!("{moved}");  // 只有 moved 拥有这个值
 }</code></pre>
-                <div class="code-output">
-                    <strong>你应该先读到的重点</strong>
-                    <pre>error[E0382]: borrow of moved value: `text`
-help: consider borrowing or cloning if ownership should not move
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>data</pre>
+              </div>
+            </div>
+            <p>如果尝试使用已移动的值：</p>
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>move_error</span></div>
+              <pre><code>error[E0382]: borrow of moved value: `original`
+  |
+2 |     let original = String::from("data");
+  |         -------- move occurs because `original` has type `String`
+3 |     let moved = original;
+  |                 -------- value moved here
+4 |     println!("{original}");
+  |                ^^^^^^^^ value borrowed here after move</code></pre>
+            </div>
+            <p><strong>常见错误心态</strong>：</p>
+            <ul>
+              <li><strong>"Rust 太严格了"</strong>：其实不是太严格，而是把 C++ 里你本该人工保障的东西变成了编译器自动检查。</li>
+              <li><strong>"我在 C++ 里从来没遇过这种 bug"</strong>：更可能是你遇过但没意识到——C++ 的 UB 可能表现为"偶尔崩溃"或"用 Valgrind 才发现的内存泄漏"。</li>
+              <li><strong>"反正有智能指针，C++ 也安全"</strong>：shared_ptr 能缓解但不能消除问题——循环引用、跨线程竞争、误用 raw pointer 仍然可能出错。Rust 从语言层面封堵这些漏洞。</li>
+            </ul>
+          </div>
+        </div>
 
-重点不是 println! 坏了，
-而是 text 的所有权已经转移。</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：看到 borrow checker 错误时，先问自己的 3 个问题</button>
-                <div class="collapsible-content">
-                    1）谁拥有这份数据？ 2）当前这段代码只是读取，还是需要修改？ 3）这个值之后还要不要继续使用？
-                    这三个问题通常能直接缩小修复方向。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="先找主错误句和规则，能避免被连锁报错和情绪带跑偏。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>读 Rust 报错时，最稳妥的第一步是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u0m-q2" value="A"> A. 立刻复制整段红字去搜索</label>
-                    <label><input type="radio" name="u0m-q2" value="B"> B. 先怀疑 rustup 安装坏了</label>
-                    <label><input type="radio" name="u0m-q2" value="C"> C. 先定位主错误句和被违反的规则</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+      </div>
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>0.2.3 对 ownership 挫败感要有正常预期</h2>
-            <div class="think-box">
-                <div class="think-icon">🪨</div>
-                <p>为什么你明明“知道自己想做什么”，编译器却一直说不能同时借用、不能再次使用、生命周期不够长？</p>
-            </div>
+      <!-- 快速检测 -->
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">C++ 中返回局部变量的引用会怎样？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。大多数 C++ 编译器会编译通过，顶多给个 warning。')">A. 编译错误，和 Rust 一样被拒绝</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！C++ 编译器允许通过，但运行时会导致未定义行为（悬垂引用）。Rust 在编译期直接拒绝。')">B. 编译通过但运行时未定义行为</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。C++ 没有这样的自动保护机制。')">C. 自动深拷贝，安全返回</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '再想想。问题出在引用和对象的生命周期不匹配。')">D. 返回 null 指针</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- KP2: "Fighting the borrow checker" 是正常阶段             -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>"Fighting the borrow checker" 是正常阶段</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
             <p>
-                这是 Rust 初学阶段最正常的体验之一。你脑中也许已经有业务流程，但编译器还在要求你把数据流说清楚。
-                尤其进入 ownership / borrowing 阶段时，挫败感往往意味着：你的需求没错，只是表达方式还没对齐 Rust 的资源模型。
+              几乎每个 Rust 初学者都会经历这样的阶段：你觉得自己的代码逻辑完全正确，但编译器就是不让你过。
+              你改了一处，又冒出另一个错误。这种"和 borrow checker 战斗"的感觉如果没有心理准备，很容易让人放弃。
+              了解这是正常的学习阶段——而不是"你太笨"或"Rust 太烂"——是坚持下来的关键。
             </p>
-            <div class="note-box warning">
-                <p><strong>重要预期：</strong> 连续几天反复遇到 move、borrow、lifetime 报错，并不代表你“学不会”；这正是 Rust 把隐性工程问题显式化的过程。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>mutable_borrow.rs</span></div>
-                <pre><code>fn main() {
-    let mut msg = String::from("hi");
-    let first = &msg;
-    let second = &mut msg;
-    println!("{first} {second}");
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 的学习曲线可以分为三个阶段：</p>
+            <ol>
+              <li><strong>入门蜜月期（1-2 周）</strong>：基础语法和其他语言很像，println! 能跑，感觉良好。</li>
+              <li><strong>Borrow checker 搏斗期（1-3 个月）</strong>：开始写稍复杂的代码，所有权错误、借用冲突铺天盖地。这是最容易放弃的阶段。</li>
+              <li><strong>思维模型成型期（3-6 个月）</strong>：你开始在编码时自然考虑所有权，编译器报错大幅减少。写 Rust 变成了一种"自带代码审查"的体验。</li>
+            </ol>
+            <p><strong>关键认知</strong>：阶段 2 的痛苦不是因为你做错了什么，而是因为你在学习一种全新的编程思维模型。就像从命令式编程转向函数式编程一样，思维方式的转换需要时间。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p>典型的"borrow checker 搏斗"场景——你想在遍历集合的同时修改它：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>borrow_fight.rs</span></div>
+              <pre><code>fn main() {
+    let mut numbers = vec![1, 2, 3, 4, 5];
+
+    // ❌ 直觉写法：遍历的同时修改（编译错误）
+    // for n in &amp;numbers {
+    //     if *n > 3 {
+    //         numbers.push(*n * 10);  // 不能同时借用和修改
+    //     }
+    // }
+
+    // ✅ Rust 的思路：先收集要做什么，再统一修改
+    let additions: Vec&lt;i32&gt; = numbers.iter()
+        .filter(|&&amp;n| n > 3)
+        .map(|&amp;n| n * 10)
+        .collect();
+
+    numbers.extend(additions);
+    println!("{numbers:?}");
 }</code></pre>
-                <div class="code-output">
-                    <strong>你该得到的直觉</strong>
-                    <pre>这里会报借用冲突。
-不是因为 String 特殊，
-而是同一时刻你要求了“只读视角”和“独占可变视角”。</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>[1, 2, 3, 4, 5, 40, 50]</pre>
+              </div>
             </div>
-            <p>把这类报错看成“模型不一致提示”会更有效：你需要决定当前阶段到底是读，还是改，而不是要求编译器同时允许两种互斥视角。</p>
-            <div class="quick-quiz" data-answer="A" data-explanation="Borrow checker 拒绝的是互斥规则冲突，不是在否定你的业务目标。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>遇到借用冲突时，更合理的心态是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u0m-q3" value="A"> A. 先重画“读/改/拥有”的关系，再改代码</label>
-                    <label><input type="radio" name="u0m-q3" value="B"> B. 立即判断 Rust 不适合该问题</label>
-                    <label><input type="radio" name="u0m-q3" value="C"> C. 先把所有变量都改成全局变量</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+            <p>为什么编译器要拒绝"边遍历边修改"？因为 <code>push</code> 可能导致 Vec 重新分配内存，让所有已有的引用（迭代器持有的）变成悬垂指针。
+            在 C++ 中，这是经典的"iterator invalidation" bug，只在运行时才会暴露（如果你幸运的话）。</p>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>0.2.4 用 cargo 建立小步快跑的反馈循环</h2>
-            <div class="think-box">
-                <div class="think-icon">🔁</div>
-                <p>如果你总是写一大坨再一次性编译，Rust 的报错会不会显得特别“难收拾”？</p>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>应对策略 1 — 先用 .clone() 跑通</strong>：初学阶段不要追求零拷贝。先用 <code>.clone()</code> 让代码能编译，理解了 ownership 模型后再优化。</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>clone_first.rs</span></div>
+              <pre><code>fn process(data: String) -> String {
+    format!("processed: {data}")
+}
+
+fn main() {
+    let original = String::from("raw data");
+
+    // 初学阶段：先 clone 跑通
+    let result = process(original.clone());
+    println!("original: {original}");
+    println!("result: {result}");
+
+    // 后期优化：改用引用，避免不必要的复制
+    // fn process_ref(data: &str) -> String { ... }
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>original: raw data
+result: processed: raw data</pre>
+              </div>
             </div>
+            <p><strong>应对策略 2 — 分解大函数</strong>：一个函数里同时 borrow 和 mutate 同一个东西是最常见的冲突源。把操作拆成小函数，让借用范围自然缩小。</p>
+            <p><strong>应对策略 3 — 接受编译器的建议</strong>：80% 的情况下，编译器的 help 信息直接给出了正确的修改方案。先试试它的建议，再思考为什么。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <p>另一个典型卡点——返回值引用了局部数据：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>common_mistake.rs</span></div>
+              <pre><code>// ❌ 错误版本：试图返回指向局部变量的引用
+// fn make_greeting(name: &amp;str) -> &amp;str {
+//     let greeting = format!("Hello, {name}!");
+//     &amp;greeting  // greeting 在函数结束时被释放
+// }
+
+// ✅ 正确版本：返回拥有的 String
+fn make_greeting(name: &amp;str) -> String {
+    format!("Hello, {name}!")
+}
+
+fn main() {
+    let msg = make_greeting("Rustacean");
+    println!("{msg}");
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>Hello, Rustacean!</pre>
+              </div>
+            </div>
+            <p><strong>思维转换</strong>：在 C++/Java 中你可能习惯"随便返回个引用/指针"，在 Rust 中你需要思考："这个数据在函数结束后还存在吗？如果不存在，我应该返回 owned value（String）而不是 reference（&amp;str）。"</p>
+            <p><strong>常见卡点与应对</strong>：</p>
+            <ul>
+              <li><strong>"改了一个错误又冒出三个"</strong> — 很正常。编译器错误经常是连锁的，先修第一个，后面的可能自动消失。</li>
+              <li><strong>"我确定逻辑是对的但编译器不让"</strong> — 编译器拒绝的可能不是逻辑错误，而是潜在的内存安全风险。换个数据结构或借用方式通常能解决。</li>
+              <li><strong>"别人的代码看着那么优雅，我的全是 .clone()"</strong> — 初学阶段用 clone 没问题。等你理解了 ownership 模型，自然就知道哪些 clone 可以去掉。</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 快速检测 -->
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">初学 Rust 时频繁遇到编译错误，最好的心态是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '再想想。编译错误不是语言的缺陷，而是它在保护你。')">A. Rust 太烂了，换语言</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！这是正常的学习阶段。每个编译错误都是在帮你建立安全编程的思维模型。')">B. 这是正常的学习曲线，编译器在教我新的思维方式</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '再想想。跳过理解直接绕过会阻碍学习。')">C. 所有地方都加 unsafe 绕过</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '再想想。天赋无关，思维模型转换需要时间。')">D. 我没有编程天赋</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- KP3: 编译器信息是学习资源                                 -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>编译器信息是学习资源</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
             <p>
-                很多 Rust 学习挫败来自迭代粒度太大。更实用的做法是：功能没写完前先跑 <code>cargo check</code> 看类型与借用，
-                行为有预期后跑 <code>cargo test</code>，代码能工作后再用 <code>cargo clippy</code> 清理惯用法问题。
+              在大多数语言中，编译器错误只是"出了问题"的通知——你需要自己去文档或 Stack Overflow 找答案。
+              Rust 不一样：它的编译器错误信息是<strong>结构化的教学内容</strong>，包含问题诊断、位置标记和修复建议。
+              如果你学会了"读编译器"，你学习 Rust 的效率会翻倍——因为你把 rustc 变成了私人 Rust 导师。
             </p>
-            <div class="note-box tip">
-                <p><strong>正式工作流：</strong> <code>cargo check</code> 解决“能否通过规则检查”，<code>cargo test</code> 解决“行为是否正确”，<code>cargo clippy</code> 解决“写法是否更 Rusty”。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 编译器的错误输出有严格的结构，每个部分都有用：</p>
+            <ul>
+              <li><strong>error[EXXXX]</strong>：错误码 + 一句话摘要。记住错误码，用 <code>rustc --explain EXXXX</code> 获取完整文档。</li>
+              <li><strong>--> file:line:col</strong>：精确到行列的出错位置。</li>
+              <li><strong>| 和 ^ 标记</strong>：Span，编译器用下划线和箭头标记出哪部分代码有问题。</li>
+              <li><strong>note:</strong>：补充说明，帮助你理解"为什么这被认为是错误"。</li>
+              <li><strong>help:</strong>：具体的修复建议，大部分时候可以直接采纳。</li>
+            </ul>
+            <p>重要原则：<strong>永远先看 help 和 note，不要只看第一行</strong>。最有价值的信息通常在最后。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p>用一个具体的例子演示如何"读"编译器输出：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>read_error.rs</span></div>
+              <pre><code>fn longest(x: &amp;str, y: &amp;str) -> &amp;str {
+    if x.len() > y.len() { x } else { y }
+}</code></pre>
+              <div class="code-error">
+                <strong>编译错误</strong>
+                <pre>error[E0106]: missing lifetime specifier
+ --> src/main.rs:1:33
+  |
+1 | fn longest(x: &amp;str, y: &amp;str) -> &amp;str {
+  |               ----     ----      ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but the
+          signature does not say whether it is borrowed from `x` or `y`
+help: consider introducing a named lifetime parameter
+  |
+1 | fn longest&lt;'a&gt;(x: &amp;'a str, y: &amp;'a str) -> &amp;'a str {
+  |           ++++     ++          ++           ++</pre>
+              </div>
             </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>src/lib.rs</span></div>
-                <pre><code>pub fn add(a: i32, b: i32) -> i32 {
+            <p>按步骤解读：</p>
+            <ol>
+              <li><strong>E0106</strong> — missing lifetime specifier（缺少生命周期标注）。</li>
+              <li><strong>Span</strong> — 箭头指向返回类型的 <code>&amp;str</code>，说明问题出在返回值。</li>
+              <li><strong>Help</strong> — 编译器告诉你"返回了一个借用值，但签名没说明它借自 x 还是 y"，并且给出了完整的修复代码。</li>
+            </ol>
+            <p>修复后的正确版本：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>longest_fixed.rs</span></div>
+              <pre><code>fn longest&lt;'a&gt;(x: &amp;'a str, y: &amp;'a str) -> &amp;'a str {
+    if x.len() > y.len() { x } else { y }
+}
+
+fn main() {
+    let a = String::from("long string");
+    let b = "short";
+    let result = longest(&amp;a, b);
+    println!("longest: {result}");
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>longest: long string</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>常用错误码索引</strong>（遇到可以直接 <code>rustc --explain</code>）：</p>
+            <table style="width:100%; border-collapse:collapse; margin:1em 0;">
+              <thead>
+                <tr style="text-align:left; border-bottom:2px solid var(--domain-color);">
+                  <th style="padding:0.5em;">错误码</th>
+                  <th style="padding:0.5em;">含义</th>
+                  <th style="padding:0.5em;">典型场景</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding:0.4em;"><code>E0382</code></td><td>使用了已移动的值</td><td>赋值后又使用原变量</td></tr>
+                <tr><td style="padding:0.4em;"><code>E0308</code></td><td>类型不匹配</td><td>传参类型与签名不一致</td></tr>
+                <tr><td style="padding:0.4em;"><code>E0502</code></td><td>借用冲突</td><td>同时持有可变和不可变引用</td></tr>
+                <tr><td style="padding:0.4em;"><code>E0106</code></td><td>缺少生命周期标注</td><td>返回引用但没标注关系</td></tr>
+                <tr><td style="padding:0.4em;"><code>E0597</code></td><td>借用的值活得不够久</td><td>引用指向即将销毁的值</td></tr>
+                <tr><td style="padding:0.4em;"><code>E0277</code></td><td>缺少 trait 实现</td><td>类型不满足 trait bound</td></tr>
+              </tbody>
+            </table>
+            <p><strong>cargo fix</strong>：对于标记为 "machine-applicable" 的建议，<code>cargo fix</code> 可以自动应用。尤其在 edition 升级时非常有用。</p>
+            <p><strong>在线资源</strong>：所有错误码的文档也可以在 <code>doc.rust-lang.org/error_codes/</code> 在线查阅。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <p>练习：看一个借用冲突的例子，按步骤读编译器输出——</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>borrow_conflict.rs</span></div>
+              <pre><code>fn main() {
+    let mut data = vec![1, 2, 3];
+
+    // ❌ 错误：同时持有不可变引用和可变引用
+    // let first = &amp;data[0];
+    // data.push(4);
+    // println!("{first}");
+
+    // ✅ 正确：先用完不可变引用，再修改
+    let first = data[0];  // 复制值，不持有引用
+    data.push(4);
+    println!("first: {first}, data: {data:?}");
+}</code></pre>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>first: 1, data: [1, 2, 3, 4]</pre>
+              </div>
+            </div>
+            <p>错误版本的编译器输出：</p>
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>borrow_error</span></div>
+              <pre><code>error[E0502]: cannot borrow `data` as mutable because it is also
+              borrowed as immutable
+ --> src/main.rs:5:5
+  |
+4 |     let first = &amp;data[0];
+  |                  ---- immutable borrow occurs here
+5 |     data.push(4);
+  |     ^^^^^^^^^^^^ mutable borrow occurs here
+6 |     println!("{first}");
+  |               ------- immutable borrow later used here</code></pre>
+            </div>
+            <p><strong>阅读技巧</strong>：</p>
+            <ul>
+              <li>第 4 行：data 被不可变借用（<code>&amp;data[0]</code>）。</li>
+              <li>第 5 行：data 被可变借用（<code>.push()</code> 需要 <code>&amp;mut self</code>）。</li>
+              <li>第 6 行：不可变借用还在使用中——所以两种借用重叠，编译器拒绝。</li>
+              <li>修复：要么在 push 之前不再需要 first，要么先复制值而非借用引用。</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 快速检测 -->
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">编译器错误信息中，最值得关注的部分是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '再想想。错误码很有用，但修复建议更直接。')">A. 只看错误码就够了</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '再想想。文件路径只是定位信息，不包含解决方案。')">B. 只看文件路径和行号</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！span 定位问题，help/note 给出修复方向。结合两者能最快理解和解决问题。')">C. span（位置标记）+ help/note（修复建议和解释）</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '再想想。Google 可以辅助，但编译器自己的 help 通常更精准。')">D. 直接复制错误信息去 Google</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- KP4: 建立有效的学习反馈循环                               -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>建立有效的学习反馈循环</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>
+              学 Rust 最低效的方式是"看完一本 500 页的书再开始写代码"。
+              最高效的方式是建立快速反馈循环：写几行 → 编译 → 看错误 → 理解 → 修复 → 重复。
+              Rust 没有像 Python 那样的 REPL，但有替代方案可以达到类似的快速试错体验。
+            </p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>有效的 Rust 学习循环包含四个工具/习惯：</p>
+            <ol>
+              <li><strong>Rust Playground</strong>（play.rust-lang.org）— 在线编辑器，零配置。适合试验小段代码、验证编译器行为、分享代码片段。</li>
+              <li><strong>cargo check</strong> — 比 <code>cargo build</code> 快得多（只检查类型和借用，不生成二进制）。每改几行就跑一次，把错误控制在最小范围内。</li>
+              <li><strong>小步迭代</strong> — 每次只改 3-5 行，立即编译。不要写完 100 行才编译——错误堆积后无法定位。</li>
+              <li><strong>测试驱动</strong> — 用 <code>#[test]</code> 写小测试验证你对概念的理解。测试通过 = 理解正确。</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p><strong>Rust Playground 使用</strong>：访问 <code>play.rust-lang.org</code>，粘贴代码，点 Run。支持：</p>
+            <ul>
+              <li>切换 stable / beta / nightly</li>
+              <li>选择 edition（2015 / 2018 / 2021 / 2024）</li>
+              <li>查看 ASM、LLVM IR、MIR 输出</li>
+              <li>分享代码链接（Share 按钮）</li>
+            </ul>
+            <p><strong>cargo check vs cargo build</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>SHELL</span><span>feedback_loop.sh</span></div>
+              <pre><code># cargo check: 只做类型检查和借用检查，不生成可执行文件
+# 比 cargo build 快 2-10 倍
+cargo check
+
+# cargo build: 完整编译，生成可执行文件
+cargo build
+
+# 推荐工作流：频繁 check，偶尔 build/run
+# 改几行 → cargo check → 修错 → 再 check → ... → cargo run</code></pre>
+            </div>
+            <p><strong>用测试验证理解</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>test_driven.rs</span></div>
+              <pre><code>// 在 src/main.rs 或任何 .rs 文件中
+fn add(a: i32, b: i32) -> i32 {
     a + b
+}
+
+fn first_word(s: &amp;str) -> &amp;str {
+    let bytes = s.as_bytes();
+    for (i, &amp;byte) in bytes.iter().enumerate() {
+        if byte == b' ' {
+            return &amp;s[..i];
+        }
+    }
+    s
+}
+
+fn main() {
+    println!("{}", add(2, 3));
+    println!("{}", first_word("hello world"));
 }
 
 #[cfg(test)]
 mod tests {
-    use super::add;
+    use super::*;
 
     #[test]
-    fn adds_numbers() {
+    fn test_add() {
         assert_eq!(add(2, 3), 5);
+        assert_eq!(add(-1, 1), 0);
+    }
+
+    #[test]
+    fn test_first_word() {
+        assert_eq!(first_word("hello world"), "hello");
+        assert_eq!(first_word("single"), "single");
+        assert_eq!(first_word(""), "");
     }
 }</code></pre>
-                <div class="code-output">
-                    <strong>建议循环</strong>
-                    <pre>cargo check   # 先看编译与借用
-cargo test    # 再看行为是否符合预期
-cargo clippy  # 最后清理惯用法与潜在坏味道</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么学习阶段也应该早点写测试？</button>
-                <div class="collapsible-content">
-                    因为 Rust 报错解决后，不代表逻辑一定正确。测试把“编译通过”和“行为正确”拆开，让你知道自己卡在哪一层。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="cargo check 更快，适合频繁查看类型和借用反馈；test 与 clippy 负责另外两层验证。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>刚改完函数签名，想尽快确认借用和类型关系有没有通过，最适合先跑什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u0m-q4" value="A"> A. cargo clean</label>
-                    <label><input type="radio" name="u0m-q4" value="B"> B. cargo check</label>
-                    <label><input type="radio" name="u0m-q4" value="C"> C. 直接发布 release</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+              <div class="code-output">
+                <strong>cargo test 输出</strong>
+                <pre>running 2 tests
+test tests::test_add ... ok
+test tests::test_first_word ... ok
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>0.2.5 少用 clone：先判断是不是只需要借用</h2>
-            <div class="think-box">
-                <div class="think-icon">🧪</div>
-                <p>编译器提示可以 <code>clone()</code> 时，你是真的需要一份独立副本，还是只是想绕过当前的所有权设计？</p>
+test result: ok. 2 passed; 0 failed</pre>
+              </div>
             </div>
-            <p>
-                <code>clone()</code> 当然合法，也经常有用；问题在于新手容易把它当“消灭报错按钮”。
-                更好的学习习惯是先问：这段代码到底要“拥有”数据，还是只要“读一下”？如果只是读，很多时候传 <code>&amp;str</code>、<code>&amp;String</code>、<code>&amp;T</code> 就够了。
-            </p>
-            <div class="note-box warning">
-                <p><strong>正式规则：</strong> 只有当你确实需要一份独立拥有的副本时再 <code>clone()</code>；如果只是读取、格式化、检查长度、做匹配，通常应优先考虑借用。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>推荐学习节奏</strong>：</p>
+            <ol>
+              <li><strong>读一个小概念</strong>（如本课程的一个 KP）。</li>
+              <li><strong>在 Playground 或本地写代码试验</strong>：照着示例写，然后故意改错看编译器怎么说。</li>
+              <li><strong>写一个小测试验证理解</strong>：如果测试通过，说明你真的理解了。</li>
+              <li><strong>进入下一个概念</strong>。</li>
+            </ol>
+            <p><strong>VS Code 实时反馈</strong>：安装 rust-analyzer 后，保存文件即自动运行 cargo check，错误会直接标红在编辑器中。你甚至不需要手动跑命令。</p>
+            <p><strong>cargo watch</strong>：自动在文件变化时重新 check：</p>
+            <div class="code-block">
+              <div class="code-header"><span>SHELL</span><span>watch.sh</span></div>
+              <pre><code># 安装 cargo-watch
+cargo install cargo-watch
+
+# 文件保存时自动 check
+cargo watch -x check
+
+# 文件保存时自动 test
+cargo watch -x test</code></pre>
             </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>borrow_instead_of_clone.rs</span></div>
-                <pre><code>fn print_uppercase(name: &str) {
-    println!("{}", name.to_uppercase());
+            <p><strong>evcxr — Rust 的 REPL 替代</strong>：虽然 Rust 没有内建 REPL，但 <code>evcxr</code> 项目提供了一个可用的交互式环境：</p>
+            <div class="code-block">
+              <div class="code-header"><span>SHELL</span><span>evcxr.sh</span></div>
+              <pre><code># 安装 evcxr
+cargo install evcxr_repl
+
+# 启动 REPL
+evcxr
+
+# 在 REPL 中：
+# >> let x = 42;
+# >> x * 2
+# 84</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <p>演示"小步迭代"的过程——从一个简单函数开始，逐步加入所有权概念：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>iterative_learning.rs</span></div>
+              <pre><code>// 第一步：先写最简单的版本
+fn greet_v1() {
+    println!("Hello!");
+}
+
+// 第二步：加参数，先用 &amp;str（最安全的方式）
+fn greet_v2(name: &amp;str) {
+    println!("Hello, {name}!");
+}
+
+// 第三步：试试用 String 参数，理解所有权转移
+fn greet_v3(name: String) {
+    println!("Hello, {name}!");
 }
 
 fn main() {
-    let name = String::from("ferris");
-    print_uppercase(&name);
-    println!("original: {name}");
+    greet_v1();
+
+    greet_v2("World");
+
+    let name = String::from("Rustacean");
+    greet_v3(name);
+    // println!("{name}"); // ← 如果取消注释会怎样？试试看！
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>FERRIS
-original: ferris</pre>
-                </div>
+              <div class="code-output">
+                <strong>输出</strong>
+                <pre>Hello!
+Hello, World!
+Hello, Rustacean!</pre>
+              </div>
             </div>
-            <p>这里没有必要先写 <code>let copy = name.clone();</code>，因为函数只是读取名字并打印变换结果，没有接管 ownership。</p>
-            <div class="quick-quiz" data-answer="C" data-explanation="如果函数只读数据，优先借用能保留原值可用性，也更符合 Rust 的数据流表达。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪种情况最值得优先考虑借用而不是 clone？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u0m-q5" value="A"> A. 你要把数据存进新的长期结构里独立拥有</label>
-                    <label><input type="radio" name="u0m-q5" value="B"> B. 你要把值移动到另一个线程并长期持有</label>
-                    <label><input type="radio" name="u0m-q5" value="C"> C. 你只是读取、打印或计算长度</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+            <p><strong>练习建议</strong>：把最后那行注释取消，编译看看错误信息。然后用 <code>.clone()</code> 修复。再把参数改成 <code>&amp;str</code> 看看有什么不同。每一步占一分钟，但你会深入理解三种不同的传参方式。</p>
+            <p><strong>常见学习误区</strong>：</p>
             <ul>
-                <li>Rust 的早期学习阻力，很多来自它把资源规则提前暴露，而不是因为你“不适合”。</li>
-                <li>编译器报错应该被当成规则提示：先读主错误句，再决定是改所有权、借用还是作用域。</li>
-                <li>ownership / borrowing 阶段出现挫败感很正常，关键是把它转成数据流重构问题。</li>
-                <li><code>cargo check → cargo test → cargo clippy</code> 是非常适合新手的小步反馈循环。</li>
-                <li><code>clone()</code> 是明确语义工具，不该成为逃避 borrow checker 的默认动作。</li>
+              <li><strong>"我先把整本书看完再写代码"</strong> — Rust 不适合纯理论学习。每个概念都需要手动试才能内化。</li>
+              <li><strong>"一次写完 50 行再编译"</strong> — 错误会堆积，你不知道是哪几行引起的问题。改少一点，编译勤一点。</li>
+              <li><strong>"只跑 cargo build 不跑 cargo check"</strong> — check 快很多，作为频繁检查的工具更合适。build 留给你真正要运行的时候。</li>
+              <li><strong>"只看不写"</strong> — 光看别人的代码和讲解不如自己动手。哪怕是把示例代码手动敲一遍，效果都比复制粘贴好。</li>
             </ul>
-        </section>
+          </div>
+        </div>
 
-        <section class="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 用你自己的话解释为什么 Rust 的“前期陡”并不等于它整体更低效，并写出一个你准备坚持的排错阅读顺序。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个最小示例，先触发一次 <code>borrow of moved value</code>，再改成借用版本，并说明你改变了哪条数据流。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 给一个你最近写过的函数做微重构：把“先 <code>clone()</code> 再传参”的写法改成借用，并说明这样是否改变了 API 语义。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 为一个小项目制定 15 分钟迭代节奏：每个时间片分别安排 <code>cargo check</code>、<code>cargo test</code>、<code>cargo clippy</code> 在什么时机执行，并解释原因。</li>
-            </ol>
-        </section>
+      </div>
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html">The Rust Programming Language · Understanding Ownership</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch08-02-strings.html">The Rust Programming Language · Strings</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch11-00-testing.html">The Rust Programming Language · Writing Automated Tests</a></li>
-                <li><a href="https://rust-lang.github.io/rust-clippy/master/">The Clippy Book</a></li>
-            </ul>
-        </section>
-    </main>
+      <!-- 快速检测 -->
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么推荐频繁使用 cargo check 而非 cargo build？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '再想想。check 会报告所有类型和借用错误，和 build 一样严格。')">A. cargo check 不会报告错误</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！cargo check 跳过代码生成阶段，速度快 2-10 倍，适合频繁运行作为即时反馈。')">B. cargo check 速度更快，适合频繁的编译检查反馈</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '再想想。两者的类型检查同样严格。')">C. cargo check 的检查更宽松</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '再想想。check 不生成二进制，无法直接运行。')">D. cargo check 能直接运行程序</button>
+        </div>
+      </div>
+    </section>
 
-    <script src="../assets/js/main.js"></script>
+    <hr class="kp-separator">
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- 课后练习                                                  -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <section id="exercises" class="exercises-section">
+      <h2>综合练习</h2>
+      <div id="quiz-zone"></div>
+    </section>
+
+    <!-- ── 章节导航 ── -->
+    <nav class="chapter-nav">
+      <a href="ch0.1_toolchain.html">← Ch 0.1 工具链</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="../unit1_ownership/ch1.1_ownership.html">Ch 1.1 Ownership →</a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

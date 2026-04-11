@@ -1,234 +1,172 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 5.4 Unsafe Rust - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 5.4 Unsafe Rust — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u5-ch54-q1","question":"unsafe 块解锁了几种特殊能力？","options":["A. 3 种","B. 5 种","C. 1 种","D. 无限制"],"answer":1,"explanation":"unsafe 解锁 5 种能力：解引用裸指针、调用 unsafe 函数、访问 static mut、实现 unsafe trait、访问 union 字段。"},
+      {"id":"u5-ch54-q2","question":"unsafe 块中借用检查器还工作吗？","options":["A. 完全关闭","B. 仍然工作，只是多了额外能力","C. 部分关闭","D. 只对指针关闭"],"answer":1,"explanation":"unsafe 不关闭任何安全检查！借用检查、类型检查全部正常。unsafe 只是解锁了 5 种额外操作。"},
+      {"id":"u5-ch54-q3","question":"*const T 和 *mut T 统称什么？","options":["A. 智能指针","B. 裸指针（raw pointer）","C. 引用","D. 生命周期指针"],"answer":1,"explanation":"*const T（共享裸指针）和 *mut T（可变裸指针）统称裸指针。它们没有借用规则的保护。"},
+      {"id":"u5-ch54-q4","question":"创建裸指针需要 unsafe 吗？","options":["A. 需要","B. 不需要，解引用才需要","C. 只有 *mut 需要","D. 都不需要"],"answer":1,"explanation":"创建裸指针本身是 safe 的（只是拿到地址），解引用（实际访问内存）才需要 unsafe。"},
+      {"id":"u5-ch54-q5","question":"unsafe fn 的含义是？","options":["A. 函数内部有 unsafe 代码","B. 调用者必须保证前置条件成立","C. 函数不会被编译优化","D. 函数返回裸指针"],"answer":1,"explanation":"unsafe fn 是函数和调用者之间的契约——函数说"我的安全性依赖于调用者满足特定前置条件"。"},
+      {"id":"u5-ch54-q6","question":"unsafe trait 的含义是？","options":["A. 实现了它的类型不安全","B. 实现者必须手动保证类型满足 trait 的安全不变量","C. 只能在 unsafe 块中使用","D. trait 方法都是 unsafe 的"],"answer":1,"explanation":"unsafe trait 表示正确实现它需要维护某些安全不变量（如 Send/Sync）。编译器无法自动验证，需要实现者保证。"},
+      {"id":"u5-ch54-q7","question":"安全抽象（safe abstraction）的核心思路是？","options":["A. 完全避免 unsafe","B. 在内部用 unsafe 实现，对外暴露安全的 API","C. 所有函数都标注 unsafe","D. 只用标准库"],"answer":1,"explanation":"安全抽象：模块内部的 unsafe 代码确保不变量成立，对外提供完全 safe 的 API。使用者不需要知道内部有 unsafe。"},
+      {"id":"u5-ch54-q8","question":"std::slice::from_raw_parts 为什么是 unsafe 的？","options":["A. 因为它返回切片","B. 因为调用者必须保证指针有效、长度正确、生命周期正确","C. 因为它使用了泛型","D. 因为它在标准库中"],"answer":1,"explanation":"编译器无法验证裸指针指向有效内存、长度不越界、数据存活期间不被修改。这些前置条件由调用者保证。"},
+      {"id":"u5-ch54-q9","question":"FFI（Foreign Function Interface）中 extern \"C\" 的作用是？","options":["A. 导入 C++ 代码","B. 使用 C 语言的调用约定（ABI），以便与 C 代码链接","C. 启用垃圾回收","D. 关闭借用检查"],"answer":1,"explanation":"extern \"C\" 指定使用 C ABI 的函数调用约定，这样 Rust 代码可以调用 C 库函数，反之亦然。"},
+      {"id":"u5-ch54-q10","question":"调用 extern \"C\" 函数为什么需要 unsafe？","options":["A. 因为 C 代码没有 Rust 的安全保证","B. 因为性能原因","C. 因为语法限制","D. 因为编码不同"],"answer":0,"explanation":"C 代码没有借用检查、空指针保护等。Rust 编译器无法验证外部函数的行为是否安全。"},
+      {"id":"u5-ch54-q11","question":"static mut 为什么需要 unsafe 访问？","options":["A. 因为 static 变量太大","B. 因为全局可变状态可能导致数据竞争","C. 因为 static 不支持 Drop","D. 因为编译器优化问题"],"answer":1,"explanation":"static mut 是全局可变变量，任何线程都能访问。没有同步机制就可能数据竞争，所以任何访问都必须 unsafe。"},
+      {"id":"u5-ch54-q12","question":"下面哪个不属于 unsafe 的五种能力？","options":["A. 解引用裸指针","B. 绕过借用检查","C. 调用 unsafe fn","D. 实现 unsafe trait"],"answer":1,"explanation":"unsafe 不能绕过借用检查！借用规则始终有效。unsafe 只解锁 5 种特定操作。"},
+      {"id":"u5-ch54-q13","question":"union 和 struct 的主要区别？","options":["A. union 没有字段","B. union 所有字段共享同一块内存","C. struct 更快","D. union 支持泛型"],"answer":1,"explanation":"union 的所有字段重叠在同一地址。读取非最后写入的字段是未定义行为——所以访问 union 字段需要 unsafe。"},
+      {"id":"u5-ch54-q14","question":"Miri 是什么工具？","options":["A. 代码格式化器","B. Rust MIR 解释器，检测 UB（未定义行为）","C. 包管理器","D. IDE 插件"],"answer":1,"explanation":"Miri 是 Rust 的 MIR 解释器，可以在运行时检测 unsafe 代码中的未定义行为（越界访问、悬垂指针等）。"},
+      {"id":"u5-ch54-q15","question":"#[no_mangle] 的作用？","options":["A. 优化函数性能","B. 防止编译器修改函数名，保持导出名不变","C. 禁用 unsafe 检查","D. 导入 C 函数"],"answer":1,"explanation":"Rust 编译器默认会修改（mangle）函数名。#[no_mangle] 保持原始名称，C 代码才能按名字找到它。"},
+      {"id":"u5-ch54-q16","question":"安全抽象 split_at_mut 的原理是？","options":["A. 直接用 safe 代码实现","B. 内部用 unsafe 创建两个不重叠的可变切片，验证不越界后暴露 safe API","C. 复制数据","D. 用 Rc 包装"],"answer":1,"explanation":"标准库的 split_at_mut 内部用裸指针创建两个不重叠的 &mut [T]，先验证索引合法。对外是安全函数。"},
+      {"id":"u5-ch54-q17","question":"什么是 UB（Undefined Behavior）？","options":["A. 未定义的变量","B. 违反语言规范的行为，编译器可做任何假设","C. 语法错误","D. 运行时 panic"],"answer":1,"explanation":"UB 意味着你的代码违反了编译器的假设。编译器可以优化掉"不可能发生"的分支、生成意外的代码。后果不可预测。"},
+      {"id":"u5-ch54-q18","question":"unsafe impl Send for MyType {} 表示什么？","options":["A. MyType 可以序列化","B. 程序员保证 MyType 跨线程传递是安全的","C. MyType 可以克隆","D. MyType 可以打印"],"answer":1,"explanation":"Send 是 unsafe trait。手动 impl 意味着程序员向编译器保证：这个类型在线程间传递不会导致数据竞争。"},
+      {"id":"u5-ch54-q19","question":"裸指针相比引用的主要"放松"是？","options":["A. 可以指向无效内存、可以有多个 *mut、没有生命周期跟踪","B. 自动解引用","C. 自动借用检查","D. 支持泛型"],"answer":0,"explanation":"裸指针没有借用规则：可以同时存在 *const 和 *mut、可以指向已释放内存、没有生命周期。这就是为什么解引用需要 unsafe。"},
+      {"id":"u5-ch54-q20","question":"以下代码有什么问题？\nlet mut x = 5;\nlet p = &mut x as *mut i32;\nunsafe { *p = 10; }\nprintln!(\"{x}\");","options":["A. UB，因为裸指针","B. 没有问题，会输出 10","C. 编译错误","D. 运行时 panic"],"answer":1,"explanation":"这段代码是合法的：创建裸指针 safe，通过 unsafe 写入 safe（原始变量仍然有效），最后 println! 读取更新后的值。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit5_advanced" style="--domain-color: var(--c-advanced);">
+  <nav class="topbar"><a href="../index.html" class="topbar-brand">Rust Learning</a><div class="topbar-module"><span class="module-domain">ADVANCED</span><a href="../index.html" class="module-name">Unit 5 · 高级特性</a></div><div class="topbar-right"><span class="chapter-indicator">Ch.4 / 4</span><button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button></div></nav>
+  <aside class="toc-sidebar"><div class="toc-header">本章目录</div><ul class="toc-list"><li><a href="#kp1">01 · unsafe 的五种能力</a></li><li><a href="#kp2">02 · 裸指针</a></li><li><a href="#kp3">03 · unsafe fn / unsafe trait</a></li><li><a href="#kp4">04 · 安全抽象</a></li><li><a href="#kp5">05 · FFI 与外部世界</a></li><li><a href="#exercises">综合练习</a></li></ul></aside>
+  <main class="main-content">
+    <header class="chapter-hero"><p class="chapter-label">Unit 5 · 高级特性</p><h1>Ch 5.4 Unsafe Rust</h1><p class="chapter-intro">Rust 的安全保证来自编译器的严格检查。unsafe 不是"关闭安全"——它是告诉编译器"这部分我自己负责"。理解 unsafe 的边界，才能真正掌握 Rust 的全部能力。</p></header>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 5 · 高级特性</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit4_concurrency_async/ch4.3_async_ecosystem.html">上一单元：异步生态</a></li>
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>unsafe 的五种能力</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>很多人认为 "unsafe = 不安全"，但这是误解。unsafe 正确的理解是"编译器无法验证的安全性，由程序员承担证明责任"。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>unsafe 解锁<strong>且仅解锁</strong>以下 5 种操作：</p><ol><li>解引用裸指针（<code>*const T</code> / <code>*mut T</code>）</li><li>调用 <code>unsafe fn</code></li><li>访问或修改 <code>static mut</code> 变量</li><li>实现 <code>unsafe trait</code></li><li>访问 <code>union</code> 字段</li></ol><p><strong>关键点</strong>：unsafe 不关闭借用检查、不关闭类型检查、不允许空指针取值。所有其他 Rust 规则照常。</p></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>unsafe_basics.rs</span></div>
+<pre><code>fn main() {
+    let mut x = 42;
 
-            <li class="unit-title">Unit 5 正式页面</li>
-            <li><a href="./ch5.1_smart_pointers.html">5.1 智能指针</a></li>
-            <li><a href="./ch5.2_generics_trait_objects.html">5.2 泛型与 Trait 对象</a></li>
-            <li><a href="./ch5.3_macros.html">5.3 宏系统</a></li>
-            <li><a href="./ch5.4_unsafe_rust.html" class="active">5.4 Unsafe Rust</a></li>
+    // 创建裸指针——不需要 unsafe
+    let r1 = &amp;x as *const i32;
+    let r2 = &amp;mut x as *mut i32;
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">unsafe 解锁了什么</a></li>
-            <li><a href="#kp-2">裸指针与解引用</a></li>
-            <li><a href="#kp-3">unsafe 函数与 Trait</a></li>
-            <li><a href="#kp-4">安全抽象的设计</a></li>
-            <li><a href="#kp-5">FFI 基础</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 5 · 高级特性</span>
-            <h1>Ch 5.4 Unsafe Rust</h1>
-            <p class="chapter-description">unsafe 不是"关闭安全检查"——它是告诉编译器"这段代码的安全性由我负责"。理解 unsafe 解锁了什么、你需要维护哪些不变量、以及如何最小化 unsafe 的暴露面，是系统编程的核心能力。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>明确 <code>unsafe</code> 块解锁的五种能力及其风险</li>
-                <li>掌握裸指针（<code>*const T</code> / <code>*mut T</code>）的创建与解引用规则</li>
-                <li>理解 <code>unsafe fn</code> 和 <code>unsafe trait</code> 的设计意图</li>
-                <li>学会在 unsafe 之上构建安全的公共 API（Safe Abstraction）</li>
-                <li>了解 FFI 基础：如何调用 C 函数和暴露 Rust 函数给 C</li>
-            </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>需要扎实理解所有权、借用规则和生命周期。unsafe 的核心挑战正是你手动保证那些编译器通常替你检查的不变量——如果对这些规则不清楚，写 unsafe 代码极易引入未定义行为。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>5.4.1 unsafe 到底解锁了什么？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>Rust 以安全著称，为什么还要提供 unsafe？它是不是意味着"放弃安全"？</p>
-            </div>
-            <p><code>unsafe</code> 关键字让你使用五种在安全 Rust 中被禁止的操作：① 解引用裸指针；② 调用 unsafe 函数；③ 访问或修改可变静态变量；④ 实现 unsafe trait；⑤ 访问 union 的字段。这些操作并不是"坏的"——它们是构建底层抽象（如 Vec、Arc、操作系统接口）所必需的能力。</p>
-            <div class="note-box warning">
-                <p><strong>核心理解：</strong><code>unsafe</code> 不关闭借用检查器，也不关闭类型检查。它只解锁上述五种操作，而你需要承诺：在这些操作中维护 Rust 安全模型的不变量。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>unsafe_five_powers.rs</span></div>
-                <pre><code>fn main() {
-    // ① 解引用裸指针
-    let x = 42;
-    let ptr = &amp;x as *const i32;
-    unsafe {
-        println!("裸指针值: {}", *ptr);
-    }
-
-    // ③ 访问可变静态变量
-    static mut COUNTER: i32 = 0;
-    unsafe {
-        COUNTER += 1;
-        println!("静态计数器: {}", COUNTER);
-    }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>裸指针值: 42
-静态计数器: 1</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="unsafe 只解锁五种特定操作（裸指针解引用、unsafe 函数调用、可变静态变量、unsafe trait、union），并不关闭借用检查或类型检查。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于 <code>unsafe</code> 块，哪项理解最正确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-4-q1" value="A"> A. unsafe 会关闭所有的编译器检查</label>
-                    <label><input type="radio" name="u5-4-q1" value="B"> B. unsafe 让代码自动变成 C 语言风格</label>
-                    <label><input type="radio" name="u5-4-q1" value="C"> C. unsafe 只解锁五种特定操作，其他检查仍然有效</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>5.4.2 裸指针：创建安全，解引用危险</h2>
-            <div class="think-box">
-                <div class="think-icon">🎯</div>
-                <p>裸指针和引用有什么区别？为什么创建裸指针不需要 unsafe，但解引用需要？</p>
-            </div>
-            <p>裸指针（<code>*const T</code> 和 <code>*mut T</code>）不受借用规则约束——你可以同时拥有可变和不可变的裸指针，指针也可以指向无效内存。创建裸指针本身是安全的（只是一个数字），但解引用时可能触发未定义行为，所以必须在 <code>unsafe</code> 中进行。</p>
-            <div class="note-box tip">
-                <p><strong>裸指针 vs 引用：</strong>引用有借用规则保护，保证总是有效；裸指针没有这些保证。裸指针的典型用途是 FFI、手写数据结构、以及绕过借用检查器的极少数正当场景。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>raw_pointers.rs</span></div>
-                <pre><code>fn main() {
-    let mut value = 10;
-
-    // 创建裸指针——安全操作
-    let r1 = &amp;value as *const i32;
-    let r2 = &amp;mut value as *mut i32;
-
-    // 解引用裸指针——必须在 unsafe 中
+    // 解引用裸指针——需要 unsafe
     unsafe {
         println!("r1 = {}", *r1);
-        *r2 = 20;
-        println!("r2 修改后 = {}", *r2);
+        *r2 = 100;
+        println!("r2 = {}", *r2);
     }
-
-    // 可以从任意地址创建裸指针（但解引用是 UB）
-    let bad_ptr = 0x12345usize as *const i32;
-    println!("裸指针地址: {:?}", bad_ptr);
-    // unsafe { *bad_ptr } // 千万不要这样做！
+    println!("x = {}", x);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>r1 = 10
-r2 修改后 = 20
-裸指针地址: 0x12345</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么创建裸指针不需要 unsafe？</button>
-                <div class="collapsible-content">
-                    <p>裸指针本质上就是一个内存地址（一个数字）。创建它不会读写任何内存，所以完全安全。危险发生在解引用时——你在告诉程序"去这个地址读/写数据"，而编译器无法保证那个地址有效。这就是解引用需要 unsafe 的原因。</p>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="创建裸指针只是得到一个地址值，不涉及内存访问。解引用裸指针才需要 unsafe，因为编译器无法保证地址有效。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>以下哪个操作需要 <code>unsafe</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-4-q2" value="A"> A. <code>let p = &amp;x as *const i32;</code></label>
-                    <label><input type="radio" name="u5-4-q2" value="B"> B. <code>let v = *p;</code>（p 是裸指针）</label>
-                    <label><input type="radio" name="u5-4-q2" value="C"> C. <code>let p = 0x100 as *const i32;</code></label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>r1 = 42
+r2 = 100
+x = 100</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>最小化 unsafe 范围</strong>：unsafe 块尽量小，只包含必须的操作。这样审计时只需关注 unsafe 块。</p><p><strong>注释说明安全性</strong>：在 unsafe 块上方写 <code>// SAFETY: ...</code> 注释说明为什么是安全的。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见误解</strong>："unsafe 块里什么都可以做" → 错！unsafe 只解锁 5 种操作，其他规则不变。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">unsafe 块中借用检查器还工作吗？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。unsafe 不关闭任何安全检查。')">A. 完全关闭</button><button onclick="checkInlineQuiz('iq-kp1',this,true,'正确！unsafe 只解锁 5 种特殊操作，借用检查等安全规则仍然有效。')">B. 仍然工作</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。unsafe 的影响是精确的。')">C. 部分关闭</button><button onclick="checkInlineQuiz('iq-kp1',this,false,'再想想。借用检查和指针操作是独立的。')">D. 只对指针关闭</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>5.4.3 unsafe 函数与 unsafe Trait</h2>
-            <div class="think-box">
-                <div class="think-icon">📜</div>
-                <p>为什么有些函数声明为 <code>unsafe fn</code>？调用者需要承担什么责任？</p>
-            </div>
-            <p><code>unsafe fn</code> 的意思是"调用这个函数时，你必须保证满足某些前置条件——编译器无法替你检查"。类似地，<code>unsafe trait</code> 表示"实现这个 trait 时，你必须手动保证某些不变量"。<code>Send</code> 和 <code>Sync</code> 就是 unsafe trait——编译器自动推导时是安全的，但如果你要手动 impl，就需要保证线程安全。</p>
-            <div class="note-box warning">
-                <p><strong>不变量责任：</strong>当函数标记为 <code>unsafe fn</code>，它的文档应该清楚说明调用者需要保证哪些前置条件。这些条件通常包括：指针有效性、对齐要求、不会出现数据竞争等。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>unsafe_fn_trait.rs</span></div>
-                <pre><code>/// # Safety
-/// `ptr` 必须指向一个有效的、已初始化的 i32 值
-unsafe fn read_value(ptr: *const i32) -&gt; i32 {
-    *ptr
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>裸指针</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>裸指针是 unsafe 最常用的能力。FFI、底层数据结构（链表、树）、性能优化都可能需要裸指针。理解它和引用的区别至关重要。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>裸指针相比引用的"放松"：</p><ul><li>可以同时存在 <code>*const T</code> 和 <code>*mut T</code> 指向同一数据</li><li>可以指向无效内存（悬垂指针）</li><li>没有生命周期跟踪</li><li>可以是空指针</li></ul><p><strong>创建是 safe 的，解引用才需要 unsafe</strong>。</p></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>raw_pointers.rs</span></div>
+<pre><code>fn main() {
+    let mut data = vec![1, 2, 3, 4, 5];
+
+    // 从引用获取裸指针
+    let ptr = data.as_mut_ptr();
+
+    unsafe {
+        // 指针算术
+        let third = ptr.add(2);
+        *third = 30;
+
+        // 从裸指针重建切片
+        let slice = std::slice::from_raw_parts(ptr, data.len());
+        println!("{:?}", slice);
+    }
 }
 
-// unsafe trait：实现者保证线程安全
-unsafe trait ThreadSafe {}
+// 空指针和有效性检查
+fn check_null() {
+    let p: *const i32 = std::ptr::null();
+    println!("is null? {}", p.is_null());
+    // unsafe { *p }  // ❌ UB! 解引用空指针
+}</code></pre>
+<div class="code-output"><strong>输出</strong><pre>[1, 2, 30, 4, 5]</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>使用 NonNull&lt;T&gt;</strong>：如果你不需要空指针，用 <code>NonNull&lt;T&gt;</code> 代替裸指针——编译器可以利用"非空"信息优化。</p><p><strong>ptr::read / ptr::write</strong>：操作未初始化内存时用这些而非普通解引用。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>危险操作</strong>：指针算术越界、解引用已释放内存、对齐错误。Miri 可以检测这些问题。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">创建裸指针 let p = &x as *const i32; 需要 unsafe 吗？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。创建只是拿地址，不访问内存。')">A. 需要</button><button onclick="checkInlineQuiz('iq-kp2',this,true,'正确！创建裸指针是 safe 的，只有解引用（*p）时才需要 unsafe。')">B. 不需要，解引用才需要</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。*const 和 *mut 创建都是 safe 的。')">C. 只有 *mut 需要</button><button onclick="checkInlineQuiz('iq-kp2',this,false,'再想想。只有 5 种操作需要 unsafe。')">D. 都不需要 unsafe</button></div></div>
+    </section><hr class="kp-separator">
 
-struct MyType(i32);
-// 手动实现 unsafe trait——我们保证 MyType 线程安全
-unsafe impl ThreadSafe for MyType {}
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>unsafe fn 与 unsafe trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>unsafe fn 和 unsafe trait 是 Rust 安全系统的"契约机制"——在类型层面表达"使用这个东西需要额外的安全保证"。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>unsafe fn</strong>：函数声明"调用者必须满足特定前置条件"。调用它必须在 unsafe 块中。</li><li><strong>unsafe trait</strong>：trait 声明"实现它需要手动保证某些不变量"。<code>unsafe impl</code> 是实现者的承诺。</li><li>经典例子：<code>Send</code> 和 <code>Sync</code> 是 unsafe trait——编译器自动推导大多数情况，但手动 impl 时你得保证线程安全。</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>unsafe_fn_trait.rs</span></div>
+<pre><code>/// SAFETY: ptr 必须指向有效的、已初始化的 i32，
+///         且在函数调用期间不被修改。
+unsafe fn read_value(ptr: *const i32) -&gt; i32 {
+    *ptr  // 解引用裸指针
+}
+
+unsafe trait MySync {
+    fn check(&amp;self) -&gt; bool;
+}
+
+struct SafeWrapper(i32);
+
+// SAFETY: SafeWrapper 只包含 i32，天然线程安全
+unsafe impl MySync for SafeWrapper {
+    fn check(&amp;self) -&gt; bool { self.0 &gt; 0 }
+}
 
 fn main() {
-    let x = 100;
-    let ptr = &amp;x as *const i32;
+    let val = 42;
+    let ptr = &amp;val as *const i32;
+    // 调用 unsafe fn 必须在 unsafe 块中
+    let result = unsafe { read_value(ptr) };
+    println!("read: {}", result);
 
-    // 调用 unsafe fn 需要 unsafe 块
-    let val = unsafe { read_value(ptr) };
-    println!("读取值: {val}");
+    let w = SafeWrapper(10);
+    println!("check: {}", w.check());
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>读取值: 100</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="unsafe fn 的含义是调用者必须保证满足函数文档中声明的前置条件，这些条件编译器无法自动检查。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>unsafe fn</code> 表示什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-4-q3" value="A"> A. 调用者必须保证满足函数要求的前置条件</label>
-                    <label><input type="radio" name="u5-4-q3" value="B"> B. 这个函数一定会导致内存错误</label>
-                    <label><input type="radio" name="u5-4-q3" value="C"> C. 这个函数不能被安全代码调用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>read: 42
+check: true</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>SAFETY 注释</strong>：每个 unsafe fn 上方写 <code>/// SAFETY: ...</code> 说明调用者需要保证什么。每个 unsafe impl 写明实现者保证了什么不变量。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>常见错误</strong>：在 unsafe fn 内部把所有代码都当作 unsafe 写——实际上只有确实需要 unsafe 的操作才应该在 unsafe 块中（Rust 2024 edition 可能默认要求）。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">unsafe fn 表明什么？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。unsafe fn 是声明层面的，不一定说明内部实现。')">A. 函数内部有 bug</button><button onclick="checkInlineQuiz('iq-kp3',this,true,'正确！unsafe fn 是函数对调用者的契约要求。')">B. 调用者必须保证前置条件成立</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。unsafe 不影响编译优化。')">C. 函数不会被优化</button><button onclick="checkInlineQuiz('iq-kp3',this,false,'再想想。这不是 unsafe fn 的含义。')">D. 函数返回裸指针</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>5.4.4 安全抽象：把 unsafe 包装成安全的 API</h2>
-            <div class="think-box">
-                <div class="think-icon">🛡️</div>
-                <p>标准库的 <code>Vec</code>、<code>String</code>、<code>Arc</code> 内部都用了 unsafe——为什么用户使用它们时不需要写 unsafe？</p>
-            </div>
-            <p>这就是"安全抽象"（Safe Abstraction）的核心思想：内部使用 unsafe 来实现高效操作，但通过精心设计的公共 API 保证外部用户无论如何调用都不会触发未定义行为。unsafe 的表面积被最小化到内部实现中，对外暴露的全是安全接口。</p>
-            <div class="note-box tip">
-                <p><strong>设计原则：</strong>① 把 unsafe 代码集中在最小范围内；② 用类型系统和 API 设计阻止外部违反不变量；③ 为每个 unsafe 块写注释说明为什么它是安全的；④ 用测试和 Miri 验证正确性。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>safe_abstraction.rs</span></div>
-                <pre><code>/// 一个安全的"分割可变切片"函数
-/// 内部使用 unsafe，但 API 对外完全安全
-fn split_at_mut(slice: &amp;mut [i32], mid: usize) -&gt; (&amp;mut [i32], &amp;mut [i32]) {
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>安全抽象</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>标准库大量使用 unsafe——但你调用 <code>Vec::push</code>、<code>String::from</code> 时完全不需要 unsafe 块。秘密在于<strong>安全抽象</strong>：内部用 unsafe 实现高性能操作，对外暴露完全安全的 API。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><p>"安全边界"模式：</p><ol><li>模块内部使用 unsafe 操作（如裸指针操作内存）</li><li>在 safe API 边界处验证所有前置条件</li><li>外部用户永远不需要写 unsafe</li></ol><p>经典例子：<code>Vec&lt;T&gt;</code> 内部操作堆内存用裸指针，但 <code>push</code>、<code>pop</code>、<code>[]</code> 都是 safe 的。</p></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>safe_abstraction.rs</span></div>
+<pre><code>/// 安全版本的 split_at_mut 原理演示
+fn my_split_at_mut(slice: &amp;mut [i32], mid: usize) -&gt; (&amp;mut [i32], &amp;mut [i32]) {
     let len = slice.len();
-    assert!(mid &lt;= len, "索引越界");
+    assert!(mid &lt;= len, "mid out of bounds");  // 安全边界：验证前置条件
 
     let ptr = slice.as_mut_ptr();
     unsafe {
-        // Safety: mid &lt;= len 已检查，两个切片不重叠
+        // SAFETY: mid &lt;= len，两个切片不重叠
         (
             std::slice::from_raw_parts_mut(ptr, mid),
             std::slice::from_raw_parts_mut(ptr.add(mid), len - mid),
@@ -238,130 +176,57 @@ fn split_at_mut(slice: &amp;mut [i32], mid: usize) -&gt; (&amp;mut [i32], &amp;m
 
 fn main() {
     let mut data = vec![1, 2, 3, 4, 5];
-    let (left, right) = split_at_mut(&amp;mut data, 3);
-
+    let (left, right) = my_split_at_mut(&amp;mut data, 3);
     left[0] = 10;
     right[0] = 40;
-
     println!("left: {:?}", left);
     println!("right: {:?}", right);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>left: [10, 2, 3]
-right: [40, 5]</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：如何用 Miri 检测 unsafe 中的未定义行为？</button>
-                <div class="collapsible-content">
-                    <p>Miri 是 Rust 的实验性解释器，能在运行时检测出许多未定义行为（内存越界、使用未初始化值、违反借用规则等）。使用方式：<code>rustup +nightly component add miri</code> 然后 <code>cargo +nightly miri test</code>。在写包含 unsafe 的库时，用 Miri 跑测试是最佳实践。</p>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="安全抽象的核心是：内部用 unsafe 实现高效操作，外部 API 设计保证用户无论如何调用都不会触发 UB。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>"安全抽象"的核心策略是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-4-q4" value="A"> A. 完全避免使用 unsafe</label>
-                    <label><input type="radio" name="u5-4-q4" value="B"> B. 用安全的公共 API 包装最小范围的 unsafe 实现</label>
-                    <label><input type="radio" name="u5-4-q4" value="C"> C. 让所有函数都标记为 unsafe</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>left: [10, 2, 3]
+right: [40, 5]</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>安全抽象是 Rust 的核心哲学</strong>：整个标准库就是这样建造的。你写的 crate 也应该遵循这个模式：unsafe 越少、越集中越好。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>错误的安全抽象</strong>：如果 safe API 没有充分验证前置条件，unsafe 内部代码可能触发 UB。验证必须在 unsafe 块<strong>之前</strong>完成。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">安全抽象的核心思路是？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。有些操作必须用 unsafe。')">A. 完全避免 unsafe</button><button onclick="checkInlineQuiz('iq-kp4',this,true,'正确！这是 Rust 标准库和生态系统的核心设计模式。')">B. 内部用 unsafe 实现，对外暴露安全 API</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。这样会让 unsafe 扩散到所有代码。')">C. 所有函数都标注 unsafe</button><button onclick="checkInlineQuiz('iq-kp4',this,false,'再想想。标准库本身就大量使用 unsafe。')">D. 只用标准库</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>5.4.5 FFI 基础：Rust 与 C 的桥梁</h2>
-            <div class="think-box">
-                <div class="think-icon">🌉</div>
-                <p>Rust 程序如何调用一个现有的 C 库函数？C 程序又如何调用 Rust 写的函数？</p>
-            </div>
-            <p>FFI（Foreign Function Interface）让 Rust 调用其他语言的函数，或把 Rust 函数暴露给其他语言。调用外部函数用 <code>extern "C"</code> 块声明；暴露 Rust 函数用 <code>#[no_mangle]</code> + <code>extern "C" fn</code>。所有 FFI 调用都是 unsafe 的——编译器无法验证外部代码的正确性。</p>
-            <div class="note-box tip">
-                <p><strong>FFI 要点：</strong>① 使用 <code>extern "C"</code> 指定 C ABI；② 类型必须兼容（用 <code>libc</code> crate 获取 C 类型）；③ 字符串需要用 <code>CString</code> / <code>CStr</code> 转换；④ 所有外部函数调用都在 <code>unsafe</code> 中。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>ffi_basics.rs</span></div>
-                <pre><code>// 声明外部 C 函数
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>FFI：与外部世界交互</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation"><div class="step-label">🎯 为什么需要了解这个</div><div class="step-body"><p>Rust 不是孤岛。调用 C 库（如 OpenSSL、SQLite）、被 Python/Node.js 调用、编写操作系统内核——这些都需要 FFI。FFI 是 unsafe 的主要实际应用之一。</p></div></div>
+        <div class="step-card step-abstraction"><div class="step-label">🔍 核心思路</div><div class="step-body"><ul><li><strong>调用 C</strong>：<code>extern "C" { fn abs(x: i32) -&gt; i32; }</code></li><li><strong>被 C 调用</strong>：<code>#[no_mangle] pub extern "C" fn my_func() {}</code></li><li><strong>bindgen</strong>：自动从 C 头文件生成 Rust FFI 绑定</li><li><strong>cbindgen</strong>：自动从 Rust 代码生成 C 头文件</li></ul></div></div>
+        <div class="step-card step-derivation"><div class="step-label">📐 规则与语法</div><div class="step-body">
+          <div class="code-block"><div class="code-header"><span>RUST</span><span>ffi_example.rs</span></div>
+<pre><code>use std::os::raw::c_int;
+
+// 声明 C 函数
 extern "C" {
-    fn abs(input: i32) -&gt; i32;
-    fn sqrt(input: f64) -&gt; f64;
+    fn abs(x: c_int) -&gt; c_int;
 }
 
-// 暴露 Rust 函数给 C
+// 导出给 C 使用
 #[no_mangle]
-pub extern "C" fn rust_add(a: i32, b: i32) -&gt; i32 {
+pub extern "C" fn rust_add(a: c_int, b: c_int) -&gt; c_int {
     a + b
 }
 
 fn main() {
-    // 调用 C 标准库函数——需要 unsafe
-    unsafe {
-        println!("abs(-5) = {}", abs(-5));
-        println!("sqrt(9.0) = {}", sqrt(9.0));
-    }
-
-    // Rust 函数也可以直接调用
-    println!("rust_add(3, 4) = {}", rust_add(3, 4));
+    let result = unsafe { abs(-42) };
+    println!("abs(-42) = {}", result);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>abs(-5) = 5
-sqrt(9.0) = 3
-rust_add(3, 4) = 7</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 FFI 函数都是 unsafe 的？</button>
-                <div class="collapsible-content">
-                    <p>Rust 编译器只能验证 Rust 代码的安全性。对于通过 FFI 调用的外部函数，编译器无法检查：参数是否有效、返回值是否正确、函数是否有副作用或内存安全问题。因此，所有 FFI 调用的安全性都由程序员负责，必须用 unsafe 标记。</p>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="FFI 调用外部函数时，Rust 编译器无法验证外部代码的正确性和安全性，所以所有 FFI 调用都必须在 unsafe 块中。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么所有 FFI 函数调用都需要 <code>unsafe</code>？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u5-4-q5" value="A"> A. 编译器无法验证外部代码的安全性</label>
-                    <label><input type="radio" name="u5-4-q5" value="B"> B. 外部函数运行速度太慢</label>
-                    <label><input type="radio" name="u5-4-q5" value="C"> C. FFI 只能在 nightly Rust 中使用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+<div class="code-output"><strong>输出</strong><pre>abs(-42) = 42</pre></div></div>
+        </div></div>
+        <div class="step-card step-application"><div class="step-label">🌐 工程实践</div><div class="step-body"><p><strong>-sys crate 惯例</strong>：Rust 生态中，foo-sys crate 提供 FFI 裸绑定，foo crate 提供安全抽象。例如 openssl-sys → openssl。</p><p><strong>libc crate</strong>：提供 C 标准库类型的 Rust 映射（<code>c_int</code>、<code>size_t</code> 等）。</p></div></div>
+        <div class="step-card step-example"><div class="step-label">✏️ 示例分析与易错点</div><div class="step-body"><p><strong>注意类型映射</strong>：C 的 <code>int</code> 在不同平台大小不同，始终用 <code>c_int</code> 而非 <code>i32</code>。字符串使用 <code>CStr</code>/<code>CString</code> 而非 <code>&amp;str</code>/<code>String</code>。</p></div></div>
+      </div>
+      <div class="inline-quiz" id="iq-kp5"><div class="iq-header">⚡ 快速检测</div><div class="iq-prompt">调用 extern "C" 函数为什么需要 unsafe？</div><div class="iq-options"><button onclick="checkInlineQuiz('iq-kp5',this,true,'正确！C 代码没有 Rust 的安全保证，编译器无法验证外部函数的行为。')">A. 因为 C 代码没有 Rust 的安全保证</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。unsafe 和性能无关。')">B. 因为性能原因</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。extern \"C\" 是合法语法。')">C. 因为语法限制</button><button onclick="checkInlineQuiz('iq-kp5',this,false,'再想想。编码和 unsafe 无关。')">D. 因为编码不同</button></div></div>
+    </section><hr class="kp-separator">
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
-            <ul>
-                <li><code>unsafe</code> 解锁五种操作：裸指针解引用、unsafe 函数、可变静态变量、unsafe trait、union 字段。</li>
-                <li>裸指针创建是安全的，解引用是 unsafe 的——因为编译器无法保证地址有效。</li>
-                <li><code>unsafe fn</code> 要求调用者保证前置条件；<code>unsafe trait</code> 要求实现者保证不变量。</li>
-                <li>安全抽象是最佳实践：内部 unsafe 最小化，外部 API 完全安全。</li>
-                <li>FFI 是 unsafe 的典型场景——编译器无法验证外部代码的正确性。</li>
-            </ul>
-        </section>
-
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 列出 unsafe 解锁的五种操作，并各给一个一句话的使用场景。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 写一个安全的 <code>fn get_or_default(slice: &amp;[i32], index: usize) -&gt; i32</code>，内部用裸指针实现越界检查后的快速访问。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 分析标准库 <code>Vec::push</code> 的实现，指出其中的 unsafe 代码及其保证的不变量。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 用 FFI 调用一个 C 库函数（如 <code>strlen</code>），包装成安全的 Rust API，并用 Miri 验证正确性。</li>
-            </ol>
-        </section>
-
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html">The Rust Programming Language · Unsafe Rust</a></li>
-                <li><a href="https://doc.rust-lang.org/nomicon/">The Rustonomicon（unsafe Rust 权威指南）</a></li>
-                <li><a href="https://doc.rust-lang.org/std/ptr/index.html">std::ptr 文档</a></li>
-                <li><a href="https://doc.rust-lang.org/reference/items/external-blocks.html">Rust Reference · External Blocks (FFI)</a></li>
-                <li><a href="https://github.com/rust-lang/miri">Miri — Rust 未定义行为检测器</a></li>
-            </ul>
-        </section>
-    </main>
-
-    <script src="../assets/js/main.js"></script>
+    <section id="exercises" class="exercises-section"><h2>综合练习</h2><div id="quiz-zone"></div></section>
+    <nav class="chapter-nav"><a href="ch5.3_macros.html">← Ch 5.3 宏系统</a><a href="../index.html" class="nav-overview">目录</a><a href="../unit6_tracks/ch6.A_game_dev.html">Ch 6.A 游戏开发 →</a></nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

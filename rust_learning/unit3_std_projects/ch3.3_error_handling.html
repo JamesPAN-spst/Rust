@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 3.3 错误处理 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u3-ch33-q1","question":"Rust 中 panic! 的默认行为是？","options":["A. 直接终止进程（abort）","B. 栈展开（unwind）并逐帧调用析构函数","C. 返回错误码","D. 抛出异常"],"answer":1,"explanation":"默认情况下 panic! 会触发栈展开（unwinding），逐帧调用析构函数清理资源，然后终止线程。可在 Cargo.toml 中设置 panic = 'abort' 改为直接终止。"},
+      {"id":"u3-ch33-q2","question":"什么情况下应该使用 panic!？","options":["A. 所有错误情况","B. 不可恢复的编程错误（违反不变量）","C. 文件不存在","D. 网络超时"],"answer":1,"explanation":"panic! 用于不可恢复的 bug，如数组越界、违反前置条件。可恢复的错误（文件不存在、网络问题）应使用 Result。"},
+      {"id":"u3-ch33-q3","question":"Result<T, E> 有哪两个变体？","options":["A. Some(T) 和 None","B. Ok(T) 和 Err(E)","C. Success(T) 和 Failure(E)","D. Left(T) 和 Right(E)"],"answer":1,"explanation":"Result<T, E> 是一个枚举：Ok(T) 表示成功并携带值，Err(E) 表示失败并携带错误信息。"},
+      {"id":"u3-ch33-q4","question":"unwrap() 在遇到 Err 时会怎样？","options":["A. 返回默认值","B. 返回 None","C. panic 并打印错误信息","D. 返回空字符串"],"answer":2,"explanation":"unwrap() 在 Ok 时返回内部值，在 Err 时直接 panic!。适合原型开发和确定不会出错的场景。"},
+      {"id":"u3-ch33-q5","question":"expect(\"msg\") 和 unwrap() 的区别是？","options":["A. expect 不会 panic","B. expect 在 panic 时附带自定义错误信息","C. 没有区别","D. expect 返回 Option"],"answer":1,"explanation":"expect 和 unwrap 行为相同，但 expect 在 panic 时打印你提供的消息，更容易定位问题。"},
+      {"id":"u3-ch33-q6","question":"map() 对 Result 的作用是？","options":["A. 映射 Err 中的值","B. 映射 Ok 中的值，Err 原样传递","C. 把 Result 转为 Option","D. 把两个 Result 合并"],"answer":1,"explanation":"result.map(f) 在 Ok(v) 时返回 Ok(f(v))，在 Err(e) 时直接返回 Err(e)。用于链式变换成功值。"},
+      {"id":"u3-ch33-q7","question":"and_then() 和 map() 的区别是？","options":["A. 没有区别","B. and_then 的闭包返回 Result，map 的闭包返回普通值","C. and_then 用于 Err","D. map 用于异步"],"answer":1,"explanation":"map(f) 中 f 返回 T（被包装成 Ok(T)）。and_then(f) 中 f 返回 Result<T,E>（不再包装），适合链接可能失败的操作。"},
+      {"id":"u3-ch33-q8","question":"? 运算符的作用？","options":["A. 空值检查","B. 如果是 Err 则提前返回，如果是 Ok 则解包","C. 布尔取反","D. 模式匹配"],"answer":1,"explanation":"? 是 match 的语法糖：Ok(v) 时解包为 v 继续执行，Err(e) 时调用 From::from(e) 转换后 return Err(...)。"},
+      {"id":"u3-ch33-q9","question":"? 运算符可以在 main 函数中使用吗？","options":["A. 不可以，main 不返回 Result","B. 可以，只要 main 的返回类型是 Result<(), E>","C. 只能在 async 函数中使用","D. 需要特殊的编译器标志"],"answer":1,"explanation":"main 可以声明为 fn main() -> Result<(), Box<dyn Error>>，这样就能使用 ? 运算符。"},
+      {"id":"u3-ch33-q10","question":"? 运算符如何进行错误类型转换？","options":["A. 不做任何转换","B. 调用 From::from() 将错误类型转换为函数返回类型中的错误类型","C. 用 as 强制转换","D. 自动 clone"],"answer":1,"explanation":"? 在传播 Err 时会调用 From::from(e) 进行类型转换。只要实现了 From<SourceError> for TargetError 就能自动转换。"},
+      {"id":"u3-ch33-q11","question":"自定义错误类型通常用什么实现？","options":["A. struct","B. enum（包含多个错误变体）","C. type alias","D. trait object"],"answer":1,"explanation":"enum 最适合自定义错误：每个变体代表一种错误原因，可以用 match 精确处理。通常需要实现 Display 和 Error trait。"},
+      {"id":"u3-ch33-q12","question":"实现 std::error::Error trait 需要先实现什么？","options":["A. Clone","B. Display（和 Debug）","C. Hash","D. Iterator"],"answer":1,"explanation":"Error trait 要求类型实现 Debug + Display。Debug 通常用 #[derive(Debug)] 自动派生，Display 需要手动实现。"},
+      {"id":"u3-ch33-q13","question":"Box<dyn Error> 的用途是什么？","options":["A. 让错误类型实现 Copy","B. 作为通用错误类型，可以容纳任何实现了 Error trait 的类型","C. 把错误存储在栈上","D. 自动重试错误"],"answer":1,"explanation":"Box<dyn Error> 是 trait object，可以包装任何实现了 Error trait 的类型。适合不需要精确匹配错误类型的场景。"},
+      {"id":"u3-ch33-q14","question":"unwrap_or(default) 的行为是？","options":["A. 总是返回 default","B. Ok 时返回内部值，Err 时返回 default","C. Err 时 panic","D. 返回 Option"],"answer":1,"explanation":"unwrap_or 在 Ok(v) 时返回 v，在 Err 时返回提供的默认值，不会 panic。"},
+      {"id":"u3-ch33-q15","question":"unwrap_or_else(f) 相比 unwrap_or(v) 的优势？","options":["A. 更快","B. 默认值通过闭包惰性计算，可以避免不必要的开销","C. 可以 panic","D. 返回 Err"],"answer":1,"explanation":"unwrap_or_else 只在 Err 时才调用闭包计算默认值。如果默认值构造昂贵（如分配内存），这比 unwrap_or 更高效。"},
+      {"id":"u3-ch33-q16","question":"以下代码中 ? 能正常工作吗？\nfn read() -> Result<String, std::io::Error> {\n    let n: i32 = \"42\".parse()?;\n    Ok(n.to_string())\n}","options":["A. 能，? 自动转换","B. 不能，ParseIntError 不能自动转为 io::Error","C. 能，所有 Error 都可以互转","D. 不能，parse 不返回 Result"],"answer":1,"explanation":"parse 返回 Result<_, ParseIntError>，但函数返回 io::Error。除非实现了 From<ParseIntError> for io::Error，否则 ? 无法自动转换。"},
+      {"id":"u3-ch33-q17","question":"thiserror crate 的作用是？","options":["A. 自动生成测试","B. 简化自定义错误类型的 Display 和 Error 实现","C. 替代 Result","D. 日志记录"],"answer":1,"explanation":"thiserror 通过 derive 宏自动实现 Display、Error 和 From，大幅减少自定义错误类型的样板代码。用于库开发。"},
+      {"id":"u3-ch33-q18","question":"anyhow crate 的设计目标是？","options":["A. 替代标准库的 HashMap","B. 为应用程序提供方便的错误处理（不需要自定义错误类型）","C. 异步运行时","D. 序列化"],"answer":1,"explanation":"anyhow 提供 anyhow::Error（类似 Box<dyn Error>）和 Context trait，适合应用层快速添加上下文信息。"},
+      {"id":"u3-ch33-q19","question":"map_err(f) 的作用？","options":["A. 映射 Ok 值","B. 映射 Err 值，Ok 原样传递","C. 把 Result 转为 Option","D. 过滤错误"],"answer":1,"explanation":"map_err(f) 在 Err(e) 时返回 Err(f(e))，在 Ok(v) 时直接返回 Ok(v)。常用于在 ? 前手动转换错误类型。"},
+      {"id":"u3-ch33-q20","question":"ok() 方法将 Result 转为什么？","options":["A. bool","B. Option<T> —— Ok(v) → Some(v), Err → None","C. 新的 Result","D. 字符串"],"answer":1,"explanation":"result.ok() 丢弃错误信息，Ok(v) → Some(v)，Err(_) → None。当你不关心具体错误原因时使用。"},
+      {"id":"u3-ch33-q21","question":"#[derive(Debug)] 配合 expect 的好处？","options":["A. 让错误类型可以 Clone","B. panic 信息中能打印错误的详细结构","C. 自动实现 Display","D. 提高性能"],"answer":1,"explanation":"expect 在 panic 时打印 Err 的 Debug 输出。#[derive(Debug)] 确保错误类型有可读的调试输出，方便排查问题。"},
+      {"id":"u3-ch33-q22","question":"以下哪种不是 Result 的链式操作方法？","options":["A. map","B. and_then","C. unwrap_or","D. push"],"answer":3,"explanation":"push 是 Vec/String 的方法。map、and_then、unwrap_or 都是 Result 的方法，用于链式处理成功值或提供默认值。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="chapter-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
+
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <a href="../index.html" class="module-name">Unit 3 · 标准库与项目实践</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.3 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 panic! 与 unwinding</a></li>
+      <li><a href="#kp2">02 Result&lt;T,E&gt; 详解</a></li>
+      <li><a href="#kp3">03 ? 运算符</a></li>
+      <li><a href="#kp4">04 自定义错误类型</a></li>
+      <li><a href="#kp5">05 anyhow 与 thiserror</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 3 · 标准库与项目实践</p>
+      <h1>错误处理</h1>
+      <p class="chapter-intro">Rust 没有异常机制——它用类型系统表达错误。panic! 处理不可恢复的 bug，Result&lt;T,E&gt; 处理可恢复的失败。这种设计迫使你在编译期就面对每一个可能的错误，而非在运行时被意外击中。</p>
+    </header>
+
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>panic! 与 unwinding</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>在其他语言中，异常可以被悄悄忽略。Rust 选择了一种更激进的策略：<strong>不可恢复的错误直接 panic</strong>。理解 panic 的机制——它什么时候发生、default 行为是什么、如何配置——是编写健壮程序的第一步。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>panic 有两种行为模式（在 <code>Cargo.toml</code> 的 <code>[profile]</code> 中配置）：</p>
+            <ul>
+              <li><strong>Unwind（默认）</strong>：从 panic 点开始逆向遍历调用栈，逐帧调用析构函数（Drop）清理资源，然后终止当前线程。程序可以用 <code>std::panic::catch_unwind</code> 捕获。</li>
+              <li><strong>Abort</strong>：直接终止整个进程，不做清理。二进制更小，适合嵌入式。</li>
+            </ul>
+            <p><strong>何时该 panic？</strong> 违反了程序的内部不变量——通常是 bug，而非外部输入导致的失败。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>panic_examples.rs</span></div>
+              <pre><code>// 显式 panic
+panic!("致命错误: 配置文件损坏");
+
+// 带格式化的 panic
+let file = "config.toml";
+panic!("无法解析 {}: 格式错误", file);
+
+// 隐式 panic 的常见来源
+let v = vec![1, 2, 3];
+let x = v[99];           // 越界 → panic!
+
+let n: i32 = "abc".parse().unwrap();  // 解析失败 → panic!
+
+// 设置 panic 策略
+// Cargo.toml:
+// [profile.release]
+// panic = "abort"</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>catch_unwind.rs</span></div>
+              <pre><code>use std::panic;
+
+// catch_unwind 可以捕获 panic（仅 unwind 模式下）
+let result = panic::catch_unwind(|| {
+    panic!("boom!");
+});
+
+match result {
+    Ok(_) => println!("正常结束"),
+    Err(_) => println!("捕获了一个 panic"),
+}
+// 输出: 捕获了一个 panic
+// 注意：这不是常规错误处理方式！主要用于 FFI 边界等特殊场景</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>捕获了一个 panic</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>适合 panic 的场景</strong>：测试中、原型验证、违反内部不变量（"this should never happen"）</li>
+              <li><strong>不适合 panic 的场景</strong>：用户输入无效、文件不存在、网络超时——这些应该用 Result</li>
+              <li><strong>RUST_BACKTRACE=1</strong>：设置环境变量可以在 panic 时打印完整调用栈，方便调试</li>
+              <li><strong>assert!/debug_assert!</strong>：前者在所有构建中检查，后者仅在 debug 构建中检查</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>assert_variants.rs</span></div>
+              <pre><code>// assert! —— 条件断言
+let age = 25;
+assert!(age >= 0, "年龄不能为负: {}", age);
+
+// assert_eq! / assert_ne! —— 相等性断言
+let result = 2 + 2;
+assert_eq!(result, 4);
+assert_ne!(result, 5);
+
+// debug_assert! —— 只在 debug 构建中生效
+debug_assert!(expensive_check(), "仅在调试时检查");
+
+// unreachable! —— 标记不可达代码
+fn classify(n: i32) -> &'static str {
+    match n.cmp(&0) {
+        std::cmp::Ordering::Less    => "negative",
+        std::cmp::Ordering::Equal   => "zero",
+        std::cmp::Ordering::Greater => "positive",
+    }
+    // 如果有遗漏分支：unreachable!("不应到达这里")
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ 不要在库代码中随意 panic！库应该返回 Result 让调用者决定如何处理。只在真正不可恢复的情况下（如内部不变量被破坏）才 panic。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下哪个场景适合使用 panic!？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '文件不存在是可恢复错误，应该用 Result。')">A. 文件不存在</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！数据结构内部不变量被破坏是严重 bug，适合 panic。')">B. 数据结构内部状态不一致（bug）</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '用户输入错误是可预期的，应该用 Result。')">C. 用户输入了无效数据</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '网络超时是可恢复错误。')">D. 网络请求超时</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>Result&lt;T,E&gt; 详解</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p><code>Result&lt;T,E&gt;</code> 是 Rust 错误处理的核心。它把"这个操作可能失败"直接编码在类型中，编译器会强制你处理每一个可能的错误。这消除了"忘记检查返回值"这一类经典 bug。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Result 的定义极其简单：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_def.rs</span></div>
+              <pre><code>enum Result&lt;T, E&gt; {
+    Ok(T),   // 操作成功，携带结果值
+    Err(E),  // 操作失败，携带错误信息
+}</code></pre>
+            </div>
+            <p>围绕 Result 有一系列方法形成<strong>链式处理</strong>的惯用模式，避免深层嵌套的 match：</p>
+            <ul>
+              <li><code>unwrap</code> / <code>expect</code>：快速解包，失败时 panic</li>
+              <li><code>unwrap_or</code> / <code>unwrap_or_else</code>：提供默认值</li>
+              <li><code>map</code> / <code>and_then</code>：链式变换</li>
+              <li><code>map_err</code>：变换错误类型</li>
+              <li><code>ok</code> / <code>err</code>：转为 Option</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_methods.rs</span></div>
+              <pre><code>use std::num::ParseIntError;
+
+fn parse_number(s: &str) -> Result&lt;i32, ParseIntError&gt; {
+    s.parse::&lt;i32&gt;()
+}
+
+fn main() {
+    // === match 处理（最基础） ===
+    match parse_number("42") {
+        Ok(n) => println!("解析成功: {}", n),
+        Err(e) => println!("解析失败: {}", e),
+    }
+
+    // === unwrap / expect ===
+    let n = parse_number("42").unwrap();           // 42
+    let n = parse_number("42").expect("必须是数字"); // 42
+    // parse_number("abc").unwrap();                // panic!
+
+    // === unwrap_or / unwrap_or_else ===
+    let n = parse_number("abc").unwrap_or(0);        // 0
+    let n = parse_number("abc").unwrap_or_else(|e| {
+        eprintln!("警告: {}", e);
+        -1
+    });  // -1
+
+    // === map：变换成功值 ===
+    let doubled: Result&lt;i32, _&gt; = parse_number("21").map(|n| n * 2);
+    // Ok(42)
+
+    // === and_then：链式可能失败的操作 ===
+    let result = parse_number("10")
+        .and_then(|n| {
+            if n > 0 { Ok(n) } else { Err("must be positive".parse().unwrap()) }
+        });
+
+    // === map_err：变换错误类型 ===
+    let result: Result&lt;i32, String&gt; = parse_number("abc")
+        .map_err(|e| format!("解析错误: {}", e));
+    // Err("解析错误: invalid digit found in string")
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_chain.rs</span></div>
+              <pre><code>use std::fs;
+use std::io;
+
+// 链式操作：读文件 → 解析为数字 → 乘以 2
+fn read_and_double(path: &str) -> Result&lt;i64, String&gt; {
+    fs::read_to_string(path)
+        .map_err(|e| format!("读取失败: {}", e))
+        .and_then(|content| {
+            content.trim().parse::&lt;i64&gt;()
+                .map_err(|e| format!("解析失败: {}", e))
+        })
+        .map(|n| n * 2)
+}
+
+// 等价的用 ? 的写法（更常用，看 KP3）</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>原型阶段</strong>：<code>unwrap()</code> / <code>expect()</code> 快速推进，后续替换为正式处理</li>
+              <li><strong>生产代码</strong>：避免 <code>unwrap</code>，用 <code>?</code> 传播或 <code>match</code> 精确处理</li>
+              <li><strong>if let</strong>：只关心成功情况时用 <code>if let Ok(v) = result { ... }</code></li>
+              <li><strong>链式调用</strong>：<code>map</code> + <code>and_then</code> 适合函数式风格，<code>?</code> 适合命令式风格</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>result_pitfalls.rs</span></div>
+              <pre><code>// ❌ 忽略 Result 的警告
+fn bad_code() {
+    let _ = std::fs::remove_file("temp.txt");
+    // 用 let _ = 显式忽略。直接丢弃 Result 会触发 #[must_use] 警告
+}
+
+// ❌ 到处 unwrap
+fn fragile(input: &str) -> i32 {
+    input.parse().unwrap()  // 用户输入非数字 → panic!
+}
+
+// ✅ 优雅处理
+fn robust(input: &str) -> Result&lt;i32, String&gt; {
+    input.parse().map_err(|_| format!("'{}' 不是有效数字", input))
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ Result 标记了 <code>#[must_use]</code>——如果你调用一个返回 Result 的函数但不处理返回值，编译器会发出警告。不要忽视这个警告！</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">result.map(f) 在 Err 情况下的行为？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'map 不处理 Err。')">A. 对 Err 值调用 f</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！map 只变换 Ok 值，Err 原封不动传递。')">B. Err 值原样传递，不调用 f</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'map 不会 panic。')">C. panic</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'map 不会把 Err 变成 None。')">D. 返回 None</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>? 运算符</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>手动 match 每个 Result 会让代码变得冗长。<code>?</code> 运算符是 Rust 的"错误传播语法糖"——它让你用一行代码完成"成功则继续，失败则返回"的逻辑，同时自动进行错误类型转换。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>expr?</code> 等价于：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>question_mark_desugar.rs</span></div>
+              <pre><code>// expr?  展开为：
+match expr {
+    Ok(val) => val,
+    Err(err) => return Err(From::from(err)),
+}</code></pre>
+            </div>
+            <p>关键点：</p>
+            <ul>
+              <li><code>?</code> 只能在返回 <code>Result</code>（或 <code>Option</code>）的函数中使用</li>
+              <li><code>From::from(err)</code> 自动进行错误类型转换</li>
+              <li>多个 <code>?</code> 可以链式使用，失败时在第一个错误处短路返回</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>question_mark.rs</span></div>
+              <pre><code>use std::fs;
+use std::io;
+
+// === 没有 ?：冗长的嵌套 match ===
+fn read_username_v1() -> Result&lt;String, io::Error&gt; {
+    let content = match fs::read_to_string("username.txt") {
+        Ok(c) => c,
+        Err(e) => return Err(e),
+    };
+    Ok(content.trim().to_string())
+}
+
+// === 用 ? 简化 ===
+fn read_username_v2() -> Result&lt;String, io::Error&gt; {
+    let content = fs::read_to_string("username.txt")?;
+    Ok(content.trim().to_string())
+}
+
+// === 链式 ? ===
+fn read_username_v3() -> Result&lt;String, io::Error&gt; {
+    Ok(fs::read_to_string("username.txt")?.trim().to_string())
+}
+
+// === ? 也适用于 Option ===
+fn first_even(nums: &[i32]) -> Option&lt;i32&gt; {
+    let first = nums.first()?;     // None → 提前返回 None
+    if first % 2 == 0 {
+        Some(*first)
+    } else {
+        None
+    }
+}</code></pre>
+            </div>
+
+            <p><strong>错误类型自动转换：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>from_conversion.rs</span></div>
+              <pre><code>use std::io;
+use std::num::ParseIntError;
+
+// 定义统一的错误类型
+#[derive(Debug)]
+enum AppError {
+    Io(io::Error),
+    Parse(ParseIntError),
+}
+
+// 实现 From 转换
+impl From&lt;io::Error&gt; for AppError {
+    fn from(e: io::Error) -> Self { AppError::Io(e) }
+}
+impl From&lt;ParseIntError&gt; for AppError {
+    fn from(e: ParseIntError) -> Self { AppError::Parse(e) }
+}
+
+// 现在 ? 能自动转换两种错误类型！
+fn read_number(path: &str) -> Result&lt;i32, AppError&gt; {
+    let content = std::fs::read_to_string(path)?;  // io::Error → AppError
+    let num: i32 = content.trim().parse()?;         // ParseIntError → AppError
+    Ok(num)
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>main 中使用 ?</strong>：<code>fn main() -> Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt;</code></li>
+              <li><strong>? 适用于 Option</strong>：在返回 <code>Option</code> 的函数中，<code>?</code> 对 <code>None</code> 提前返回</li>
+              <li><strong>不要混用</strong>：不能在返回 <code>Result</code> 的函数中对 <code>Option</code> 用 <code>?</code>（除非 <code>.ok_or()</code> 转换）</li>
+              <li><strong>? 在闭包中</strong>：<code>?</code> 从闭包返回，不是从外层函数返回。注意作用域！</li>
+            </ul>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>option_to_result.rs</span></div>
+              <pre><code>fn get_config(map: &std::collections::HashMap&lt;&str, &str&gt;)
+    -> Result&lt;&str, String&gt;
+{
+    // Option → Result 用 .ok_or() 或 .ok_or_else()
+    let host = map.get("host")
+        .ok_or("缺少 host 配置".to_string())?;
+    Ok(host)
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>question_mark_traps.rs</span></div>
+              <pre><code>// ❌ ? 不能在返回 () 的函数中使用
+fn do_stuff() {
+    let content = std::fs::read_to_string("f.txt")?;
+    //                                              ^ 编译错误
+    // 函数返回 ()，不是 Result
+}
+
+// ❌ 闭包中的 ? 不会从外层函数返回
+fn process(files: &[&str]) -> Result&lt;(), std::io::Error&gt; {
+    // 这里的 ? 从闭包返回，不是从 process 返回
+    // files.iter().for_each(|f| {
+    //     let content = std::fs::read_to_string(f)?;  // 编译错误
+    // });
+
+    // ✅ 用 for 循环代替
+    for f in files {
+        let content = std::fs::read_to_string(f)?;  // 从 process 返回
+        println!("{}", content);
+    }
+    Ok(())
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ <code>?</code> 运算符 = 提前 return。它只能在函数签名匹配时使用。闭包内的 <code>?</code> 从闭包自身返回，要特别注意。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">? 运算符在传播 Err 时会自动调用什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'clone 用于复制，不是错误转换。')">A. Clone::clone()</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！? 调用 From::from(err) 将源错误类型转换为目标错误类型。')">B. From::from()</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'Display 用于格式化输出。')">C. Display::fmt()</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '? 不会 panic。')">D. panic!()</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>自定义错误类型</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>真实项目中的错误不止一种。文件 I/O 可能失败、JSON 可能解析出错、网络可能超时。你需要一个统一的错误类型来表达"所有可能的错误"，并让调用者可以根据错误类型做出不同的决策。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>自定义错误类型的标准套路：</p>
+            <ol>
+              <li>定义一个 <code>enum</code>，每个变体代表一种错误原因</li>
+              <li>实现 <code>std::fmt::Display</code>（用户友好的错误消息）</li>
+              <li>实现 <code>std::error::Error</code>（进入标准错误类型层级）</li>
+              <li>为每种源错误实现 <code>From</code>（让 <code>?</code> 自动转换）</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>custom_error.rs</span></div>
+              <pre><code>use std::fmt;
+use std::io;
+use std::num::ParseIntError;
+
+// 1. 定义错误枚举
+#[derive(Debug)]
+enum AppError {
+    Io(io::Error),
+    Parse(ParseIntError),
+    Config(String),  // 自定义消息
+}
+
+// 2. 实现 Display
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter&lt;'_&gt;) -> fmt::Result {
+        match self {
+            AppError::Io(e) => write!(f, "I/O 错误: {}", e),
+            AppError::Parse(e) => write!(f, "解析错误: {}", e),
+            AppError::Config(msg) => write!(f, "配置错误: {}", msg),
+        }
+    }
+}
+
+// 3. 实现 Error trait
+impl std::error::Error for AppError {
+    fn source(&self) -> Option&lt;&(dyn std::error::Error + 'static)&gt; {
+        match self {
+            AppError::Io(e) => Some(e),
+            AppError::Parse(e) => Some(e),
+            AppError::Config(_) => None,
+        }
+    }
+}
+
+// 4. 实现 From 转换
+impl From&lt;io::Error&gt; for AppError {
+    fn from(e: io::Error) -> Self { AppError::Io(e) }
+}
+impl From&lt;ParseIntError&gt; for AppError {
+    fn from(e: ParseIntError) -> Self { AppError::Parse(e) }
+}
+
+// 现在可以潇洒地用 ?
+fn load_config(path: &str) -> Result&lt;i32, AppError&gt; {
+    let content = std::fs::read_to_string(path)?;  // io::Error → AppError
+    let port: i32 = content.trim().parse()?;        // ParseIntError → AppError
+    if port &lt; 1 || port &gt; 65535 {
+        return Err(AppError::Config(format!("无效端口: {}", port)));
+    }
+    Ok(port)
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>库 vs 应用</strong>：库代码应该定义精确的错误类型（enum），应用代码可以用 <code>Box&lt;dyn Error&gt;</code> 或 <code>anyhow</code></li>
+              <li><strong>source() 方法</strong>：实现 <code>source()</code> 让错误链可追溯，调试时可以层层查看根因</li>
+              <li><strong>type alias</strong>：<code>type Result&lt;T&gt; = std::result::Result&lt;T, AppError&gt;</code> 简化函数签名</li>
+              <li><strong>样板代码多？</strong> → 用 <code>thiserror</code> crate 自动派生（见 KP5）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>error_matching.rs</span></div>
+              <pre><code>// 调用者可以根据错误类型做精确处理
+fn main() {
+    match load_config("port.txt") {
+        Ok(port) => println!("服务器端口: {}", port),
+        Err(AppError::Io(e)) if e.kind() == io::ErrorKind::NotFound => {
+            println!("配置文件不存在，使用默认端口 8080");
+        }
+        Err(AppError::Parse(_)) => {
+            eprintln!("配置文件内容不是有效数字");
+        }
+        Err(e) => {
+            eprintln!("错误: {}", e);
+            // 追溯错误链
+            let mut source = e.source();
+            while let Some(cause) = source {
+                eprintln!("  原因: {}", cause);
+                source = cause.source();
+            }
+        }
+    }
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">自定义错误类型必须实现哪两个 trait？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Clone 和 Copy 不是必须的。')">A. Clone + Copy</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！Error trait 要求实现 Debug + Display。')">B. Display + Debug（Error trait 的前置要求）</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Hash 和 Eq 用于集合 key。')">C. Hash + Eq</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Serialize 不是标准库。')">D. Serialize + Deserialize</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>anyhow 与 thiserror</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>手动为每个错误类型实现 Display、Error 和 From 是重复劳动。Rust 生态中有两个几乎"标配"的错误处理 crate：<code>thiserror</code>（用于库）和 <code>anyhow</code>（用于应用）。它们各自解决不同层面的问题。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>Crate</th><th>适用场景</th><th>核心思想</th></tr></thead>
+              <tbody>
+                <tr><td><code>thiserror</code></td><td>库开发</td><td>用 derive 宏自动实现 Display/Error/From，减少样板代码</td></tr>
+                <tr><td><code>anyhow</code></td><td>应用开发</td><td>提供通用 <code>anyhow::Error</code> 类型，不需定义错误 enum</td></tr>
+              </tbody>
+            </table>
+            <p>两者可以共存：库用 thiserror 定义精确错误，应用用 anyhow 包装一切。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <p><strong>thiserror 示例：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>with_thiserror.rs</span></div>
+              <pre><code>// Cargo.toml: thiserror = "1"
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+enum AppError {
+    #[error("I/O 错误: {0}")]            // 自动实现 Display
+    Io(#[from] std::io::Error),           // 自动实现 From
+
+    #[error("解析错误: {0}")]
+    Parse(#[from] std::num::ParseIntError),
+
+    #[error("配置错误: {msg}")]
+    Config { msg: String },
+}
+
+// 对比手动实现：上面 7 行 = 之前的 30+ 行！
+
+fn load_config(path: &str) -> Result&lt;i32, AppError&gt; {
+    let content = std::fs::read_to_string(path)?;
+    let port: i32 = content.trim().parse()?;
+    Ok(port)
+}</code></pre>
+            </div>
+
+            <p><strong>anyhow 示例：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>with_anyhow.rs</span></div>
+              <pre><code>// Cargo.toml: anyhow = "1"
+use anyhow::{Context, Result};
+
+// Result 是 anyhow::Result&lt;T&gt; = Result&lt;T, anyhow::Error&gt;
+fn load_config(path: &str) -> Result&lt;i32&gt; {
+    let content = std::fs::read_to_string(path)
+        .context(format!("读取配置文件 {} 失败", path))?;
+        // context() 添加人类可读的上下文信息
+
+    let port: i32 = content.trim().parse()
+        .context("配置文件内容不是有效端口号")?;
+
+    Ok(port)
+}
+
+fn main() -> Result&lt;()&gt; {
+    let port = load_config("port.txt")?;
+    println!("端口: {}", port);
+    Ok(())
+}
+// 错误输出（自动带链式上下文）：
+// Error: 读取配置文件 port.txt 失败
+//
+// Caused by:
+//     No such file or directory (os error 2)</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>库 → thiserror</strong>：保持精确的错误类型，让调用者可以 match 处理</li>
+              <li><strong>应用 → anyhow</strong>：快速开发，自动错误链，无需定义错误类型</li>
+              <li><strong>anyhow + thiserror 混用</strong>：库 expose thiserror 错误，应用层用 anyhow 包装</li>
+              <li><strong>bail! 和 ensure!</strong>：anyhow 提供的宏，用于快速返回错误</li>
+            </ul>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>anyhow_macros.rs</span></div>
+              <pre><code>use anyhow::{bail, ensure, Result};
+
+fn validate_port(port: i32) -> Result&lt;()&gt; {
+    // ensure! —— 条件不满足则返回错误
+    ensure!(port > 0 && port &lt; 65536, "端口 {} 超出范围", port);
+
+    // bail! —— 无条件返回错误
+    if port == 22 {
+        bail!("端口 22 保留给 SSH");
+    }
+
+    Ok(())
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>choosing_strategy.rs</span></div>
+              <pre><code>// 选择错误处理策略的决策树：
+
+// Q: 你在写库还是应用？
+//   库 → 使用 thiserror 定义精确的错误类型
+//   应用 → 使用 anyhow（或 Box&lt;dyn Error&gt;）
+
+// Q: 调用者需要区分错误类型吗？
+//   是 → enum 错误类型（thiserror 辅助）
+//   否 → anyhow::Error 或 Box&lt;dyn Error&gt;
+
+// Q: 是可恢复的错误还是 bug？
+//   可恢复 → Result&lt;T, E&gt;
+//   Bug → panic! / assert! / unreachable!</code></pre>
+            </div>
+            <p class="warning-text">⚠ anyhow::Error 不适合库的公开 API——调用者无法对具体错误类型做 match。库应该暴露确定的错误枚举。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">thiserror 和 anyhow 分别适用于什么场景？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '反了。')">A. thiserror 用于应用，anyhow 用于库</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '正确！thiserror 帮助库定义精确的错误类型，anyhow 帮助应用程序简化错误处理。')">B. thiserror 用于库（精确错误类型），anyhow 用于应用（通用错误）</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '两者用途不同。')">C. 两者功能完全相同</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '正好相反。')">D. anyhow 用于定义错误枚举</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <p class="exercises-intro">共 22 道题，覆盖 panic、Result 链式操作、? 运算符、自定义错误类型和生态工具。</p>
+      <div id="quiz-container"></div>
+      <div class="quiz-controls">
+        <button class="btn" onclick="checkAnswers()">提交答案</button>
+        <button class="btn btn-outline" onclick="resetQuiz()">重置</button>
+      </div>
+      <div id="quiz-result"></div>
+    </section>
+
+    <!-- ==================== 章节导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="ch3.2_collections.html" class="prev-chapter">
+        <span class="nav-arrow">←</span>
+        <span class="nav-info">
+          <span class="nav-label">上一章</span>
+          <span class="nav-title">集合类型</span>
+        </span>
+      </a>
+      <a href="ch3.4_modules_crates.html" class="next-chapter">
+        <span class="nav-info">
+          <span class="nav-label">下一章</span>
+          <span class="nav-title">模块与 Crate</span>
+        </span>
+        <span class="nav-arrow">→</span>
+      </a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
+</body>
+</html>

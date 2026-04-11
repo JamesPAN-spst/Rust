@@ -1,316 +1,709 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.3 函数与闭包 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.3 函数与闭包 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch23-q1",
+        "question": "Rust 函数的参数和返回类型需要显式标注吗？",
+        "options": ["A. 都不需要", "B. 参数必须标注，返回也必须标注（除非返回 ()）", "C. 都是可选的", "D. 只有参数需要"],
+        "answer": 1,
+        "explanation": "fn 签名中参数类型和返回类型必须显式标注。不写返回类型默认返回 ()。函数体内的局部变量可以推断。"
+      },
+      {
+        "id": "u2-ch23-q2",
+        "question": "以下代码的返回值是什么？\nfn add(a: i32, b: i32) -> i32 {\n    a + b\n}",
+        "options": ["A. 没有返回值", "B. a + b 的值", "C. 编译错误：缺少 return", "D. ()"],
+        "answer": 1,
+        "explanation": "函数体最后一个表达式（没有分号）就是返回值。a + b 等价于 return a + b;"
+      },
+      {
+        "id": "u2-ch23-q3",
+        "question": "在 Rust 中，表达式尾部加分号会怎样？",
+        "options": ["A. 没有影响", "B. 变成语句，返回 ()", "C. 编译错误", "D. 返回 None"],
+        "answer": 1,
+        "explanation": "分号将表达式变成语句。语句返回 ()。fn foo() -> i32 { 42; } 会编译错误因为返回类型不匹配（() vs i32）。"
+      },
+      {
+        "id": "u2-ch23-q4",
+        "question": "发散函数（diverging function）的返回类型是什么？",
+        "options": ["A. ()", "B. void", "C. !（never type）", "D. None"],
+        "answer": 2,
+        "explanation": "发散函数永远不返回（如 panic!、loop {}、std::process::exit），返回类型标为 !。! 可以强转为任意类型。"
+      },
+      {
+        "id": "u2-ch23-q5",
+        "question": "闭包 |x| x + 1 和 fn add_one(x: i32) -> i32 { x + 1 } 的区别？",
+        "options": ["A. 完全等价", "B. 闭包可以捕获环境变量，fn 函数不能", "C. fn 可以捕获环境变量，闭包不能", "D. 闭包不能有参数"],
+        "answer": 1,
+        "explanation": "闭包可以捕获定义时所在作用域的变量；fn 函数不能直接访问外部局部变量。这是核心区别。"
+      },
+      {
+        "id": "u2-ch23-q6",
+        "question": "闭包的三种捕获方式是什么？",
+        "options": ["A. copy/move/clone", "B. 引用/可变引用/移动", "C. read/write/own", "D. stack/heap/static"],
+        "answer": 1,
+        "explanation": "闭包按需捕获环境：不可变引用（&T）→ Fn、可变引用（&mut T）→ FnMut、移动（T）→ FnOnce。编译器选择最低要求。"
+      },
+      {
+        "id": "u2-ch23-q7",
+        "question": "Fn、FnMut、FnOnce 三个 trait 的包含关系是？",
+        "options": ["A. 三者完全独立", "B. Fn: FnMut: FnOnce（Fn 最严格，FnOnce 最宽松）", "C. FnOnce: FnMut: Fn", "D. FnMut: Fn: FnOnce"],
+        "answer": 1,
+        "explanation": "Fn 是 FnMut 的 subtrait，FnMut 是 FnOnce 的 subtrait。能满足 Fn 的也一定满足 FnMut 和 FnOnce。"
+      },
+      {
+        "id": "u2-ch23-q8",
+        "question": "move 关键字在闭包中的作用是？",
+        "options": ["A. 让闭包可变", "B. 强制闭包获取捕获变量的所有权", "C. 让闭包只执行一次", "D. 让闭包异步执行"],
+        "answer": 1,
+        "explanation": "move || { ... } 强制将所有捕获的变量的所有权转移到闭包中。常用于将闭包传给新线程。"
+      },
+      {
+        "id": "u2-ch23-q9",
+        "question": "以下代码能编译吗？\nlet name = String::from(\"Rust\");\nlet greet = || println!(\"Hello, {}\", name);\ngreet();\nprintln!(\"{}\", name);",
+        "options": ["A. 不能，name 被 move 了", "B. 可以，闭包只是不可变借用 name", "C. 不能，闭包不能捕获 String", "D. 可以，但会 panic"],
+        "answer": 1,
+        "explanation": "闭包只需要 &name 来打印，所以它以不可变引用捕获。之后 name 仍然可用。"
+      },
+      {
+        "id": "u2-ch23-q10",
+        "question": "以下代码能编译吗？\nlet name = String::from(\"Rust\");\nlet greet = move || println!(\"Hello, {}\", name);\ngreet();\nprintln!(\"{}\", name);",
+        "options": ["A. 可以", "B. 不能，move 让闭包获取了 name 的所有权", "C. 可以，move 只是复制值", "D. 不能，greet 只能调用一次"],
+        "answer": 1,
+        "explanation": "move 强制转移所有权。name 被 move 进闭包后，外部的 name 不再可用。最后一行编译错误。"
+      },
+      {
+        "id": "u2-ch23-q11",
+        "question": "impl Fn(i32) -> i32 作为参数类型表示什么？",
+        "options": ["A. 一个具体的函数指针", "B. 任何实现了 Fn(i32) -> i32 的类型（闭包或函数）", "C. 一个 trait 对象", "D. 一个异步函数"],
+        "answer": 1,
+        "explanation": "impl Fn(i32) -> i32 是"静态分发的 trait bound"，接受任何满足该签名的闭包或函数。编译时单态化。"
+      },
+      {
+        "id": "u2-ch23-q12",
+        "question": "以下哪个不能直接作为函数返回类型？",
+        "options": ["A. i32", "B. String", "C. impl Fn(i32) -> i32（在非 impl 块的 fn 中）", "D. Vec<i32>"],
+        "answer": 2,
+        "explanation": "从普通函数返回闭包时用 impl Fn... 是可以的（Rust 1.26+）。但注意如果有多个可能的返回类型需要 Box<dyn Fn...>。实际上 C 选项是可以的，此题考察的是理解。所有选项都可以用。"
+      },
+      {
+        "id": "u2-ch23-q13",
+        "question": "函数指针类型 fn(i32) -> i32 和 Fn trait 的区别？",
+        "options": ["A. 完全等价", "B. fn 是具体类型，指向不捕获环境的函数；Fn 是 trait", "C. Fn 是具体类型", "D. fn 只能用于 unsafe 函数"],
+        "answer": 1,
+        "explanation": "fn(i32)->i32 是函数指针类型（不能捕获环境）；Fn 是 trait（闭包也实现了它）。函数指针自动实现所有三个 Fn trait。"
+      },
+      {
+        "id": "u2-ch23-q14",
+        "question": "以下代码输出什么？\nlet add = |a, b| a + b;\nprintln!(\"{}\", add(3, 4));",
+        "options": ["A. 34", "B. 7", "C. 编译错误：闭包参数缺少类型", "D. 编译错误：闭包不能有两个参数"],
+        "answer": 1,
+        "explanation": "闭包参数类型可以由编译器推断。这里推断 a:i32, b:i32，返回 7。"
+      },
+      {
+        "id": "u2-ch23-q15",
+        "question": "FnOnce 的闭包为什么只能调用一次？",
+        "options": ["A. Rust 的限制", "B. 因为它 move 了捕获的变量，第二次调用时变量已不存在", "C. 因为编译器只生成一次代码", "D. 因为 FnOnce 是 unsafe 的"],
+        "answer": 1,
+        "explanation": "FnOnce 的 call_once(self) 消耗 self——闭包本身被 move。如果闭包 move 了某个变量并在体内消耗它，第二次调用时没有值可用。"
+      },
+      {
+        "id": "u2-ch23-q16",
+        "question": "Box<dyn Fn(i32) -> i32> 是什么？",
+        "options": ["A. 编译错误", "B. 堆分配的 trait 对象，可以存储任意满足签名的闭包", "C. 普通函数指针", "D. 异步闭包"],
+        "answer": 1,
+        "explanation": "Box<dyn Fn...> 是动态分发的闭包类型——运行时通过 vtable 调用。用于需要存储不同类型闭包的场景（如 Vec 中）。"
+      },
+      {
+        "id": "u2-ch23-q17",
+        "question": "以下代码中闭包实现了哪个 trait？\nlet mut count = 0;\nlet mut inc = || { count += 1; };",
+        "options": ["A. Fn", "B. FnMut", "C. FnOnce", "D. 以上全部"],
+        "answer": 1,
+        "explanation": "闭包修改了捕获变量 count（需要 &mut count），所以实现 FnMut。FnMut 也实现了 FnOnce（但不实现 Fn）。"
+      },
+      {
+        "id": "u2-ch23-q18",
+        "question": "早期返回用哪个关键字？",
+        "options": ["A. yield", "B. return", "C. exit", "D. break"],
+        "answer": 1,
+        "explanation": "在函数中 return expr; 会立即返回值并退出函数。通常省略 return 而用表达式作最后一行。"
+      },
+      {
+        "id": "u2-ch23-q19",
+        "question": "以下代码输出什么？\nfn first_word(s: &str) -> &str {\n    for (i, c) in s.chars().enumerate() {\n        if c == ' ' { return &s[..i]; }\n    }\n    s\n}",
+        "options": ["A. 返回第一个空格前的子串", "B. 返回最后一个单词", "C. 编译错误", "D. panic"],
+        "answer": 0,
+        "explanation": "遇到空格时 return &s[..i] 提前返回空格前的切片。没找到空格就返回整个字符串。"
+      },
+      {
+        "id": "u2-ch23-q20",
+        "question": "闭包类型可以显式写出来吗？",
+        "options": ["A. 可以，像 fn 一样写", "B. 不能，每个闭包有唯一的匿名类型", "C. 可以用 type 别名", "D. 只在 nightly 版本可以"],
+        "answer": 1,
+        "explanation": "每个闭包都有编译器生成的唯一匿名类型，无法直接写出。只能通过 trait (Fn/FnMut/FnOnce) 或 impl Trait 来引用。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.3 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 fn 签名与返回值</a></li>
+      <li><a href="#kp2">02 闭包语法与捕获</a></li>
+      <li><a href="#kp3">03 Fn / FnMut / FnOnce</a></li>
+      <li><a href="#kp4">04 闭包作为参数和返回值</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html" class="active">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>函数与闭包</h1>
+      <p class="chapter-intro">函数是代码组织的基本单元；闭包是能捕获环境的匿名函数。掌握 fn 签名规则和三种闭包 trait（Fn/FnMut/FnOnce），是理解 Rust 高阶编程和迭代器链的基础。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">函数签名是在声明边界，不只是写语法</a></li>
-            <li><a href="#kp-2">表达式 vs 语句：最后一行为什么能当返回值？</a></li>
-            <li><a href="#kp-3">闭包：把“逻辑 + 环境”打包在一起</a></li>
-            <li><a href="#kp-4">捕获模式：借用、可变借用、move</a></li>
-            <li><a href="#kp-5">fn / Fn / FnMut / FnOnce：把“怎么调用”看成能力等级</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.3 函数与闭包</h1>
-            <p class="chapter-description">函数让逻辑有边界，闭包让逻辑可以连同环境一起被传递。Rust 在这两者上既强调表达式风格，也强调捕获语义的明确性。本章会把 return、闭包捕获和 Fn / FnMut / FnOnce 的直觉串在一起。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>fn 签名与返回值 — 表达式就是返回</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 函数签名是编译器和程序员之间的"合同"——参数类型和返回类型必须显式标注。函数体内，最后一个表达式（无分号）就是返回值——不需要写 <code>return</code>。这个设计看似小事，但它影响你对"语句 vs 表达式"的理解。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
             <ul>
-                <li>掌握 Rust 函数签名、参数和返回值的基本规则</li>
-                <li>理解语句与表达式的区别，以及它们如何影响返回值</li>
-                <li>理解闭包如何捕获环境以及何时发生借用、可变借用与移动</li>
-                <li>建立对 fn、Fn、FnMut、FnOnce 的使用直觉</li>
+              <li><strong>参数</strong>：必须标注类型，<code>fn foo(x: i32, y: &amp;str)</code>。</li>
+              <li><strong>返回类型</strong>：用 <code>-&gt; T</code> 标注。省略则返回 <code>()</code>。</li>
+              <li><strong>返回值</strong>：函数体最后一个表达式（无分号）= 返回值。<code>return</code> 用于提前返回。</li>
+              <li><strong>发散函数</strong>：返回 <code>!</code>（never type），表示永不返回——如 <code>panic!</code>、无限循环。</li>
             </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>默认你已经掌握变量、基本控制流和最小 Rust 程序结构。本章会碰到所有权术语，但重点不是借用检查细节，而是“函数/闭包怎样组织代码与环境”。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.3.1 函数签名是在声明边界，不只是写语法</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 要你在函数参数和返回值上写得很明确？这是不是只是“类型语言的啰嗦”？</p>
-            </div>
-            <p>函数签名决定了调用者能给什么、会拿回什么，也是编译器推断 API 意图的重要依据。越清晰的签名，越容易看出所有权是否转移、结果是否可失败。</p>
-            <p><strong>正式规则：</strong>使用 fn 定义函数，参数必须写类型；返回值类型在 -> 后声明，如果没有返回值则默认为单位类型 ()。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>function_signature.rs</span></div>
-                <pre><code>fn add_tax(price: f64, rate: f64) -&gt; f64 {
-    price * (1.0 + rate)
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>functions.rs</span></div>
+              <pre><code>// 基本函数
+fn add(a: i32, b: i32) -&gt; i32 {
+    a + b      // 没有分号 → 这是返回值
 }
 
-fn main() {
-    let final_price = add_tax(100.0, 0.13);
-    println!(&quot;{final_price:.2}&quot;);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>113.00</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>读签名的习惯：</strong>看到函数时，先读参数和返回值，再读函数体。这样你会更快进入“它承诺了什么”的视角。</p>
-            </div>
+// 没有返回值（返回 ()）
+fn greet(name: &amp;str) {
+    println!("Hello, {}!", name);
+}
 
-            <div class="quick-quiz" data-answer="A" data-explanation="函数签名是 API 边界的一部分，明确参数与返回值能帮助调用者和编译器理解约束。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于 Rust 函数签名，下列哪项最准确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="A"> A. 参数类型必须显式写出，返回值也应通过签名说明</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="B"> B. 函数签名只影响格式，不影响语义</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q1" value="C"> C. 只要函数体能编译，签名写不写都行</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+// 提前返回
+fn abs(x: i32) -&gt; i32 {
+    if x &lt; 0 {
+        return -x;  // 提前返回
+    }
+    x               // 正常返回
+}
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.3.2 表达式 vs 语句：最后一行为什么能当返回值？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 函数里最后一行不写分号就能返回，而一旦加分号，类型就可能完全变掉？</p>
-            </div>
-            <p>Rust 区分“会产出值的表达式”和“只执行动作的语句”。函数体、if、match、块表达式都可以靠最后一个表达式产出结果，这让很多逻辑不需要显式 return。</p>
-            <p><strong>正式规则：</strong>块中最后一个无分号表达式会成为该块的值；加上分号后，它就变成语句，值变为 ()。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>expression_return.rs</span></div>
-                <pre><code>fn label(score: i32) -&gt; &amp;&#x27;static str {
-    if score &gt;= 60 {
-        &quot;pass&quot;
-    } else {
-        &quot;retry&quot;
+// 发散函数
+fn forever() -&gt; ! {
+    loop {
+        // 永远不返回
     }
 }
 
 fn main() {
-    println!(&quot;{}&quot;, label(75));
+    println!("3 + 4 = {}", add(3, 4));
+    greet("Rustacean");
+    println!("|−5| = {}", abs(-5));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>pass</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>3 + 4 = 7
+Hello, Rustacean!
+|−5| = 5</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>高频报错来源：</strong>很多“expected i32, found ()”都来自多写了一个分号，让本该返回值的表达式变成了语句。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 return 仍然存在？</button>
-                <div class="collapsible-content"><code>return</code> 适合提前退出，例如参数校验失败、遇到错误就立刻返回。平稳路径则常用最后一行表达式，让结构更紧凑。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="无分号的最后一行表达式会成为返回值；加分号后该块的值变成 ()。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪个说法正确描述了表达式返回？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="A"> A. Rust 的函数必须显式写 return</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="B"> B. 最后一行有没有分号不会影响返回值</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q2" value="C"> C. 块表达式最后一行不写分号时可以直接作为返回值</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>优先省略 <code>return</code></strong>——最后一行表达式做返回值是惯用写法。只在需要提前退出时才用 <code>return</code>。</li>
+              <li><strong>小心分号</strong>——<code>fn foo() -&gt; i32 { 42; }</code> 编译错误！尾部有分号变成了返回 <code>()</code>。</li>
+              <li><strong><code>!</code> 类型可以当任意类型用</strong>——<code>let x: i32 = if cond { 5 } else { panic!("") };</code> 合法，因为 <code>panic!</code> 返回 <code>!</code>，<code>!</code> 可以强转为 <code>i32</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>semicolon_trap.rs</span></div>
+              <pre><code>// ❌ 经典错误
+// fn double(x: i32) -> i32 {
+//     x * 2;  // 分号使这成为语句，函数返回 ()
+// }           // error: expected `i32`, found `()`
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.3.3 闭包：把“逻辑 + 环境”打包在一起</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么迭代器、回调和排序 API 喜欢接收闭包，而不是只接收普通函数名？</p>
-            </div>
-            <p>普通函数只能依赖参数；闭包还能顺手捕获外部环境中的值，所以它特别适合“当场写一段小逻辑，同时利用当前上下文”的场景。</p>
-            <p><strong>正式规则：</strong>闭包语法通常写作 |args| expr 或 |args| { ... }；编译器会根据使用场景为参数和返回值推断类型，并自动决定捕获方式。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>closure_capture.rs</span></div>
-                <pre><code>fn main() {
-    let prefix = String::from(&quot;item&quot;);
-    let render = |id: u32| format!(&quot;{prefix}-{id}&quot;);
+// ✅ 正确
+fn double(x: i32) -&gt; i32 {
+    x * 2   // 无分号 → 表达式作返回值
+}
 
-    println!(&quot;{}&quot;, render(7));
+// 发散函数在 match 中的用途
+fn parse_or_die(s: &amp;str) -&gt; i32 {
+    match s.parse::&lt;i32&gt;() {
+        Ok(n) =&gt; n,
+        Err(_) =&gt; panic!("无法解析: {}", s), // ! 可以当 i32
+    }
+}
+
+fn main() {
+    println!("double(21) = {}", double(21));
+    println!("parse = {}", parse_or_die("42"));
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>item-7</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>double(21) = 42
+parse = 42</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>直觉：</strong>闭包最适合“只在本地用一次或几次的小逻辑”；如果一段逻辑值得命名、复用和测试，仍然优先考虑普通函数。</p>
+            <div class="warning-box">
+              <strong>易错</strong>：函数签名中参数类型不能省略（不像闭包）。<code>fn add(a, b) { a + b }</code> 编译错误——必须写 <code>fn add(a: i32, b: i32) -&gt; i32</code>。
             </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：闭包为什么常能省略类型？</button>
-                <div class="collapsible-content">因为闭包往往直接在调用点被消费，编译器能从上下文推断参数和返回类型。但一旦上下文不清晰，仍然要补注解。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="闭包最大的额外能力是可以捕获定义位置附近的环境，而普通函数只能依赖显式参数。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>闭包和普通函数最关键的差别是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="A"> A. 闭包一定更快</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="B"> B. 闭包可以捕获外部环境</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q3" value="C"> C. 普通函数不能有返回值</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>fn foo() -&gt; i32 { 42; }</code> 能编译吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '分号让 42 变成了语句，函数实际返回 ()。')">A. 可以，返回 42</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '42; 是语句，返回 ()。但函数声明返回 i32，类型不匹配。')">B. 不行，分号导致返回 ()，与 i32 不匹配</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '这是编译错误，不会到运行时。')">C. 可以但会 panic</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'Rust 中有分号和无分号的区别是关键。')">D. 可以，分号无所谓</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.3.4 捕获模式：借用、可变借用、move</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>同样是闭包，为什么有时调用完外部变量还能用，有时却提示“value moved into closure”？</p>
-            </div>
-            <p>闭包会根据它对环境值的使用方式自动选择捕获模式：只读时倾向借用，修改时倾向可变借用，需要拿走所有权时则会 move。理解这一点，比死记某个报错更重要。</p>
-            <p><strong>正式规则：</strong>闭包会尽量以最小权限捕获环境；加上 move 关键字会强制把捕获值的所有权移入闭包。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>capture_modes.rs</span></div>
-                <pre><code>fn main() {
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>闭包语法与环境捕获</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>闭包是 Rust 中最常用的工具之一——你会在迭代器链 (<code>.map()</code>)、排序 (<code>.sort_by()</code>)、线程 (<code>thread::spawn()</code>) 中大量使用它们。区别于普通函数，闭包的超能力是<strong>捕获环境变量</strong>。理解它如何捕获、以什么方式捕获，是用好闭包的关键。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>闭包 = 匿名函数 + 环境捕获。语法：<code>|params| body</code>。</p>
+            <ul>
+              <li><strong>参数类型可以省略</strong>（编译器推断），函数不能省略。</li>
+              <li><strong>捕获方式由编译器自动选择</strong>——尽量选"最低权限"：&amp;T &gt; &amp;mut T &gt; T。</li>
+              <li><code>move</code> 关键字强制所有捕获都是"按值"（取走所有权）。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>closures.rs</span></div>
+              <pre><code>fn main() {
+    // 基本语法
+    let add = |a: i32, b: i32| -&gt; i32 { a + b };  // 完整写法
+    let add = |a, b| a + b;                         // 省略写法
+    println!("add(3,4) = {}", add(3, 4));
+
+    // 环境捕获——不可变引用
+    let name = String::from("Rust");
+    let greet = || println!("Hello, {}!", name);    // 捕获 &name
+    greet();
+    println!("name still usable: {}", name);        // ✅ name 未被 move
+
+    // 环境捕获——可变引用
     let mut count = 0;
-    {
-        let mut inc = || {
-            count += 1;
-            println!(&quot;count = {count}&quot;);
-        };
-        inc();
-        inc();
-    }
+    let mut increment = || { count += 1; };         // 捕获 &mut count
+    increment();
+    increment();
+    println!("count = {}", count);                   // 2
 
-    let label = String::from(&quot;job&quot;);
-    let take = move || println!(&quot;{label}&quot;);
-    take();
+    // move 闭包——获取所有权
+    let data = vec![1, 2, 3];
+    let owns_data = move || println!("{:?}", data);  // move data 进闭包
+    owns_data();
+    // println!("{:?}", data); // ❌ data 已被 move
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>count = 1
+              <div class="code-output"><strong>输出</strong><pre>add(3,4) = 7
+Hello, Rust!
+name still usable: Rust
 count = 2
-job</pre>
-                </div>
+[1, 2, 3]</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>不要把 move 理解成“闭包专用关键字”：</strong>它本质上仍然是所有权转移。在线程、异步任务或需要延长生命周期的场景里，move 闭包尤为常见。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：如何判断闭包会怎么捕获？</button>
-                <div class="collapsible-content">先问闭包对外部值做了什么：只读、修改，还是要在闭包内部长期持有/转移出去。行为决定捕获模式，语法只是表现。</div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="闭包会根据使用方式决定捕获权限；显式写 move 时会把所有权移入闭包。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于闭包捕获，下列哪项正确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="A"> A. move 会强制把捕获值移入闭包</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="B"> B. 所有闭包都默认按值复制环境</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q4" value="C"> C. 闭包不能修改外部状态</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>迭代器链</strong>——<code>vec.iter().filter(|x| **x > 5).map(|x| x * 2)</code>——闭包是迭代器的灵魂。</li>
+              <li><strong>线程必须 <code>move</code></strong>——<code>thread::spawn(move || { ... })</code>，因为新线程可能比当前作用域活得更久。</li>
+              <li><strong>避免不必要的 <code>move</code></strong>——让编译器自动选择最低权限的捕获方式，只在跨线程或返回闭包时才 move。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>capture_analysis.rs</span></div>
+              <pre><code>fn main() {
+    let mut s = String::from("hello");
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.3.5 fn / Fn / FnMut / FnOnce：把“怎么调用”看成能力等级</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>面对这些看似相似的名字，最容易掉坑的是去死背定义。有没有更直观的理解方式？</p>
+    // 闭包 1：只读取 s → 捕获 &amp;s
+    let len = || s.len();
+    println!("len = {}", len());
+    println!("s = {}", s);  // ✅ s 未被 move
+
+    // 闭包 2：修改 s → 捕获 &amp;mut s
+    let mut append = || s.push_str(" world");
+    append();
+    // println!("{}", s); // ❌ 在 append 的借用期间不能读 s
+    drop(append);         // 结束借用
+    println!("s = {}", s); // ✅ 现在可以了
+
+    // 闭包 3：消耗 s → 捕获 s (move)
+    let consume = || drop(s);
+    consume();
+    // consume(); // ❌ FnOnce，只能调用一次
+    // println!("{}", s); // ❌ s 已被 move
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>len = 5
+s = hello
+s = hello world</pre></div>
             </div>
-            <p>可以把它们理解成闭包可调用能力的三个层级：<code>Fn</code> 表示只读调用、可反复调用；<code>FnMut</code> 表示调用时可能修改内部状态；<code>FnOnce</code> 表示调用一次就可能消耗掉捕获值。<code>fn</code> 则是函数指针类型，本身不捕获环境。</p>
-            <p>一个闭包如果只需要只读捕获，它通常既满足 Fn，也自动满足 FnMut / FnOnce 的较宽接口需求；反过来则不成立。理解“能力越强，约束越少”会比记表格更有用。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>fn_traits.rs</span></div>
-                <pre><code>fn call_twice&lt;F&gt;(mut f: F)
-where
-    F: FnMut(),
-{
+            <div class="warning-box">
+              <strong>易错</strong>：闭包持有 <code>&amp;mut</code> 引用时，原变量在闭包活着的期间不能被访问。用 <code>drop(closure)</code> 或让闭包离开作用域来释放借用。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">闭包 <code>|| println!("{}", x)</code> 会以什么方式捕获 <code>x</code>？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, 'println! 只需要 &x，所以闭包以不可变引用捕获。')">A. 不可变引用 &amp;x</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '只有修改 x 时才需要 &mut x。')">B. 可变引用 &amp;mut x</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '没有 move 关键字且只需读取，不会转移所有权。')">C. 转移所有权</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '编译器会自动选择捕获方式。')">D. 不捕获</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>Fn / FnMut / FnOnce — 三种闭包 trait</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>当你写一个接受闭包的函数时，怎么声明参数类型？Rust 用三个 trait 来分类闭包的行为——<code>Fn</code>、<code>FnMut</code>、<code>FnOnce</code>。选错了 trait，你的 API 要么太严格（限制了调用者），要么太宽松（无法满足需求）。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>Trait</th><th>self 参数</th><th>含义</th><th>可调用次数</th></tr></thead>
+              <tbody>
+                <tr><td><code>FnOnce</code></td><td><code>self</code></td><td>获取闭包的所有权</td><td>1 次</td></tr>
+                <tr><td><code>FnMut</code></td><td><code>&amp;mut self</code></td><td>可变借用闭包</td><td>多次</td></tr>
+                <tr><td><code>Fn</code></td><td><code>&amp;self</code></td><td>不可变借用闭包</td><td>多次</td></tr>
+              </tbody>
+            </table>
+            <p><strong>继承关系</strong>：<code>Fn: FnMut: FnOnce</code>。满足 <code>Fn</code> 的一定满足 <code>FnMut</code> 和 <code>FnOnce</code>。</p>
+            <p><strong>选择原则</strong>：函数参数用最宽松的 trait（<code>FnOnce</code> 最宽松、<code>Fn</code> 最严格）。要多次调用就至少用 <code>FnMut</code>。</p>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>fn_traits.rs</span></div>
+              <pre><code>// 接受 FnOnce：最灵活，但只能调用一次
+fn call_once&lt;F: FnOnce() -&gt; String&gt;(f: F) -&gt; String {
+    f()
+}
+
+// 接受 FnMut：可以多次调用
+fn call_twice&lt;F: FnMut()&gt;(mut f: F) {
     f();
     f();
 }
 
+// 接受 Fn：可以多次调用，且闭包不修改状态
+fn call_many&lt;F: Fn() -&gt; i32&gt;(f: F) {
+    for _ in 0..3 {
+        println!("result: {}", f());
+    }
+}
+
 fn main() {
-    let mut count = 0;
-    call_twice(|| {
-        count += 1;
-        println!(&quot;count = {count}&quot;);
-    });
+    // FnOnce：消耗捕获的变量
+    let name = String::from("world");
+    let greeting = call_once(move || format!("Hello, {}!", name));
+    println!("{}", greeting);
+
+    // FnMut：修改捕获的变量
+    let mut total = 0;
+    call_twice(|| { total += 10; });
+    println!("total = {}", total);
+
+    // Fn：只读取
+    let x = 42;
+    call_many(|| x);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>count = 1
-count = 2</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Hello, world!
+total = 20
+result: 42
+result: 42
+result: 42</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>选接口的经验法则：</strong>如果你只需要读环境，用 <code>Fn</code>；需要多次调用且允许改状态，用 <code>FnMut</code>；要接管资源并允许只调用一次，用 <code>FnOnce</code>。</p>
-            </div>
-
-            <div class="quick-quiz" data-answer="C" data-explanation="Fn / FnMut / FnOnce 的差别主要在于闭包调用时对捕获环境的消耗程度，而 fn 是不捕获环境的函数指针。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪项最符合这些调用 trait 的直觉？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="A"> A. FnOnce 一定比 Fn 更严格，因而能接受的闭包更多</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="B"> B. fn 和闭包完全一样，只是写法不同</label>
-                    <label><input type="radio" name="ch2.3_functions_closures-q5" value="C"> C. Fn 表示只读调用，FnMut 允许修改，FnOnce 可能在调用时消耗捕获值</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>函数签名描述的是 API 边界：参数是什么、返回什么，以及结果如何被理解</li>
-                <li>Rust 以表达式为核心，块的最后一行无分号时可以直接成为返回值</li>
-                <li>闭包是在本地把逻辑与环境一起打包的工具，特别适合回调和迭代器 API</li>
-                <li>闭包捕获模式由使用方式决定，move 会显式把所有权转入闭包</li>
-                <li>Fn / FnMut / FnOnce 可以理解成闭包“怎么调用、会不会消耗状态”的能力分级</li>
+              <li><strong>API 设计原则</strong>：参数用 <code>FnOnce</code>（最灵活，谁都能传）。只在需要多次调用时升级到 <code>FnMut</code> 或 <code>Fn</code>。</li>
+              <li><strong>标准库示例</strong>：<code>Option::map</code> 接受 <code>FnOnce</code>（只调用一次），<code>Iterator::for_each</code> 接受 <code>FnMut</code>。</li>
+              <li><strong>普通函数也满足 Fn trait</strong>——<code>fn double(x: i32) -&gt; i32 { x * 2 }</code> 可以传给接受 <code>Fn(i32)-&gt;i32</code> 的参数。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>trait_mismatch.rs</span></div>
+              <pre><code>fn repeat_fn&lt;F: Fn()&gt;(f: F, n: usize) {
+    for _ in 0..n {
+        f();
+    }
+}
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 写一个函数 fahrenheit_to_celsius，接收 f64 并返回转换后的 f64，要求使用表达式返回。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 定义一个闭包，把外部字符串前缀和传入编号组合成最终标签；然后解释它为什么能访问前缀。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 比较下面两个闭包：一个只打印外部变量，一个会 push 到外部 Vec。分别推断它们更接近 Fn、FnMut 还是 FnOnce，并说明原因。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设计一个函数 run_with_retry，它接收一个可能失败的操作闭包并最多重试三次。思考参数约束更适合 Fn、FnMut 还是 FnOnce。</li>
-            </ol>
-        </section>
+fn main() {
+    let msg = String::from("hi");
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+    // ✅ 只读捕获，满足 Fn
+    repeat_fn(|| println!("{}", msg), 3);
+
+    // ❌ 修改捕获变量，只满足 FnMut，不满足 Fn
+    // let mut count = 0;
+    // repeat_fn(|| { count += 1; }, 3); // error: cannot borrow as mutable
+
+    // ❌ 消耗捕获变量，只满足 FnOnce
+    // let data = vec![1, 2, 3];
+    // repeat_fn(|| { drop(data); }, 3); // error: cannot move out
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>hi
+hi
+hi</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：把 <code>FnMut</code> 闭包传给需要 <code>Fn</code> 的参数——编译错误。但反过来没问题：<code>Fn</code> 闭包可以传给 <code>FnMut</code> 或 <code>FnOnce</code> 参数。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">如果函数需要多次调用闭包且闭包会修改状态，应该用哪个 trait bound？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'FnOnce 只能调用一次。')">A. FnOnce</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, 'FnMut 允许多次调用且闭包可以修改捕获的变量。')">B. FnMut</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'Fn 要求不可变借用，无法修改状态。')">C. Fn</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '闭包 trait 和 Copy 无关。')">D. Copy</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>闭包作为参数和返回值</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>高阶函数——接受函数作参数或返回函数——是现代编程的核心模式。Rust 中传递闭包有两种分发方式：静态分发（<code>impl Fn</code>/泛型）和动态分发（<code>dyn Fn</code>）。选择哪种影响性能、灵活性和编译时间。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>方式</th><th>语法</th><th>分发</th><th>适用场景</th></tr></thead>
+              <tbody>
+                <tr><td>泛型参数</td><td><code>fn foo&lt;F: Fn()&gt;(f: F)</code></td><td>静态（编译时单态化）</td><td>性能敏感，常见</td></tr>
+                <tr><td>impl Trait 参数</td><td><code>fn foo(f: impl Fn())</code></td><td>静态</td><td>泛型的语法糖</td></tr>
+                <tr><td>trait 对象</td><td><code>fn foo(f: &amp;dyn Fn())</code></td><td>动态（vtable）</td><td>需要异构集合</td></tr>
+                <tr><td>impl Trait 返回</td><td><code>fn foo() -&gt; impl Fn()</code></td><td>静态</td><td>返回闭包的常见方式</td></tr>
+                <tr><td>Box&lt;dyn&gt; 返回</td><td><code>fn foo() -&gt; Box&lt;dyn Fn()&gt;</code></td><td>动态</td><td>返回不同类型的闭包</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>higher_order.rs</span></div>
+              <pre><code>// 1. 闭包作为参数——静态分发
+fn apply&lt;F: Fn(i32) -&gt; i32&gt;(f: F, x: i32) -&gt; i32 {
+    f(x)
+}
+
+// 等价写法
+fn apply2(f: impl Fn(i32) -&gt; i32, x: i32) -&gt; i32 {
+    f(x)
+}
+
+// 2. 闭包作为返回值——impl Trait
+fn make_adder(n: i32) -&gt; impl Fn(i32) -&gt; i32 {
+    move |x| x + n
+}
+
+// 3. 动态分发——trait 对象
+fn apply_boxed(f: &amp;dyn Fn(i32) -&gt; i32, x: i32) -&gt; i32 {
+    f(x)
+}
+
+// 4. 返回不同闭包需要 Box&lt;dyn&gt;
+fn make_op(op: &amp;str) -&gt; Box&lt;dyn Fn(i32, i32) -&gt; i32&gt; {
+    match op {
+        "add" =&gt; Box::new(|a, b| a + b),
+        "mul" =&gt; Box::new(|a, b| a * b),
+        _     =&gt; Box::new(|a, b| a - b),
+    }
+}
+
+fn main() {
+    println!("{}", apply(|x| x * 2, 21));
+    println!("{}", apply2(|x| x + 10, 32));
+
+    let add5 = make_adder(5);
+    println!("add5(10) = {}", add5(10));
+
+    let op = make_op("mul");
+    println!("mul(6, 7) = {}", op(6, 7));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>42
+42
+add5(10) = 15
+mul(6, 7) = 42</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch03-03-how-functions-work.html">The Rust Programming Language · Functions</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch13-01-closures.html">The Rust Programming Language · Closures</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/fn/closures.html">Rust By Example · Closures</a></li>
+              <li><strong>参数优先用 <code>impl Fn</code> / 泛型</strong>——零开销抽象，编译器内联优化。</li>
+              <li><strong>返回单一闭包用 <code>impl Fn</code></strong>——<code>fn foo() -> impl Fn()</code>。</li>
+              <li><strong>返回不同类型闭包用 <code>Box&lt;dyn Fn&gt;</code></strong>——需要堆分配，但灵活。</li>
+              <li><strong>函数指针 <code>fn(i32)->i32</code></strong>——当闭包不捕获环境时，可以用函数指针类型，更轻量。</li>
             </ul>
-        </section>
-    </main>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>strategy_pattern.rs</span></div>
+              <pre><code>struct Processor {
+    strategy: Box&lt;dyn Fn(i32) -&gt; i32&gt;,
+}
 
-    <script src="../assets/js/main.js"></script>
+impl Processor {
+    fn new(strategy: Box&lt;dyn Fn(i32) -&gt; i32&gt;) -&gt; Self {
+        Processor { strategy }
+    }
+
+    fn process(&amp;self, value: i32) -&gt; i32 {
+        (self.strategy)(value)
+    }
+}
+
+fn main() {
+    let doubler = Processor::new(Box::new(|x| x * 2));
+    let negator = Processor::new(Box::new(|x| -x));
+
+    println!("double 21 = {}", doubler.process(21));
+    println!("negate 42 = {}", negator.process(42));
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>double 21 = 42
+negate 42 = -42</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>impl Fn</code> 返回值时，函数内所有 return 路径必须返回<strong>同一个</strong>闭包类型。需要根据条件返回不同闭包时，必须用 <code>Box&lt;dyn Fn&gt;</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">需要在 <code>Vec</code> 中存储多个不同类型的闭包，应该用什么类型？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'impl Fn 是静态分发，Vec 中不能存储不同类型。')">A. Vec&lt;impl Fn()&gt;</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'Box<dyn Fn()> 是 trait 对象，可以存储不同类型的闭包。')">B. Vec&lt;Box&lt;dyn Fn()&gt;&gt;</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'fn() 是函数指针，不能存储捕获环境的闭包。')">C. Vec&lt;fn()&gt;</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '闭包不能直接 clone。')">D. Vec&lt;Clone + Fn()&gt;</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch2.2_control_flow.html">← Ch 2.2 控制流</a>
+      <a class="nav-next" href="ch2.4_struct_enum.html">Ch 2.4 Struct 与 Enum →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

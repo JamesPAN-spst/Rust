@@ -1,243 +1,690 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 3.1 字符串 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 3.1 字符串 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u3-ch31-q1","question":"String 类型的数据存储在哪里？","options":["A. 栈上","B. 堆上","C. 静态区","D. 寄存器"],"answer":1,"explanation":"String 是堆分配的可增长字符串，内部维护一个指向堆内存的指针、长度和容量三元组。"},
+      {"id":"u3-ch31-q2","question":"&str 的本质是什么？","options":["A. 一个拥有所有权的字符串","B. 一个胖指针（指针 + 长度）","C. 一个字符数组","D. 一个固定大小的缓冲区"],"answer":1,"explanation":"&str 是一个胖指针，包含一个指向 UTF-8 字节序列的指针和一个长度值，不拥有数据的所有权。"},
+      {"id":"u3-ch31-q3","question":"以下哪种方式不能创建 String？","options":["A. String::from(\"hello\")","B. \"hello\".to_string()","C. \"hello\".to_owned()","D. String::new(\"hello\")"],"answer":3,"explanation":"String::new() 不接受参数，只创建空字符串。正确的带参创建方式是 String::from() 或 .to_string()。"},
+      {"id":"u3-ch31-q4","question":"Rust 中字符串使用什么编码？","options":["A. ASCII","B. UTF-16","C. UTF-8","D. Latin-1"],"answer":2,"explanation":"Rust 的 String 和 &str 都保证是有效的 UTF-8 编码。这是语言层面的保证，而非约定。"},
+      {"id":"u3-ch31-q5","question":"s.push_str(\" world\") 会发生什么？","options":["A. 创建一个新的 String","B. 在原 String 末尾追加字节，可能触发重新分配","C. 编译错误，push_str 不存在","D. 替换原有内容"],"answer":1,"explanation":"push_str 在原地追加 &str 到 String 末尾。如果当前容量不够，会重新分配更大的堆内存。"},
+      {"id":"u3-ch31-q6","question":"format! 宏相比 + 运算符的优势是？","options":["A. 更快","B. 不获取任何参数的所有权","C. 返回 &str","D. 可以拼接非字符串类型"],"answer":1,"explanation":"format! 只借用所有参数（通过引用），不会移动任何 String 的所有权。+ 运算符会消耗左侧 String 的所有权。"},
+      {"id":"u3-ch31-q7","question":"let s = String::from(\"hello\"); let s2 = s + \" world\"; 之后 s 还能用吗？","options":["A. 能，+ 只是拼接","B. 不能，s 的所有权被移动了","C. 能，String 实现了 Copy","D. 取决于编译器优化"],"answer":1,"explanation":"+ 运算符调用 fn add(self, s: &str) -> String，会消耗 self（即 s）的所有权。之后 s 不再有效。"},
+      {"id":"u3-ch31-q8","question":"为什么 &s[0] 在 Rust 中不能编译？","options":["A. 字符串不支持引用","B. UTF-8 字符长度不固定，按字节索引可能切到字符中间","C. Rust 不支持索引语法","D. 需要用 &s[0..1]"],"answer":1,"explanation":"UTF-8 编码的字符占 1-4 字节，直接按单个字节索引可能得到不完整的字符，违反 UTF-8 有效性保证。"},
+      {"id":"u3-ch31-q9","question":"&s[0..4] 对 UTF-8 字符串操作时可能出什么问题？","options":["A. 总是安全的","B. 如果切割点不在字符边界上，会 panic","C. 返回 None","D. 返回乱码"],"answer":1,"explanation":"字符串切片要求索引必须落在 UTF-8 字符的边界上，否则运行时 panic。例如一个中文字符占 3 字节，[0..2] 会 panic。"},
+      {"id":"u3-ch31-q10","question":"遍历字符串中的 Unicode 字符应该用？","options":["A. s[i] 逐个索引","B. s.chars()","C. s.bytes()","D. s.split(\"\")"],"answer":1,"explanation":".chars() 返回按 Unicode 标量值划分的字符迭代器。.bytes() 返回原始字节，不适合按字符遍历。"},
+      {"id":"u3-ch31-q11","question":".chars().count() 和 .len() 的区别是？","options":["A. 没有区别","B. .len() 返回字节数，.chars().count() 返回字符数","C. .len() 返回字符数，.chars().count() 返回字节数","D. 两者都返回字符数"],"answer":1,"explanation":".len() 返回 UTF-8 编码的字节数。对于 ASCII 字符两者相同，但中文等多字节字符会让 .len() > .chars().count()。"},
+      {"id":"u3-ch31-q12","question":"String 实现了 Deref<Target = str>，这意味着什么？","options":["A. String 可以自动转换为 &str","B. String 和 str 是同一类型","C. String 不可变","D. str 可以自动转换为 String"],"answer":0,"explanation":"Deref coercion 使得 &String 可以自动解引用为 &str。因此接受 &str 的函数可以直接传 &String。"},
+      {"id":"u3-ch31-q13","question":"函数参数应该用 &str 还是 &String？","options":["A. &String，更明确","B. &str，更通用——既接受 &String 也接受字符串字面值","C. 随便，没区别","D. String，直接获取所有权"],"answer":1,"explanation":"&str 是更通用的选择：通过 Deref coercion，&String 可以自动转为 &str，而字符串字面值本身就是 &str。"},
+      {"id":"u3-ch31-q14","question":"String::with_capacity(10) 的作用是？","options":["A. 创建一个长度为 10 的字符串","B. 预分配至少 10 字节的堆内存，避免频繁重新分配","C. 限制字符串最大长度为 10","D. 创建包含 10 个空格的字符串"],"answer":1,"explanation":"with_capacity 预分配指定字节的堆空间。后续 push/push_str 在不超过容量时不会触发重新分配，性能更好。"},
+      {"id":"u3-ch31-q15","question":"以下哪个会编译通过？","options":["A. let s: str = \"hello\";","B. let s: &str = \"hello\";","C. let s: String = \"hello\";","D. let s: char = \"hello\";"],"answer":1,"explanation":"str 是 unsized 类型不能直接持有；字符串字面值的类型是 &'static str；\"hello\" 不能直接赋给 String，需要 .into() 或 String::from()。"},
+      {"id":"u3-ch31-q16","question":"String 的 Clone 和直接传递引用相比？","options":["A. Clone 更高效","B. Clone 会深拷贝堆数据，传引用无需拷贝","C. 两者完全等价","D. 引用会拷贝堆数据"],"answer":1,"explanation":"String::clone() 会分配新的堆内存并复制全部字节。传 &String 或 &str 只传一个指针，零拷贝。"},
+      {"id":"u3-ch31-q17","question":"s.contains(\"rust\") 的时间复杂度大致是？","options":["A. O(1)","B. O(n)，需要扫描字符串","C. O(log n)","D. O(n²)"],"answer":1,"explanation":"contains 需要在字符串中搜索子串，最坏情况需要扫描整个字符串，时间复杂度约为 O(n*m)。"},
+      {"id":"u3-ch31-q18","question":"以下代码输出什么？ let s = String::from(\"你好\"); println!(\"{}\", s.len());","options":["A. 2","B. 4","C. 6","D. 8"],"answer":2,"explanation":"\"你好\" 中每个汉字占 3 个 UTF-8 字节，共 6 字节。.len() 返回字节数而非字符数。"},
+      {"id":"u3-ch31-q19","question":"String 和 Vec<u8> 的主要区别是？","options":["A. 内存布局不同","B. String 保证内容是有效 UTF-8，Vec<u8> 不保证","C. Vec<u8> 更大","D. String 不能修改"],"answer":1,"explanation":"String 本质上就是 Vec<u8> 的包装，但额外保证内容是有效 UTF-8。可以通过 String::from_utf8(vec) 安全转换。"},
+      {"id":"u3-ch31-q20","question":"to_string() 和 to_owned() 对 &str 的效果？","options":["A. to_string 返回 &str，to_owned 返回 String","B. 两者都返回 String，效果相同","C. to_owned 更快因为跳过格式化","D. to_string 只能用于数字"],"answer":1,"explanation":"对 &str 调用 to_string()（通过 Display trait）和 to_owned()（通过 ToOwned trait）都会创建新的 String。现代 Rust 中两者性能已无差别。"},
+      {"id":"u3-ch31-q21","question":"如何将 String 转为 &str？","options":["A. 调用 .as_str()","B. 调用 .to_str()","C. 用 &* 解引用","D. A 和 C 都可以"],"answer":3,"explanation":".as_str() 和 &*s（Deref coercion）都能将 String 转为 &str。更常见的是直接用 &s，因为 Deref 自动转换。"},
+      {"id":"u3-ch31-q22","question":"String::from_utf8(bytes) 返回什么类型？","options":["A. String","B. Result<String, FromUtf8Error>","C. Option<String>","D. &str"],"answer":1,"explanation":"字节序列可能不是有效 UTF-8，所以返回 Result。如果确定有效，可用 unsafe 的 from_utf8_unchecked，但不推荐。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 3 · 标准库与项目实战</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit2_syntax/ch2.6_traits.html">上一单元：Trait 系统</a></li>
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <a href="../index.html" class="module-name">Unit 3 · 标准库与项目实践</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.1 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 3 正式页面</li>
-            <li><a href="./ch3.1_strings.html" class="active">3.1 字符串</a></li>
-            <li><a href="./ch3.2_collections.html">3.2 集合</a></li>
-            <li><a href="./ch3.3_iterators.html">3.3 迭代器</a></li>
-            <li><a href="./ch3.4_error_handling.html">3.4 错误处理</a></li>
-            <li><a href="./ch3.5_modules.html">3.5 模块系统</a></li>
-            <li><a href="./ch3.6_project_practice.html">3.6 实战项目</a></li>
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 String 与 &amp;str</a></li>
+      <li><a href="#kp2">02 字符串操作</a></li>
+      <li><a href="#kp3">03 索引与切片</a></li>
+      <li><a href="#kp4">04 所有权系统中的字符串</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">`String` vs `&str`</a></li>
-            <li><a href="#kp-2">UTF-8 与长度</a></li>
-            <li><a href="#kp-3">构造与拼接</a></li>
-            <li><a href="#kp-4">遍历与切片</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 3 · 标准库与项目实践</p>
+      <h1>字符串</h1>
+      <p class="chapter-intro">Rust 的字符串设计围绕两个核心约束展开：UTF-8 正确性 和 所有权安全。理解 String 与 &amp;str 的二元关系是高效处理文本数据的基础。</p>
+    </header>
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 3 · 标准库与项目实战</span>
-            <h1>Ch 3.1 字符串</h1>
-            <p class="chapter-description">这一章把 Rust 字符串放回真实语境：为什么同时存在 String 和 &str、UTF-8 会带来哪些设计取舍、常用拼接与遍历 API 应该怎么选，以及为什么 Rust 刻意不提供“看起来很方便”的字符索引。</p>
-        </header>
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>String 与 &amp;str</h2>
+      <div class="mental-chain">
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>几乎每种语言都有字符串类型，但 Rust 把字符串分成了两个核心类型——String 和 &amp;str。初学者经常困惑：为什么不能只用一种？</p>
+            <p>原因在于 Rust 的所有权系统。<strong>拥有数据</strong>和<strong>借用数据</strong>是两个根本不同的概念，分别对应 String 和 &amp;str。理解这个区分，后续的 API 选择、函数签名设计才能水到渠成。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><strong>String</strong> 是一个拥有所有权的、堆分配的、可增长的 UTF-8 字符串。内部结构等价于 <code>Vec&lt;u8&gt;</code>，由三部分组成：</p>
             <ul>
-                <li>区分 `String` 与 `&str` 的所有权语义与参数设计取舍</li>
-                <li>理解 UTF-8、字节长度、字符数量和切片边界之间的关系</li>
-                <li>掌握常见字符串构造、拼接、遍历与切分 API 的使用方式</li>
-                <li>避免字符串索引、非法切片和“把 len 当字符数”这类常见误区</li>
+              <li><strong>ptr</strong>：指向堆内存的指针</li>
+              <li><strong>len</strong>：当前已使用的字节数</li>
+              <li><strong>cap</strong>：已分配的总容量</li>
             </ul>
-        </section>
+            <p><strong>&amp;str</strong> 是一个字符串切片引用（胖指针），包含指针和长度两个字段。它<strong>不拥有</strong>数据，只是对某段 UTF-8 字节的借用视图。</p>
+            <p>类比：String 就像你拥有的一本笔记本（可以写入、撕页、扩充），&amp;str 就像别人借给你看的一页复印件（只读、不可修改大小）。</p>
+          </div>
+        </div>
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先掌握 Ownership、Borrowing、基本类型和迭代器的入门直觉。若还把字符串理解成“固定长度字符数组”，会很容易误判 Rust 字符串 API 的设计原因。</p>
-        </section>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>string_basics.rs</span></div>
+              <pre><code>// 创建 String 的三种常见方式
+let s1 = String::new();                    // 空字符串
+let s2 = String::from("hello");            // 从字面值创建
+let s3 = "hello".to_string();              // 通过 Display trait
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>3.1.1 `String` 和 `&amp;str`：一个拥有数据，一个借用视图</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么有时候函数签名写 `String`，有时候却更推荐 `&amp;str`？它们看起来都像“字符串”。</p>
+// &str —— 字符串字面值默认就是 &'static str
+let greeting: &str = "hello, world";
+
+// String → &str：通过 Deref coercion 自动转换
+let s: String = String::from("rust");
+let slice: &str = &s;                      // 自动解引用
+let slice2: &str = s.as_str();             // 显式方法
+
+// &str → String：需要分配堆内存
+let owned: String = slice.to_owned();
+let owned2: String = String::from(slice);</code></pre>
             </div>
-            <p>`String` 是可增长的拥有型 UTF-8 缓冲区，负责管理堆内存；`&amp;str` 是对 UTF-8 文本的借用切片，只读且不拥有底层数据。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong>如果函数只需要读取文本，优先接收 <code>&amp;str</code>；只有确实要接管或构造新字符串时才接收 <code>String</code>。</p>
+            <p><strong>内存布局对比：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>TEXT</span><span>memory_layout</span></div>
+              <pre><code>String (栈上 24 字节):          &str (栈上 16 字节):
+┌─────────┬─────┬─────┐       ┌─────────┬─────┐
+│ ptr ─────┼──┐  │     │       │ ptr ─────┼──┐  │
+│ len: 5  │  │  │     │       │ len: 5  │  │  │
+│ cap: 8  │  │  │     │       └─────────┴──┼──┘
+└─────────┴──┼──┘     │                    │
+             ▼ (堆)                        ▼ (可能指向堆/静态区)
+      ┌──────────────┐              ┌──────────┐
+      │ h e l l o    │              │ h e l l o│
+      └──────────────┘              └──────────┘</code></pre>
             </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>string_vs_str.rs</span></div>
-                <pre><code>fn print_label(text: &amp;str) {
-    println!(&quot;label = {text}&quot;);
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>函数参数</strong>：优先用 <code>&str</code>，因为它同时接受 <code>&String</code> 和字符串字面值</li>
+              <li><strong>结构体字段</strong>：需要拥有数据时用 <code>String</code>，临时引用用 <code>&'a str</code>（需生命周期标注）</li>
+              <li><strong>返回值</strong>：如果返回新创建的字符串用 <code>String</code>，返回输入的切片用 <code>&str</code></li>
+              <li><strong>String::with_capacity(n)</strong>：当已知大致长度时预分配，避免多次 realloc</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>common_mistake.rs</span></div>
+              <pre><code>// ❌ 常见错误：把 &str 当作 String 使用
+fn greeting_bad() -> &str {   // 编译错误！返回的引用指向谁？
+    let s = String::from("hello");
+    &s                         // s 在函数结束时 drop，引用悬垂
 }
 
-fn main() {
-    let owned = String::from(&quot;rust&quot;);
-    let borrowed = &quot;book&quot;;
+// ✅ 正确做法 1：返回 String（转移所有权）
+fn greeting_owned() -> String {
+    String::from("hello")      // 所有权转移给调用者
+}
 
-    print_label(&amp;owned);
-    print_label(borrowed);
+// ✅ 正确做法 2：返回 &'static str
+fn greeting_static() -> &'static str {
+    "hello"                    // 字面值嵌入二进制，永不释放
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>label = rust
-label = book</pre>
-                </div>
             </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="只读文本时使用 &amp;str 更灵活：字面量、String 切片和其他字符串视图都能传入。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>只需要读取文本内容时，通常应该优先选择哪种参数类型？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-1-q1" value="A"> A. String，因为它更“完整”</label>
-                    <label><input type="radio" name="u3-1-q1" value="B"> B. &str，因为它只借用文本且更通用</label>
-                    <label><input type="radio" name="u3-1-q1" value="C"> C. &mut String，因为总能覆盖更多场景</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-2">
-            <h2>3.1.2 UTF-8 不是“一个字符等于一个字节”</h2>
-            <div class="think-box">
-                <div class="think-icon">🌐</div>
-                <p>为什么 `"你好".len()` 返回 6，而不是 2？如果按字节切错位置，又为什么会 panic？</p>
-            </div>
-            <p>Rust 字符串以 UTF-8 存储，因此 <code>len()</code> 返回的是字节数，不是人眼看到的“字符数”。Unicode 标量值、字节和字形簇是三层不同概念。</p>
-            <div class="note-box warning">
-                <p><strong>正式规则：</strong><code>String</code> / <code>&amp;str</code> 必须始终保持合法 UTF-8，因此切片边界只能落在有效字符边界上。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>utf8_len.rs</span></div>
-                <pre><code>fn main() {
-    let text = &quot;你好&quot;;
-    println!(&quot;bytes = {}&quot;, text.len());
-    println!(&quot;chars = {}&quot;, text.chars().count());
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>bytes = 6
-chars = 2</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么 Rust 不支持按索引直接取第 n 个字符？</button>
-                <div class="collapsible-content">因为第 n 个“字符”在 UTF-8 中并没有 O(1) 的字节偏移量。Rust 不想用一个看似简单的索引语法掩盖潜在的线性扫描和非法切片风险。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="len() 返回 UTF-8 字节数；若关心 Unicode 标量值数量，应使用 chars().count()。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>`"é"` 的 len() 为什么可能不是 1？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-1-q2" value="A"> A. 因为 String 总会自动补齐到 8 字节</label>
-                    <label><input type="radio" name="u3-1-q2" value="B"> B. 因为 Rust 会额外存储字符串长度字符</label>
-                    <label><input type="radio" name="u3-1-q2" value="C"> C. 因为 UTF-8 下一个字符可能由多个字节编码</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-3">
-            <h2>3.1.3 构造和拼接：`push_str`、`push`、`format!` 各解决什么问题？</h2>
-            <div class="think-box">
-                <div class="think-icon">🧱</div>
-                <p>拼接字符串时，什么时候应该原地修改，什么时候应该新建结果？</p>
-            </div>
-            <p>如果你已经拥有可变 <code>String</code>，用 <code>push_str</code> / <code>push</code> 原地追加最直接；如果需要组合多个来源并生成新值，<code>format!</code> 可读性通常更高。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong><code>push_str</code> 借用 <code>&amp;str</code>，不会拿走追加文本的所有权；<code>format!</code> 返回新的 <code>String</code>。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>build_string.rs</span></div>
-                <pre><code>fn main() {
-    let mut path = String::from(&quot;logs&quot;);
-    path.push(&#x27;/&#x27;);
-    path.push_str(&quot;app.log&quot;);
+            <p class="warning-text">⚠ 核心易错点：<code>str</code>（无引用）是一个 unsized 类型，不能直接用作变量类型或函数参数。你几乎总是以 <code>&str</code> 的形式使用它。</p>
+          </div>
+        </div>
 
-    let display = format!(&quot;reading {path}&quot;);
-    println!(&quot;{display}&quot;);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>reading logs/app.log</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="push_str 接收 &amp;str，因此追加时只是读取参数内容；format! 会创建新的 String。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪项对 `push_str` 的描述是正确的？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-1-q3" value="A"> A. 它会把借入的 &str 内容追加到现有 String 上</label>
-                    <label><input type="radio" name="u3-1-q3" value="B"> B. 它会消费传入的 String 并清空原变量</label>
-                    <label><input type="radio" name="u3-1-q3" value="C"> C. 它只能追加单个字符</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-4">
-            <h2>3.1.4 遍历与切片：按字节、按字符、按模式要分清</h2>
-            <div class="think-box">
-                <div class="think-icon">🔎</div>
-                <p>如果你要统计单词、枚举字符或截取前缀，为什么 Rust 鼓励你显式选择遍历方式？</p>
-            </div>
-            <p>字符串处理并没有唯一“默认粒度”。你可以按 <code>bytes()</code> 处理底层协议，按 <code>chars()</code> 处理 Unicode 标量值，按 <code>split_whitespace()</code> 等模式处理更高层文本结构。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong>面对字符串处理问题时，先确定你真正操作的是字节、字符，还是文本片段；API 选择取决于这个粒度。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>iterate_str.rs</span></div>
-                <pre><code>fn main() {
-    let line = &quot;rust makes systems safer&quot;;
-    let words: Vec&lt;&amp;str&gt; = line.split_whitespace().collect();
+      </div>
 
-    println!(&quot;word count = {}&quot;, words.len());
-    println!(&quot;first word = {}&quot;, words[0]);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>word count = 4
-first word = rust</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="split_whitespace() 直接表达“按空白拆词”的意图，比手写字节扫描更清晰。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>想按单词统计句子中的词数，最合适的起点通常是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-1-q4" value="A"> A. 直接使用索引 line[0] 开始逐字节猜测</label>
-                    <label><input type="radio" name="u3-1-q4" value="B"> B. 使用 split_whitespace() 之类按模式切分的 API</label>
-                    <label><input type="radio" name="u3-1-q4" value="C"> C. 先把整个字符串转成 Vec<u8> 再手动重建 UTF-8</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">下列关于 String 和 &amp;str 的说法，哪个是正确的？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '&str 是胖指针，不仅仅是普通指针。')">A. &amp;str 和普通的 &amp;T 引用完全一样</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！String 在栈上存 ptr+len+cap，&str 在栈上存 ptr+len。')">B. String 在栈上占 24 字节（64位系统），&amp;str 占 16 字节</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'String 总是堆分配的。')">C. String 可以完全存储在栈上</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '需要分配堆内存，有运行时开销。')">D. &amp;str 转 String 是零成本的</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>字符串操作</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>构建字符串是日常编程中最频繁的操作之一。Rust 提供了多种方式来拼接和修改字符串，但每种方式在所有权和性能上有不同的影响。选错方式会导致不必要的 clone、编译错误，甚至性能瓶颈。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>字符串拼接的三种主要方式各有特点：</p>
+            <table class="info-table">
+              <thead><tr><th>方式</th><th>所有权影响</th><th>适用场景</th></tr></thead>
+              <tbody>
+                <tr><td><code>push_str / push</code></td><td>需要 &amp;mut String</td><td>逐步构建字符串</td></tr>
+                <tr><td><code>+ 运算符</code></td><td>消耗左侧 String</td><td>简单的二元拼接</td></tr>
+                <tr><td><code>format!</code></td><td>只借用参数</td><td>复杂格式化、保留所有权</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>string_ops.rs</span></div>
+              <pre><code>// === push_str / push ===
+let mut s = String::from("hello");
+s.push_str(", world");    // 追加 &str
+s.push('!');              // 追加单个 char
+// s = "hello, world!"
+
+// === + 运算符 ===
+// 签名：fn add(self, s: &str) -> String
+let s1 = String::from("hello");
+let s2 = String::from(" world");
+let s3 = s1 + &s2;       // s1 被移动！s2 被借用
+// println!("{}", s1);    // ❌ s1 已经无效
+println!("{}", s3);       // ✅ "hello world"
+
+// === format! 宏 ===
+let name = String::from("Rust");
+let version = String::from("2024");
+let msg = format!("{} edition {}", name, version);
+// name 和 version 依然可用！format! 只借用
+println!("{}", name);     // ✅ 还能用</code></pre>
+            </div>
+
+            <p><strong>容量增长策略：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>capacity.rs</span></div>
+              <pre><code>let mut s = String::with_capacity(10);
+println!("len={}, cap={}", s.len(), s.capacity());
+// len=0, cap=10
+
+s.push_str("hello");
+println!("len={}, cap={}", s.len(), s.capacity());
+// len=5, cap=10  —— 容量充足，无重分配
+
+s.push_str(" world!!");
+println!("len={}, cap={}", s.len(), s.capacity());
+// len=13, cap=20 —— 超出容量，自动翻倍扩容</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>len=0, cap=10
+len=5, cap=10
+len=13, cap=20</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>`String` 负责拥有和扩展 UTF-8 文本，`&str` 负责借用和只读视图。</li>
-                <li>`len()` 返回字节数，不等于“字符数量”；切片必须落在合法 UTF-8 边界。</li>
-                <li>字符串处理要先确定粒度：字节、字符还是文本片段。</li>
-                <li>只读文本优先用 `&str`，原地修改再使用可变 `String`。</li>
+              <li><strong>循环拼接</strong>：用 <code>String::with_capacity</code> 预分配 + <code>push_str</code>，避免反复 realloc</li>
+              <li><strong>多段拼接</strong>：<code>format!</code> 最清晰，编译器也能优化得不错</li>
+              <li><strong>大量字符串拼接</strong>：考虑先 <code>collect</code> 到 <code>Vec&lt;&str&gt;</code> 后 <code>.join("")</code></li>
+              <li><strong>避免 + 链式调用</strong>：<code>s1 + &s2 + &s3</code> 虽合法但可读性差，且 s1 被消耗</li>
             </ul>
-        </section>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>join_pattern.rs</span></div>
+              <pre><code>// 高效拼接多段字符串
+let parts = vec!["hello", "beautiful", "world"];
+let sentence = parts.join(" ");
+// "hello beautiful world"
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 解释为什么 `&str` 往往比 `String` 更适合作为只读函数参数。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 写一个函数，接收 `&str` 并返回去掉首尾空白后的单词数。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 说明为什么 `text[0]` 在 Rust 中不被允许，并分别从性能和正确性角度解释。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 设计一个日志前缀格式化函数：输入模块名和消息内容，思考哪些地方应该借用，哪些地方应该返回新的 `String`。</li>
-            </ol>
-        </section>
+// 构建 CSV 行
+let fields = vec!["name", "age", "city"];
+let csv_line = fields.join(",");
+// "name,age,city"</code></pre>
+            </div>
+          </div>
+        </div>
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>plus_trap.rs</span></div>
+              <pre><code>let s1 = String::from("a");
+let s2 = String::from("b");
+let s3 = String::from("c");
+
+// ❌ 这看起来对称，但实际上：
+// s1 被移动，s2 被借用，临时结果再被移动，s3 被借用
+let result = s1 + &s2 + &s3;
+
+// ✅ 更清晰的替代方案
+let s1 = String::from("a");
+let result = format!("{}{}{}", s1, s2, s3);
+// 所有变量都还能继续使用</code></pre>
+            </div>
+            <p class="warning-text">⚠ + 运算符的左侧必须是 <code>String</code>，右侧必须是 <code>&str</code>。不能写 <code>&str + &str</code> 或 <code>&str + String</code>。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下拼接方式中，哪个不会消耗任何 String 的所有权？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '+ 运算符消耗左侧 String 的所有权。')">A. let r = s1 + &amp;s2;</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！format! 通过引用借用所有参数，不消耗所有权。')">B. let r = format!(&quot;{}{}&quot;, s1, s2);</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'push_str 需要 &mut String，虽不消耗所有权但需要可变借用。')">C. s1.push_str(&amp;s2);</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'into_bytes 消耗 String 的所有权。')">D. let r = s1.into_bytes();</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>字符串索引与切片</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>在 Python 或 JavaScript 中，<code>s[0]</code> 是获取第一个字符的标准方式。但在 Rust 中，<code>s[0]</code> 根本无法编译。这不是 Rust 的缺陷——而是对 Unicode 正确性的严肃对待。理解这个限制背后的原因，能帮你避免多语言文本处理中的经典 bug。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>一个"字符"在不同视角下有三种理解：</p>
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch08-02-strings.html">The Rust Programming Language · Strings</a></li>
-                <li><a href="https://doc.rust-lang.org/std/string/struct.String.html">std::string::String 文档</a></li>
-                <li><a href="https://doc.rust-lang.org/std/primitive.str.html">primitive str 文档</a></li>
+              <li><strong>字节（bytes）</strong>：UTF-8 编码的原始字节，每个固定 1 字节</li>
+              <li><strong>Unicode 标量值（chars）</strong>：Rust 的 <code>char</code> 类型，UTF-8 编码下每个占 1-4 字节</li>
+              <li><strong>字形簇（grapheme clusters）</strong>：人类视觉上的"一个字符"，可能由多个标量值组成</li>
             </ul>
-        </section>
-    </main>
+            <p>Rust 拒绝用 <code>s[i]</code> 索引的根本原因：<strong>不清楚用户想要哪个层次</strong>，且按字节索引可能切到 UTF-8 多字节字符的中间，产生无效数据。</p>
+          </div>
+        </div>
 
-    <script src="../assets/js/main.js"></script>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>indexing.rs</span></div>
+              <pre><code>let hello = String::from("你好世界");
+
+// ❌ 不可以直接索引
+// let c = hello[0];  // 编译错误！String 没有实现 Index&lt;usize&gt;
+
+// ✅ 按字节切片（必须在字符边界上）
+let first_char = &hello[0..3];  // "你"（一个汉字 = 3 字节）
+// let bad = &hello[0..2];      // ⚠ panic! 不在字符边界
+
+// ✅ 按字符遍历
+for ch in hello.chars() {
+    print!("{} ", ch);  // 你 好 世 界
+}
+
+// ✅ 按字节遍历
+for b in hello.bytes() {
+    print!("{:02x} ", b);
+    // e4 bd a0 e5 a5 bd e4 b8 96 e7 95 8c
+}
+
+// ✅ 获取第 n 个字符（注意：O(n) 复杂度）
+let second = hello.chars().nth(1);  // Some('好')</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>你 好 世 界
+e4 bd a0 e5 a5 bd e4 b8 96 e7 95 8c</pre></div>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>string_methods.rs</span></div>
+              <pre><code>let text = "Hello, 世界!";
+
+// 各种度量
+println!("字节数: {}", text.len());            // 13
+println!("字符数: {}", text.chars().count());   // 9
+
+// 常用方法
+let trimmed = "  hello  ".trim();              // "hello"
+let upper = "rust".to_uppercase();             // "RUST"
+let replaced = "foo bar".replace("foo", "baz"); // "baz bar"
+
+// 分割
+let parts: Vec&lt;&str&gt; = "a,b,c".split(',').collect();
+// ["a", "b", "c"]
+
+// 检查
+let starts = "hello".starts_with("hel");       // true
+let contains = "hello".contains("ell");        // true</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>绝不假设 "1 字符 = 1 字节"</strong>：处理用户输入时始终用 <code>.chars()</code> 或专门的 Unicode 库</li>
+              <li><strong>范围切片要小心</strong>：<code>&s[a..b]</code> 中 a 和 b 必须是字符边界，否则 panic。用 <code>.char_indices()</code> 获取安全的切割位置</li>
+              <li><strong>性能敏感场景</strong>：如果确定只处理 ASCII，可用 <code>.as_bytes()</code> 直接操作字节切片，O(1) 索引</li>
+              <li><strong>字形簇处理</strong>：标准库不直接支持，需引入 <code>unicode-segmentation</code> crate</li>
+            </ul>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>safe_slice.rs</span></div>
+              <pre><code>/// 安全地截取前 n 个字符
+fn take_chars(s: &str, n: usize) -> &str {
+    match s.char_indices().nth(n) {
+        Some((idx, _)) => &s[..idx],
+        None => s,  // 字符串不够长，返回全部
+    }
+}
+
+let text = "你好世界";
+let first_two = take_chars(text, 2);
+assert_eq!(first_two, "你好");</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>char_indices.rs</span></div>
+              <pre><code>let s = "café";
+
+// 使用 char_indices 安全获取位置
+for (idx, ch) in s.char_indices() {
+    println!("byte {} => '{}'", idx, ch);
+}
+// byte 0 => 'c'
+// byte 1 => 'a'
+// byte 2 => 'f'
+// byte 3 => 'é'  (U+00E9 占 2 个 UTF-8 字节)
+
+println!("len = {}", s.len());           // 5 字节
+println!("chars = {}", s.chars().count()); // 4 字符</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>byte 0 => 'c'
+byte 1 => 'a'
+byte 2 => 'f'
+byte 3 => 'é'
+len = 5
+chars = 4</pre></div>
+            </div>
+            <p class="warning-text">⚠ <code>.chars().nth(n)</code> 每次调用都从头遍历，时间复杂度 O(n)。如果需要频繁随机访问字符，先 <code>.chars().collect::&lt;Vec&lt;char&gt;&gt;()</code> 转为字符数组。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">对于字符串 "你好"，.len() 返回什么值？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '.len() 返回字节数，不是字符数。')">A. 2</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '每个汉字 UTF-8 编码占 3 字节。')">B. 4</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！2 个汉字 × 3 字节 = 6 字节。')">C. 6</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不是 8 字节。')">D. 8</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>字符串在所有权系统中的行为</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>字符串是最常在函数间传递的数据类型。每次传递都涉及一个选择：<strong>移动？借用？还是克隆？</strong> 选错会导致编译错误或不必要的性能开销。掌握字符串的所有权模式，是写出高效 Rust 代码的关键一步。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>String 遵循标准的所有权规则——<strong>不实现 Copy</strong>（因为堆分配数据不能隐式浅拷贝），赋值和传参默认移动所有权。</p>
+            <p>核心决策树：</p>
+            <ul>
+              <li><strong>只读访问</strong> → 用 <code>&str</code> 借用</li>
+              <li><strong>需要修改</strong> → 用 <code>&mut String</code> 可变借用</li>
+              <li><strong>需要独立拷贝</strong> → 用 <code>.clone()</code> 或 <code>.to_owned()</code></li>
+              <li><strong>交出所有权</strong> → 直接传 <code>String</code>（移动语义）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>ownership_patterns.rs</span></div>
+              <pre><code>// === 移动语义 ===
+let s1 = String::from("hello");
+let s2 = s1;           // s1 → s2，s1 无效
+// println!("{}", s1);  // ❌ 编译错误
+
+// === Clone：深拷贝 ===
+let s1 = String::from("hello");
+let s2 = s1.clone();   // 分配新堆内存，复制全部字节
+println!("{} {}", s1, s2);  // ✅ 两者独立
+
+// === 函数参数的四种模式 ===
+
+// 模式 1：借用只读（最常用）
+fn print_len(s: &str) {
+    println!("长度: {}", s.len());
+}
+
+// 模式 2：可变借用
+fn append_bang(s: &mut String) {
+    s.push('!');
+}
+
+// 模式 3：获取所有权
+fn consume(s: String) {
+    println!("consumed: {}", s);
+}  // s 在这里被 drop
+
+// 模式 4：获取所有权并返回新值
+fn to_upper(s: String) -> String {
+    s.to_uppercase()  // 所有权转移到返回值
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>struct_ownership.rs</span></div>
+              <pre><code>// 结构体持有 String：拥有所有权，无需生命周期
+struct User {
+    name: String,
+    email: String,
+}
+
+// 结构体持有 &str：需要生命周期标注
+struct UserRef&lt;'a&gt; {
+    name: &'a str,
+    email: &'a str,
+}
+
+// 实际使用
+let user = User {
+    name: String::from("Alice"),
+    email: String::from("alice@example.com"),
+};  // User 拥有两个字符串，可以安心存储
+
+let name = String::from("Bob");
+let user_ref = UserRef {
+    name: &name,       // 借用，UserRef 不能活得比 name 久
+    email: "bob@x.com", // &'static str，没问题
+};</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>参数类型选择指南：</strong></p>
+            <table class="info-table">
+              <thead><tr><th>场景</th><th>推荐类型</th><th>理由</th></tr></thead>
+              <tbody>
+                <tr><td>只读函数参数</td><td><code>&str</code></td><td>最通用，接受 &String 和字面值</td></tr>
+                <tr><td>需要修改字符串</td><td><code>&mut String</code></td><td>原地修改，不分配新内存</td></tr>
+                <tr><td>存入结构体或容器</td><td><code>String</code></td><td>结构体需要拥有数据</td></tr>
+                <tr><td>灵活 API 入口</td><td><code>impl Into&lt;String&gt;</code></td><td>接受 String 和 &str，由调用者决定</td></tr>
+              </tbody>
+            </table>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>into_pattern.rs</span></div>
+              <pre><code>// 灵活的 API 设计：接受 String 或 &str
+struct Config {
+    name: String,
+}
+
+impl Config {
+    fn new(name: impl Into&lt;String&gt;) -> Self {
+        Config { name: name.into() }
+    }
+}
+
+// 两种调用方式都行
+let c1 = Config::new("literal");              // &str → String
+let c2 = Config::new(String::from("owned"));  // String 直接用</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>clone_vs_ref.rs</span></div>
+              <pre><code>// ❌ 不必要的 clone——性能浪费
+fn process_bad(data: &[String]) {
+    for s in data {
+        let copy = s.clone();  // 每次循环都深拷贝！
+        println!("{}", copy.to_uppercase());
+    }
+}
+
+// ✅ 只需要引用就够了
+fn process_good(data: &[String]) {
+    for s in data {
+        println!("{}", s.to_uppercase());
+        // to_uppercase 返回新 String，无需先 clone
+    }
+}
+
+// ❌ 参数过于狭窄
+fn first_word_bad(s: &String) -> &str {
+    // 可以工作，但参数应该用 &str
+    &s[..s.find(' ').unwrap_or(s.len())]
+}
+
+// ✅ 更好的签名
+fn first_word(s: &str) -> &str {
+    &s[..s.find(' ').unwrap_or(s.len())]
+}</code></pre>
+            </div>
+            <p class="warning-text">⚠ 经验法则：如果发现自己频繁写 <code>.clone()</code>，先停下来思考——是否可以用引用代替？不必要的 clone 是 Rust 新手最常见的性能陷阱。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">函数签名 fn greet(name: &amp;str) 相比 fn greet(name: &amp;String) 的优势是？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者性能几乎一样。')">A. 更快</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！&str 同时接受 &String（Deref coercion）和字符串字面值。')">B. 更通用——同时接受 &amp;String 和字符串字面值</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '两者都不获取所有权。')">C. 不需要所有权</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '胖指针大小差异可忽略。')">D. 使用更少的内存</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <p class="exercises-intro">共 22 道题，涵盖 String 与 &amp;str 的本质、操作方法、索引限制和所有权行为。</p>
+      <div id="quiz-container"></div>
+      <div class="quiz-controls">
+        <button class="btn" onclick="checkAnswers()">提交答案</button>
+        <button class="btn btn-outline" onclick="resetQuiz()">重置</button>
+      </div>
+      <div id="quiz-result"></div>
+    </section>
+
+    <!-- ==================== 章节导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="../unit2_syntax/ch2.6_traits.html" class="prev-chapter">
+        <span class="nav-arrow">←</span>
+        <span class="nav-info">
+          <span class="nav-label">上一章</span>
+          <span class="nav-title">Trait 系统</span>
+        </span>
+      </a>
+      <a href="ch3.2_collections.html" class="next-chapter">
+        <span class="nav-info">
+          <span class="nav-label">下一章</span>
+          <span class="nav-title">集合类型</span>
+        </span>
+        <span class="nav-arrow">→</span>
+      </a>
+    </nav>
+
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

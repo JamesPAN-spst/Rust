@@ -1,317 +1,728 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 2.2 控制流 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 2.2 控制流 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u2-ch22-q1",
+        "question": "Rust 中 if 是表达式还是语句？",
+        "options": ["A. 语句，不能返回值", "B. 表达式，可以返回值", "C. 取决于是否有 else", "D. 取决于编译器版本"],
+        "answer": 1,
+        "explanation": "Rust 中 if/else 是表达式，每个分支都可以返回值，可以赋给变量：let x = if cond { 1 } else { 2 };"
+      },
+      {
+        "id": "u2-ch22-q2",
+        "question": "以下用法是否合法？\nlet x = if true { 5 } else { \"hello\" };",
+        "options": ["A. 合法，x 是泛型", "B. 不合法，if/else 两个分支必须返回相同类型", "C. 合法，x 会推断为 &dyn Any", "D. 合法，但只在 nightly 版本"],
+        "answer": 1,
+        "explanation": "if/else 的两个分支必须返回相同类型，编译器才能推断统一类型。5 (i32) 和 \"hello\" (&str) 类型不同，编译错误。"
+      },
+      {
+        "id": "u2-ch22-q3",
+        "question": "以下代码输出什么？\nlet n = 3;\nlet result = if n > 5 { \"big\" } else if n > 0 { \"small\" } else { \"zero\" };\nprintln!(\"{}\", result);",
+        "options": ["A. big", "B. small", "C. zero", "D. 编译错误"],
+        "answer": 1,
+        "explanation": "n=3，不大于 5，进入 else if：3 > 0 为 true，返回 \"small\"。"
+      },
+      {
+        "id": "u2-ch22-q4",
+        "question": "loop 和 while true 有什么区别？",
+        "options": ["A. 完全等价", "B. loop 可以通过 break 返回值，while true 不行", "C. while true 性能更好", "D. loop 只在 nightly 可用"],
+        "answer": 1,
+        "explanation": "loop 是 Rust 的无限循环原语，支持 break value 返回值。while true 不支持 break 带值（因为编译器无法证明一定走 break）。"
+      },
+      {
+        "id": "u2-ch22-q5",
+        "question": "以下代码输出什么？\nlet result = loop {\n    break 42;\n};\nprintln!(\"{}\", result);",
+        "options": ["A. 无限循环", "B. 42", "C. 编译错误", "D. ()"],
+        "answer": 1,
+        "explanation": "loop 支持 break value 语法，break 42 使 loop 表达式的值为 42，赋给 result。"
+      },
+      {
+        "id": "u2-ch22-q6",
+        "question": "loop 标签的语法是什么？",
+        "options": ["A. label: loop { }", "B. 'label: loop { }", "C. @label loop { }", "D. #label loop { }"],
+        "answer": 1,
+        "explanation": "Rust 用 'label: loop/while/for 的语法为循环命名，break 'label 可以跳出指定循环。标签以单引号开头。"
+      },
+      {
+        "id": "u2-ch22-q7",
+        "question": "for i in 0..5 会迭代哪些值？",
+        "options": ["A. 0, 1, 2, 3, 4, 5", "B. 0, 1, 2, 3, 4", "C. 1, 2, 3, 4, 5", "D. 1, 2, 3, 4"],
+        "answer": 1,
+        "explanation": "0..5 是左闭右开的 Range，包含 0, 1, 2, 3, 4。如果要包含 5，用 0..=5。"
+      },
+      {
+        "id": "u2-ch22-q8",
+        "question": "如何同时获取索引和值来遍历数组？",
+        "options": ["A. for (i, v) in arr { }", "B. for (i, v) in arr.enumerate() { }", "C. for (i, v) in arr.iter().enumerate() { }", "D. for i, v in arr { }"],
+        "answer": 2,
+        "explanation": "先调用 .iter() 获取迭代器，再调用 .enumerate() 产生 (index, &value) 元组。"
+      },
+      {
+        "id": "u2-ch22-q9",
+        "question": "while let Some(x) = stack.pop() 是什么意思？",
+        "options": ["A. 语法错误", "B. 当 stack.pop() 返回 Some 时继续循环，None 时退出", "C. 对 stack 的所有元素求和", "D. 创建一个新的栈"],
+        "answer": 1,
+        "explanation": "while let 是模式匹配循环：每次迭代尝试将 stack.pop() 匹配 Some(x)，成功则执行循环体，None 时退出。"
+      },
+      {
+        "id": "u2-ch22-q10",
+        "question": "以下代码输出什么？\nfor i in (1..4).rev() {\n    println!(\"{}\", i);\n}",
+        "options": ["A. 1 2 3", "B. 3 2 1", "C. 4 3 2 1", "D. 1 2 3 4"],
+        "answer": 1,
+        "explanation": ".rev() 反转迭代器。1..4 产生 1,2,3，反转后为 3,2,1。"
+      },
+      {
+        "id": "u2-ch22-q11",
+        "question": "Rust 的 if 条件需要括号吗？",
+        "options": ["A. 必须加括号", "B. 不需要括号，加了不是错误但 clippy 会警告", "C. 必须不加括号", "D. 取决于条件的复杂度"],
+        "answer": 1,
+        "explanation": "Rust 的 if 不需要条件括号（不像 C/Java）。加了括号可以编译但 clippy 会发出 unnecessary_parens 警告。"
+      },
+      {
+        "id": "u2-ch22-q12",
+        "question": "以下代码的 x 是什么类型？\nlet x = if true { 5 };",
+        "options": ["A. i32", "B. Option<i32>", "C. 编译错误：缺少 else 分支", "D. ()"],
+        "answer": 2,
+        "explanation": "当 if 用作赋值表达式时，必须有 else 分支，否则条件为 false 时没有值可返回。编译器报错。"
+      },
+      {
+        "id": "u2-ch22-q13",
+        "question": "continue 在循环中的作用是？",
+        "options": ["A. 退出循环", "B. 跳过本次迭代，进入下一次", "C. 暂停循环", "D. 重新开始循环"],
+        "answer": 1,
+        "explanation": "continue 跳过当前迭代的剩余代码，直接进入下一次循环迭代。break 才是退出循环。"
+      },
+      {
+        "id": "u2-ch22-q14",
+        "question": "以下代码输出什么？\n'outer: for i in 0..3 {\n    for j in 0..3 {\n        if j == 1 { continue 'outer; }\n        println!(\"{},{}\", i, j);\n    }\n}",
+        "options": ["A. 0,0 1,0 2,0", "B. 0,0 0,2 1,0 1,2 2,0 2,2", "C. 0,0 1,0 2,0 (正确)", "D. 全部 9 个组合"],
+        "answer": 0,
+        "explanation": "当 j==1 时 continue 'outer 跳转到外层循环的下一次迭代。每个 i 只打印 j=0（j=1 时跳出，j=2 永远不执行）。"
+      },
+      {
+        "id": "u2-ch22-q15",
+        "question": "0..=5 和 0..5 的区别？",
+        "options": ["A. 没有区别", "B. 0..=5 包含 5，0..5 不包含 5", "C. 0..=5 不包含 0", "D. 0..5 包含 5"],
+        "answer": 1,
+        "explanation": ".. 是左闭右开 (Range)，..= 是左闭右闭 (RangeInclusive)。0..5 = [0,5), 0..=5 = [0,5]。"
+      },
+      {
+        "id": "u2-ch22-q16",
+        "question": "何时应该用 loop 而非 while？",
+        "options": ["A. 永远不用 loop", "B. 当循环一定需要执行至少一次，且使用 break 返回值时", "C. 当需要索引时", "D. 当遍历集合时"],
+        "answer": 1,
+        "explanation": "loop 表达"无限循环直到显式 break"的意图，支持 break value。while 更适合"在条件满足时循环"。"
+      },
+      {
+        "id": "u2-ch22-q17",
+        "question": "for 循环遍历 Vec 时，vec 和 &vec 有什么区别？",
+        "options": ["A. 没有区别", "B. for x in vec 会消耗 vec（move），for x in &vec 只是借用", "C. &vec 会 clone vec", "D. vec 只能遍历一次但不消耗"],
+        "answer": 1,
+        "explanation": "for x in vec 会 move vec（之后不能再用）。for x in &vec 等价于 vec.iter()，只借用，vec 之后还能用。"
+      },
+      {
+        "id": "u2-ch22-q18",
+        "question": "以下代码会编译吗？\nlet x = loop {};",
+        "options": ["A. 不会，loop {} 没有 break", "B. 会，x 的类型是 !（never type）", "C. 会，x 是 ()", "D. 不会，缺少循环体"],
+        "answer": 1,
+        "explanation": "没有 break 的 loop 永远不会结束，其类型是 !（never type）。这是合法的，但程序会永远运行。"
+      },
+      {
+        "id": "u2-ch22-q19",
+        "question": "以下哪种写法可以倒序遍历 1 到 10？",
+        "options": ["A. for i in 10..1 { }", "B. for i in (1..=10).rev() { }", "C. for i in 10..=1 { }", "D. for i in rev(1..10) { }"],
+        "answer": 1,
+        "explanation": "10..1 是空范围（起始 >= 结束）。用 (1..=10).rev() 先创建 1-10 的范围再反转。"
+      },
+      {
+        "id": "u2-ch22-q20",
+        "question": "在 Rust 中，如何实现类似其他语言的 do-while 循环？",
+        "options": ["A. do { } while (cond);", "B. 用 loop + if break 模拟", "C. while cond { } 加 -do 标志", "D. Rust 直接支持 do-while"],
+        "answer": 1,
+        "explanation": "Rust 没有 do-while。用 loop { /* body */ if !condition { break; } } 模拟「至少执行一次」的语义。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit2_syntax" style="--domain-color: var(--c-syntax);">
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">SYNTAX</span>
+      <a href="../index.html" class="module-name">Unit 2 · 基础语法</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.2 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 2 · 基础语法</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit1_ownership/ch1.4_ownership_in_practice.html">上一单元参考</a></li>
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 if/else 是表达式</a></li>
+      <li><a href="#kp2">02 loop / while / for</a></li>
+      <li><a href="#kp3">03 break 返回值与循环标签</a></li>
+      <li><a href="#kp4">04 迭代器与 for</a></li>
+      <li class="toc-separator"><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">Unit 2 正式页面</li>
-            <li><a href="./ch2.1_basic_types_variables.html">2.1 基本类型与变量</a></li>
-            <li><a href="./ch2.2_control_flow.html" class="active">2.2 控制流</a></li>
-            <li><a href="./ch2.3_functions_closures.html">2.3 函数与闭包</a></li>
-            <li><a href="./ch2.4_struct_enum.html">2.4 Struct 与 Enum</a></li>
-            <li><a href="./ch2.5_pattern_matching.html">2.5 模式匹配</a></li>
-            <li><a href="./ch2.6_traits.html">2.6 Trait 系统</a></li>
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 2 · 基础语法</p>
+      <h1>控制流</h1>
+      <p class="chapter-intro">Rust 的控制流结构看似熟悉——if、while、for 都在。但关键细节不同：if 是表达式、loop 可以返回值、for 消费迭代器而非使用索引。理解这些区别，是写出地道 Rust 代码的第一步。</p>
+    </header>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">if 不是语句装饰，而是表达式</a></li>
-            <li><a href="#kp-2">loop：当你需要“直到我自己决定结束”</a></li>
-            <li><a href="#kp-3">while：适合条件驱动的状态推进</a></li>
-            <li><a href="#kp-4">for：让遍历意图比索引更显眼</a></li>
-            <li><a href="#kp-5">如何在 if / loop / while / for 之间做选择？</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
-    </nav>
-
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 2 · 基础语法</span>
-            <h1>Ch 2.2 控制流</h1>
-            <p class="chapter-description">Rust 的控制流不只是“让代码跑起来”，更是在训练你用表达式思维组织状态变化。学完这一章，你会知道 if、loop、while、for 各自解决什么问题，以及为什么 Rust 鼓励把结果从分支里直接产出。</p>
-        </header>
-
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
+    <!-- ==================== KP 1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>if/else 是表达式 — 条件分支有返回值</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>在 C/Java/Python 中，<code>if</code> 是语句——它执行代码但不产生值。Rust 中 <code>if/else</code> 是<strong>表达式</strong>，每个分支都有返回值。这意味着你可以直接把 <code>if</code> 的结果赋给变量，消除中间的 <code>let mut</code>，写出更函数式的代码。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>Rust 中几乎所有东西都是表达式：<code>if</code>、<code>match</code>、块 <code>{}</code>……表达式产生值，语句不产生。</p>
             <ul>
-                <li>理解 if 在 Rust 中既能分支也能产出值</li>
-                <li>掌握 loop、while、for 的核心适用场景与差异</li>
-                <li>学会使用 break 返回值组织循环结果</li>
-                <li>建立“优先表达式、其次状态机、最后手写索引”的控制流直觉</li>
+              <li><code>if/else</code> 的两个分支<strong>必须返回相同类型</strong>。</li>
+              <li>用作赋值时，<strong>必须有 <code>else</code></strong>（否则 false 分支没有值）。</li>
+              <li>不带 <code>else</code> 的 <code>if</code> 默认返回 <code>()</code>（unit type）。</li>
+              <li>条件表达式<strong>不需要括号</strong>。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>if_expr.rs</span></div>
+              <pre><code>fn main() {
+    let temperature = 28;
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先掌握变量绑定、基本类型和可变性。本章默认你已经知道布尔表达式、函数调用与最小程序结构，但还不要求掌握模式匹配细节。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>2.2.1 if 不是语句装饰，而是表达式</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>为什么 Rust 允许把 if 直接写在 let 右边？这和“分支只是执行不同代码块”有什么本质区别？</p>
-            </div>
-            <p>Rust 把 if 设计成表达式，意味着分支不仅能控制流程，还能直接产出一个值。这样很多“先声明变量、再在不同分支里赋值”的写法可以合并成更紧凑、更不容易漏分支的表达。</p>
-            <p><strong>正式规则：</strong>if / else 表达式的所有分支必须返回兼容的类型；条件本身必须是 bool，Rust 不会把整数自动当布尔值。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>if_expression.rs</span></div>
-                <pre><code>fn main() {
-    let is_debug = true;
-    let level = if is_debug {
-        &quot;verbose&quot;
+    // if/else 作为表达式——直接赋值
+    let description = if temperature > 35 {
+        "酷热"
+    } else if temperature > 25 {
+        "温暖"
     } else {
-        &quot;normal&quot;
+        "凉爽"
     };
+    println!("{}°C → {}", temperature, description);
 
-    println!(&quot;log level = {level}&quot;);
+    // 对比：C 风格写法（需要 mut）
+    // let mut desc = "";
+    // if temperature > 35 { desc = "酷热"; }
+    // else if temperature > 25 { desc = "温暖"; }
+    // else { desc = "凉爽"; }
+
+    // 在复杂表达式中使用
+    let abs_val = if -5 < 0 { 5 } else { -5 };
+    println!("abs = {}", abs_val);
+
+    // 块表达式——最后一行无分号就是返回值
+    let y = {
+        let x = 3;
+        x + 1  // 没有分号 → 这是返回值
+    };
+    println!("y = {}", y); // 4
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>log level = verbose</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>28°C → 温暖
+abs = 5
+y = 4</pre></div>
             </div>
-            <div class="note-box tip">
-                <p><strong>表达式心态：</strong>当两个分支都在“决定一个结果”时，优先考虑把 <code>if</code> 当作表达式，而不是先声明一个可变变量再回填。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么两个分支必须同类型？</button>
-                <div class="collapsible-content">因为 <code>let level = if ...</code> 最终要绑定成一个确定类型的值。如果一个分支返回 <code>&amp;str</code>，另一个返回整数，编译器就无法为整个表达式定型。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="if 表达式最终要产生一个统一类型的值，因此各分支必须兼容；条件也必须明确是 bool。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>关于 Rust 的 if，下列哪项正确？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.2_control_flow-q1" value="A"> A. 条件可以直接写 0 或 1</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q1" value="B"> B. 如果把 if 用在 let 右边，所有分支必须产出兼容类型</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q1" value="C"> C. 只有 else if 才能返回值</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+            <p><strong>关键规则</strong>：块的最后一行有分号就返回 <code>()</code>；没分号就是返回值。<code>{ x + 1 }</code> 返回 <code>x+1</code>，<code>{ x + 1; }</code> 返回 <code>()</code>。</p>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>用 <code>if</code> 表达式替代三元运算符</strong>——Rust 没有 <code>? :</code>，用 <code>let x = if c { a } else { b };</code> 替代。</li>
+              <li><strong>减少 <code>mut</code></strong>——能用 if 表达式赋值的，就不要先 <code>let mut x</code> 再 <code>if/else</code> 分别赋值。</li>
+              <li><strong>条件不加括号</strong>——<code>if (x > 0)</code> 虽然能编译，但 clippy 会警告。写 <code>if x > 0</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>type_mismatch.rs</span></div>
+              <pre><code>fn main() {
+    let condition = true;
 
-        <section class="knowledge-point" id="kp-2">
-            <h2>2.2.2 loop：当你需要“直到我自己决定结束”</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果循环次数不固定，又不想把条件写在开头，Rust 为什么单独提供 loop，而不是只靠 while？</p>
-            </div>
-            <p>loop 表示“先进入，再由内部逻辑决定何时停下”。它很适合重试、读取直到成功、状态机推进等场景，因为退出条件往往散落在循环体内部。</p>
-            <p><strong>正式规则：</strong>loop 会一直执行，直到遇到 break；break 可以携带一个值，把整个 loop 变成产出结果的表达式。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>loop_break_value.rs</span></div>
-                <pre><code>fn main() {
-    let mut attempts = 0;
+    // ❌ 两个分支类型不同
+    // let x = if condition { 5 } else { "six" };
+    // error: `if` and `else` have incompatible types
 
-    let token = loop {
-        attempts += 1;
-        if attempts == 3 {
-            break format!(&quot;connected on attempt {attempts}&quot;);
+    // ✅ 类型一致
+    let x = if condition { 5 } else { 6 };
+    println!("x = {}", x);
+
+    // ❌ 缺少 else 时不能赋值
+    // let y = if condition { 5 };
+    // error: `if` may be missing an `else` clause
+
+    // ✅ 不赋值的 if 可以没有 else
+    if condition {
+        println!("true 分支");
+    }
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>x = 5
+true 分支</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：if/else 分支类型不一致是 Rust 新手最常见的编译错误之一。特别是当一个分支返回值、另一个分支有 <code>return</code> 或 <code>panic!</code> 时，注意类型的统一。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>let x = { let a = 1; a + 2; };</code> 中 x 的值是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'a + 2 后面有分号，所以块返回 ()。')">A. 3</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '最后一行有分号，块的返回值是 ()。去掉分号才返回 3。')">B. () — 因为最后一行有分号</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '这是合法的，x 的类型是 ()。')">C. 编译错误</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '块内的 a 不会溢出到外面。')">D. 1</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP 2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>loop / while / for — 三种循环</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 有三种循环，各有明确的语义：<code>loop</code>（无限循环）、<code>while</code>（条件循环）、<code>for</code>（迭代器循环）。选对循环不只是风格——它影响编译器能否推断控制流、能否证明安全性。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>循环</th><th>语义</th><th>何时用</th></tr></thead>
+              <tbody>
+                <tr><td><code>loop</code></td><td>无条件循环，直到 break</td><td>重试逻辑、事件循环、需要 break 返回值的场景</td></tr>
+                <tr><td><code>while</code></td><td>条件为 true 时循环</td><td>预置条件检查</td></tr>
+                <tr><td><code>for</code></td><td>消费迭代器</td><td>遍历集合、范围——<strong>90% 的循环用 for</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>loops.rs</span></div>
+              <pre><code>fn main() {
+    // 1. loop — 无限循环
+    let mut count = 0;
+    loop {
+        count += 1;
+        if count == 3 { break; }
+    }
+    println!("loop count: {}", count);
+
+    // 2. while — 条件循环
+    let mut n = 5;
+    while n > 0 {
+        print!("{} ", n);
+        n -= 1;
+    }
+    println!("发射!");
+
+    // 3. for — 迭代器循环
+    let fruits = ["apple", "banana", "cherry"];
+    for fruit in &amp;fruits {
+        print!("{} ", fruit);
+    }
+    println!();
+
+    // range 遍历
+    for i in 1..=5 {
+        print!("{} ", i);
+    }
+    println!();
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>loop count: 3
+5 4 3 2 1 发射!
+apple banana cherry
+1 2 3 4 5</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>for 是默认选择</strong>——遍历集合永远用 <code>for</code>，不要用 <code>while i &lt; arr.len()</code>（既啰嗦又可能出错）。</li>
+              <li><strong>loop 用于重试</strong>——网络请求重试、用户输入验证等"不成功就再来"的场景。</li>
+              <li><strong>while 用于条件等待</strong>——<code>while !ready() { check(); }</code>。</li>
+              <li><strong>避免 <code>while true</code></strong>——直接用 <code>loop</code>，语义更清晰，且支持 <code>break value</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>retry.rs</span></div>
+              <pre><code>fn simulate_request(attempt: u32) -&gt; Result&lt;String, String&gt; {
+    if attempt &lt; 3 {
+        Err(format!("attempt {} failed", attempt))
+    } else {
+        Ok("success!".into())
+    }
+}
+
+fn main() {
+    let mut attempt = 0;
+    let result = loop {
+        attempt += 1;
+        match simulate_request(attempt) {
+            Ok(msg) =&gt; break msg,          // break 带返回值
+            Err(e) =&gt; println!("Retry: {}", e),
+        }
+        if attempt &gt;= 5 {
+            break "gave up".into();
         }
     };
-
-    println!(&quot;{token}&quot;);
+    println!("Final: {}", result);
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>connected on attempt 3</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>Retry: attempt 1 failed
+Retry: attempt 2 failed
+Final: success!</pre></div>
             </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>for x in vec</code> 会 move 掉 vec（后续不能再用）。只想借用就写 <code>for x in &amp;vec</code>，需要可变引用写 <code>for x in &amp;mut vec</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下哪个循环支持 <code>break</code> 返回值？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, 'loop 是唯一支持 break value 的循环。')">A. loop</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'while 的 break 不能带值。')">B. while</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, 'for 的 break 不能带值。')">C. for</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '只有 loop 支持。')">D. 三者都支持</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：loop 返回值有什么意义？</button>
-                <div class="collapsible-content">它让“不断尝试直到拿到一个结果”这类逻辑更自然。你不必先声明一个外部可变变量，再在 break 前偷偷写进去。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="loop 最大的特点是退出条件由循环体内部决定，且 break 可以把结果返回给外层。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>什么时候 loop 往往比 while 更贴切？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.2_control_flow-q2" value="A"> A. 当你已经知道确切的迭代次数</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q2" value="B"> B. 当你只想遍历集合里的每个元素</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q2" value="C"> C. 当你要不断重试，直到内部某个条件满足才结束</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    <!-- ==================== KP 3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>break 返回值与循环标签</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>嵌套循环中想从外层跳出，在 C 里通常要用 <code>goto</code> 或设标志变量——都很丑。Rust 提供了<strong>循环标签</strong>（loop label），让你用 <code>break 'label</code> 精确跳出任意层级。配合 <code>break value</code>，loop 成为一种强大的控制流表达式。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <ul>
+              <li><code>break</code>：退出最内层循环。</li>
+              <li><code>break value</code>：退出 <code>loop</code> 并返回值（仅 loop 支持）。</li>
+              <li><code>break 'label</code>：退出指定标签的循环。</li>
+              <li><code>break 'label value</code>：退出指定标签的 loop 并返回值。</li>
+              <li><code>continue</code> / <code>continue 'label</code>：跳过本次/指定循环的本次迭代。</li>
+              <li>标签语法：<code>'label:</code>，以单引号开头（像生命周期标注）。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>labels.rs</span></div>
+              <pre><code>fn main() {
+    // 1. break 返回值
+    let mut counter = 0;
+    let result = loop {
+        counter += 1;
+        if counter == 10 {
+            break counter * 2;  // loop 表达式的值 = 20
+        }
+    };
+    println!("result = {}", result);
 
-        <section class="knowledge-point" id="kp-3">
-            <h2>2.2.3 while：适合条件驱动的状态推进</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>如果你每次迭代前都要先检查“还能不能继续”，为什么 while 比 loop + if 更清晰？</p>
-            </div>
-            <p>while 把“继续条件”放在入口，适合倒计时、轮询、缓冲区消费等场景。它的价值不是功能更强，而是让读代码的人在第一眼就知道“这个循环靠什么持续”。</p>
-            <p><strong>正式规则：</strong>while 在每次进入循环体前先判断条件；条件为 false 时立即停止，不会像 loop 那样必须依赖内部 break。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>while_countdown.rs</span></div>
-                <pre><code>fn main() {
-    let mut remaining = 3;
-
-    while remaining &gt; 0 {
-        println!(&quot;remaining = {remaining}&quot;);
-        remaining -= 1;
+    // 2. 循环标签——跳出外层循环
+    let mut found = false;
+    'outer: for i in 0..10 {
+        for j in 0..10 {
+            if i * j > 50 {
+                println!("found: i={}, j={}", i, j);
+                found = true;
+                break 'outer;  // 直接跳出两层循环
+            }
+        }
     }
+    println!("found = {}", found);
 
-    println!(&quot;done&quot;);
+    // 3. continue 'label
+    'rows: for row in 0..3 {
+        for col in 0..3 {
+            if col == 1 {
+                continue 'rows;  // 跳到下一行
+            }
+            print!("({},{}) ", row, col);
+        }
+    }
+    println!();
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>remaining = 3
-remaining = 2
-remaining = 1
-done</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>result = 20
+found: i=6, j=9
+found = true
+(0,0) (1,0) (2,0)</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>别把 while 当万能循环：</strong>如果你的循环目标其实是遍历集合，优先考虑 <code>for</code>；如果退出逻辑散落在中途，优先考虑 <code>loop</code>。</p>
-            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>矩阵搜索</strong>——在二维数据中找到第一个满足条件的元素后用 <code>break 'outer</code> 跳出。</li>
+              <li><strong>状态机</strong>——<code>loop</code> + <code>break value</code> 天然适合实现带返回值的状态转换。</li>
+              <li><strong>避免布尔标志</strong>——不要用 <code>let mut found = false;</code> + 检查来模拟 <code>break 'label</code>。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>search_matrix.rs</span></div>
+              <pre><code>fn main() {
+    let matrix = vec![
+        vec![1,  2,  3,  4 ],
+        vec![5,  6,  7,  8 ],
+        vec![9, 10, 11, 12],
+    ];
 
-            <div class="quick-quiz" data-answer="A" data-explanation="while 的优势是把持续条件放在入口，读者一开始就能看到“继续循环”的标准。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>下面哪种描述最符合 while？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.2_control_flow-q3" value="A"> A. 每次进入循环体前先检查条件</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q3" value="B"> B. 只能用于整数递减</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q3" value="C"> C. 比 for 更适合遍历数组</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-4">
-            <h2>2.2.4 for：让遍历意图比索引更显眼</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>遍历数组时，为什么 Rust 更鼓励 for item in collection，而不是手写索引 i += 1？</p>
-            </div>
-            <p>for 把“逐个处理元素”的意图表达得非常直接，也能减少越界、索引同步和可变状态管理的负担。Rust 倾向于让你沿着迭代器思路写代码，而不是一上来就操作下标。</p>
-            <p><strong>正式规则：</strong>for 会基于 IntoIterator 逐项取值；遍历数组、切片、Vec、范围都可以通过 for 完成。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>for_iteration.rs</span></div>
-                <pre><code>fn main() {
-    let scores = [88, 92, 100];
-
-    for score in scores {
-        println!(&quot;score = {score}&quot;);
-    }
-
-    for step in 1..=3 {
-        println!(&quot;step {step}&quot;);
-    }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>score = 88
-score = 92
-score = 100
-step 1
-step 2
-step 3</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>工程直觉：</strong>只要你不是在实现某种算法细节，看到“遍历每个元素”这类需求时，先想 <code>for</code>，再想索引。</p>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：for 为什么更安全？</button>
-                <div class="collapsible-content">因为它把“怎么拿下一个元素”交给迭代协议处理，减少了手写 <code>i += 1</code> 和数组越界的机会。</div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="for 直接表达遍历意图，通常比手写索引更清晰也更安全。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>遍历集合时，Rust 更推荐 for 的主要原因是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.2_control_flow-q4" value="A"> A. for 才能打印值</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q4" value="B"> B. for 更接近迭代器模型，减少显式索引错误</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q4" value="C"> C. for 会自动并行执行</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-5">
-            <h2>2.2.5 如何在 if / loop / while / for 之间做选择？</h2>
-            <div class="think-box">
-                <div class="think-icon">🤔</div>
-                <p>写控制流时，真正该问的问题不是“我会不会语法”，而是“我要表达的状态变化是什么”。那该怎么选？</p>
-            </div>
-            <p>一个简单心智模型是：<strong>分支产出结果时想 if；无限重试靠 loop；入口条件明确时用 while；遍历序列时优先 for。</strong> 这能让你的代码更贴近意图，而不是只是“能跑”。</p>
-            <p>Rust 的表达式导向设计鼓励你少依赖外部可变状态，多让控制流直接返回结果。这样不仅更易读，也更容易在后续引入所有权与错误处理规则。</p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>choose_flow.rs</span></div>
-                <pre><code>fn main() {
-    let user_input = Some(&quot;42&quot;);
-
-    let parsed = if let Some(text) = user_input {
-        text.parse::&lt;i32&gt;().ok()
-    } else {
+    let target = 7;
+    let position = 'search: {
+        for (i, row) in matrix.iter().enumerate() {
+            for (j, &amp;val) in row.iter().enumerate() {
+                if val == target {
+                    break 'search Some((i, j));
+                }
+            }
+        }
         None
     };
 
-    println!(&quot;parsed = {:?}&quot;, parsed);
+    match position {
+        Some((r, c)) =&gt; println!("找到 {} 在 ({}, {})", target, r, c),
+        None =&gt; println!("{} 不存在", target),
+    }
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>parsed = Some(42)</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>找到 7 在 (1, 2)</pre></div>
             </div>
-            <div class="note-box warning">
-                <p><strong>注意：</strong>本例里的 <code>if let</code> 只是预告下一章的模式匹配风格；当前你只需要记住 Rust 鼓励让控制流直接生成结果。</p>
+            <div class="warning-box">
+              <strong>注意</strong>：从 Rust 1.65 开始，<code>break 'label value</code> 也可以用在普通的块表达式 <code>'label: { ... }</code> 中（labeled block expressions），不仅限于循环。这很适合"提前返回"场景。
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>'outer: for</code> 中的 <code>'outer</code> 是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '虽然语法类似，但这是循环标签不是生命周期标注。')">A. 生命周期标注</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '循环标签用单引号开头命名一个循环，供 break/continue 指定跳转目标。')">B. 循环标签，用于 break/continue 跳转</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '字符串用双引号。')">C. 字符串标记</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '注释用 // 或 /* */。')">D. 注释</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
 
-            <div class="quick-quiz" data-answer="C" data-explanation="控制流选择应围绕意图：分支产值、条件驱动、遍历集合、内部重试分别有更自然的写法。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪种选择最符合 Rust 的控制流直觉？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="ch2.2_control_flow-q5" value="A"> A. 所有循环都先写成 loop，再慢慢改</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q5" value="B"> B. 只要能运行，哪种控制流都一样</label>
-                    <label><input type="radio" name="ch2.2_control_flow-q5" value="C"> C. 让控制流结构尽量直接表达状态变化和结果来源</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    <!-- ==================== KP 4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>迭代器与 for — range、enumerate、iter()</h2>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 的 <code>for</code> 循环不是 C 风格的 <code>for(init; cond; step)</code>——它<strong>消费迭代器</strong>。理解迭代器协议是高效使用 <code>for</code> 以及后续学习链式迭代器（Iterator trait）的基础。</p>
+          </div>
+        </div>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>for x in something</code> 会调用 <code>something.into_iter()</code>，然后反复调用 <code>.next()</code> 直到 <code>None</code>。</p>
+            <table class="info-table">
+              <thead><tr><th>写法</th><th>等价</th><th>所有权</th></tr></thead>
+              <tbody>
+                <tr><td><code>for x in vec</code></td><td><code>vec.into_iter()</code></td><td>消耗 vec（move）</td></tr>
+                <tr><td><code>for x in &amp;vec</code></td><td><code>vec.iter()</code></td><td>借用，x 是 &amp;T</td></tr>
+                <tr><td><code>for x in &amp;mut vec</code></td><td><code>vec.iter_mut()</code></td><td>可变借用，x 是 &amp;mut T</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>iterators.rs</span></div>
+              <pre><code>fn main() {
+    // 1. Range
+    for i in 0..5 {
+        print!("{} ", i);    // 0 1 2 3 4
+    }
+    println!();
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+    for i in 0..=5 {
+        print!("{} ", i);    // 0 1 2 3 4 5（包含右端）
+    }
+    println!();
+
+    // 2. enumerate — 获取索引
+    let colors = vec!["red", "green", "blue"];
+    for (idx, color) in colors.iter().enumerate() {
+        println!("[{}] {}", idx, color);
+    }
+
+    // 3. 三种遍历方式
+    let mut nums = vec![1, 2, 3];
+
+    // 只读
+    for n in &amp;nums {
+        print!("{} ", n);    // n 是 &amp;i32
+    }
+    println!();
+
+    // 可变
+    for n in &amp;mut nums {
+        *n *= 10;            // n 是 &amp;mut i32
+    }
+    println!("{:?}", nums);  // [10, 20, 30]
+
+    // 消费（之后 nums 不可用）
+    for n in nums {
+        print!("{} ", n);    // n 是 i32，nums 被 move
+    }
+    println!();
+    // println!("{:?}", nums); // ❌ nums 已被消费
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>0 1 2 3 4
+0 1 2 3 4 5
+[0] red
+[1] green
+[2] blue
+1 2 3
+[10, 20, 30]
+10 20 30</pre></div>
+            </div>
+          </div>
+        </div>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
             <ul>
-                <li>if 在 Rust 中是表达式，分支不仅控制流程，还可以直接产出值</li>
-                <li>loop 适合退出条件位于循环体内部的重试或状态机场景，break 可以返回值</li>
-                <li>while 适合入口条件明确的循环，读者能在第一眼看到持续条件</li>
-                <li>for 最适合遍历集合或范围，它让迭代意图比索引管理更突出</li>
-                <li>选择控制流时优先表达意图，而不是先写可变变量再用语句把它们拼起来</li>
+              <li><strong>用 <code>.enumerate()</code> 而非手动计数</strong>——<code>for (i, x) in data.iter().enumerate()</code> 比 <code>let mut i = 0;</code> 更安全。</li>
+              <li><strong>用 <code>.rev()</code> 反向遍历</strong>——<code>for i in (0..10).rev()</code>。</li>
+              <li><strong>用 <code>.chunks(n)</code> 分块处理</strong>——<code>for chunk in data.chunks(3)</code> 每次处理 3 个元素。</li>
+              <li><strong>用 <code>.zip()</code> 并行遍历</strong>——<code>for (a, b) in xs.iter().zip(ys.iter())</code>。</li>
+              <li><strong>想倒序遍历</strong>——<code>(1..=10).rev()</code>，而不是 <code>10..1</code>（这是空范围！）。</li>
             </ul>
-        </section>
+          </div>
+        </div>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>iter_patterns.rs</span></div>
+              <pre><code>fn main() {
+    let words = vec!["hello", "world", "rust"];
 
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 把一个布尔值转换成字符串状态，例如 true -> "ready"、false -> "waiting"，要求直接使用 if 表达式完成。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个 loop，不断累加计数器，直到第一次达到 10 时 break 出该值；不要使用循环外的结果变量。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 把“用 while + 索引遍历数组求和”的代码改写成 for 版本，并说明后者在可读性与错误风险上的优势。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 设想你在写一个小型 CLI：读取配置失败就重试、读取成功后遍历任务列表执行。请说明这两段逻辑分别更适合 loop / while / for 中的哪一种，并给出理由。</li>
-            </ol>
-        </section>
+    // zip：同时遍历两个集合
+    let indices = 1..;  // 无限 range
+    for (i, word) in indices.zip(words.iter()) {
+        println!("{}. {}", i, word);
+    }
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch03-05-control-flow.html">The Rust Programming Language · Control Flow</a></li>
-                <li><a href="https://doc.rust-lang.org/rust-by-example/flow_control.html">Rust By Example · Flow of Control</a></li>
-            </ul>
-        </section>
-    </main>
+    // chunks：分块处理
+    let data = vec![1, 2, 3, 4, 5, 6, 7];
+    for chunk in data.chunks(3) {
+        println!("chunk: {:?}", chunk);
+    }
 
-    <script src="../assets/js/main.js"></script>
+    // windows：滑动窗口
+    for window in data.windows(2) {
+        print!("{:?} ", window);
+    }
+    println!();
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>1. hello
+2. world
+3. rust
+chunk: [1, 2, 3]
+chunk: [4, 5, 6]
+chunk: [7]
+[1, 2] [2, 3] [3, 4] [4, 5] [5, 6] [6, 7]</pre></div>
+            </div>
+            <div class="warning-box">
+              <strong>易错</strong>：<code>10..1</code> 是空范围（不会产生任何值），因为起始 ≥ 结束。想倒序遍历必须写 <code>(1..=10).rev()</code>。
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt"><code>for x in vec</code> 之后，<code>vec</code> 还能使用吗？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'for x in vec 调用 into_iter()，消耗了 vec。')">A. 可以，for 只是借用</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, 'into_iter() 获取所有权，vec 被 move。用 &vec 才是借用。')">B. 不能，vec 已被 move（消耗）</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'vec 被 move 后不能使用，这是编译错误不是 panic。')">C. 可以但可能 panic</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '内容会被消耗，不会变空。')">D. 可以但内容为空</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <div class="exercises-container" id="exercises-container">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="exercises-summary" id="exercises-summary"></div>
+    </section>
+
+    <!-- ==================== 导航 ==================== -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch2.1_basic_types_variables.html">← Ch 2.1 基本类型与变量</a>
+      <a class="nav-next" href="ch2.3_functions_closures.html">Ch 2.3 函数与闭包 →</a>
+    </nav>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
+
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

@@ -1,327 +1,845 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 1.4 所有权的实际影响 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 1.4 所有权的实际影响 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {
+        "id": "u1-ch14-q1",
+        "question": "Rust 如何在编译期消除双重释放？",
+        "options": ["A. 运行时维护引用计数", "B. 所有权唯一性保证一个值只被 drop 一次", "C. 禁止使用堆内存", "D. 使用垃圾回收器"],
+        "answer": 1,
+        "explanation": "每个值只有一个所有者，所有者离开作用域时值被自动 drop 一次。move 确保旧所有者失效，不会二次释放。"
+      },
+      {
+        "id": "u1-ch14-q2",
+        "question": "Rust 如何在编译期防止数据竞争？",
+        "options": ["A. 禁止多线程", "B. aliasing XOR mutability：不允许 &T 和 &mut T 同时存在", "C. 所有数据都加锁", "D. 使用原子操作包装所有变量"],
+        "answer": 1,
+        "explanation": "数据竞争需要：同时访问 + 至少一个写。borrowing 规则保证要么多个只读，要么一个可写，编译期消除数据竞争。"
+      },
+      {
+        "id": "u1-ch14-q3",
+        "question": "C++ 的 unique_ptr 和 Rust 的 Box 最关键的区别是什么？",
+        "options": ["A. 性能不同", "B. unique_ptr 可以被意外拷贝或置空，Box 的唯一性由编译器保证", "C. Box 不能存储在堆上", "D. 没有区别"],
+        "answer": 1,
+        "explanation": "unique_ptr 可以 std::move 后变成 null（use-after-move），编译器不阻止。Box 的 move 后原变量直接不可用（编译错误）。"
+      },
+      {
+        "id": "u1-ch14-q4",
+        "question": "C++ 的 shared_ptr 对应 Rust 的什么？",
+        "options": ["A. Box<T>", "B. Rc<T>（单线程）/ Arc<T>（多线程）", "C. &T", "D. Vec<T>"],
+        "answer": 1,
+        "explanation": "Rc（Reference Counted）是单线程引用计数指针，Arc（Atomic Reference Counted）是线程安全版本。对应 C++ shared_ptr。"
+      },
+      {
+        "id": "u1-ch14-q5",
+        "question": "shared_ptr 的运行时开销是什么？",
+        "options": ["A. 没有额外开销", "B. 引用计数的增减和控制块的额外内存", "C. 和 GC 一样的暂停", "D. 只有内存开销没有时间开销"],
+        "answer": 1,
+        "explanation": "shared_ptr/Rc/Arc 需要维护引用计数（每次 clone/drop 都需增减），还有控制块的额外内存分配。"
+      },
+      {
+        "id": "u1-ch14-q6",
+        "question": "何时应该使用 .clone() 而不是引用？",
+        "options": ["A. 永远不应该 clone", "B. 数据小、引用关系复杂、或需要跨越生命周期边界时", "C. 只有性能关键代码才需要 clone", "D. 只在多线程中使用"],
+        "answer": 1,
+        "explanation": "clone 适用于：数据小（复制开销低）、生命周期关系复杂（引用太难管理）、需要独立修改副本等场景。"
+      },
+      {
+        "id": "u1-ch14-q7",
+        "question": "Send trait 表示什么？",
+        "options": ["A. 类型可以序列化", "B. 类型的所有权可以安全地跨线程转移", "C. 类型可以复制", "D. 类型可以比较大小"],
+        "answer": 1,
+        "explanation": "Send 表示 T 可以安全地 move 到另一个线程。大多数类型都是 Send，Rc<T> 不是（非原子引用计数不安全）。"
+      },
+      {
+        "id": "u1-ch14-q8",
+        "question": "Sync trait 表示什么？",
+        "options": ["A. 类型可以同步到磁盘", "B. &T 可以安全地在多个线程间共享", "C. 类型需要互斥锁", "D. 类型是原子的"],
+        "answer": 1,
+        "explanation": "T: Sync 表示 &T 可以安全地发送到多个线程（多线程可以同时读）。Cell<T> 和 Rc<T> 不是 Sync。"
+      },
+      {
+        "id": "u1-ch14-q9",
+        "question": "为什么 Rc<T> 不是 Send？",
+        "options": ["A. Rc 太大不适合传输", "B. Rc 的引用计数不是原子操作，多线程并发修改会导致数据竞争", "C. Rc 不能 clone", "D. Rc 不支持泛型"],
+        "answer": 1,
+        "explanation": "Rc 使用非原子计数器，多线程同时 clone/drop 会导致计数器不一致。需要原子操作的 Arc 代替。"
+      },
+      {
+        "id": "u1-ch14-q10",
+        "question": "以下哪个是 Rust 所有权模式在实际项目中的体现？",
+        "options": ["A. 全部数据都放全局变量", "B. Builder 模式通过链式调用转移所有权", "C. 所有方法都用 unsafe", "D. 用 C FFI 调用所有系统功能"],
+        "answer": 1,
+        "explanation": "Builder 模式常用 self → Self 签名链式调用，每一步都转移所有权。其他例子：newtype、RAII guard 等。"
+      },
+      {
+        "id": "u1-ch14-q11",
+        "question": "Mutex<T> 如何利用所有权系统保证线程安全？",
+        "options": ["A. 运行时检查线程 ID", "B. lock() 返回 MutexGuard（RAII），guard 离开作用域自动解锁", "C. 直接复制数据给每个线程", "D. 禁止多线程访问"],
+        "answer": 1,
+        "explanation": "Mutex::lock() 返回 MutexGuard，它持有锁且实现了 Drop（自动解锁）。你不可能忘记解锁，也不可能在没锁的情况下访问数据。"
+      },
+      {
+        "id": "u1-ch14-q12",
+        "question": "Rust 编译器错误 E0505 通常表示什么？",
+        "options": ["A. 类型不匹配", "B. 值被借用时尝试 move", "C. 函数参数太多", "D. 缺少 trait 实现"],
+        "answer": 1,
+        "explanation": "E0505: \"cannot move out of `x` because it is borrowed\"。你试图 move 一个还有活跃引用的值。"
+      },
+      {
+        "id": "u1-ch14-q13",
+        "question": "所有权系统能防止以下哪种 bug？",
+        "options": ["A. 死锁", "B. use-after-free", "C. 逻辑错误（返回错误值）", "D. 栈溢出"],
+        "answer": 1,
+        "explanation": "所有权 + 借用规则在编译期防止 use-after-free、double free、数据竞争。死锁、逻辑错误、栈溢出不在其防护范围内。"
+      },
+      {
+        "id": "u1-ch14-q14",
+        "question": "以下哪种设计模式在 Rust 中利用了所有权转移？",
+        "options": ["A. 单例模式", "B. 类型状态模式（typestate pattern）", "C. 装饰器模式", "D. 工厂模式"],
+        "answer": 1,
+        "explanation": "类型状态模式利用 move：consume 旧状态 → 返回新状态。编译器保证你不能使用已过期的状态。例如 HTTP request builder。"
+      },
+      {
+        "id": "u1-ch14-q15",
+        "question": "Box<T> 与在栈上直接存 T 的区别是什么？",
+        "options": ["A. Box<T> 更快", "B. Box<T> 在堆上分配，栈上只有指针", "C. Box<T> 可以是 null", "D. 没有区别"],
+        "answer": 1,
+        "explanation": "Box<T> 在堆上分配 T，栈上保存一个指针。用于大数据或递归类型。不可能是 null（没有 null）。"
+      },
+      {
+        "id": "u1-ch14-q16",
+        "question": "Rc<T> 和 Arc<T> 的核心区别是什么？",
+        "options": ["A. Rc 用于堆内存，Arc 用于栈内存", "B. Rc 使用非原子计数（仅单线程），Arc 使用原子计数（线程安全）", "C. Arc 不需要 clone", "D. Rc 效率更低"],
+        "answer": 1,
+        "explanation": "Rc 的引用计数操作不是原子的（更快但仅限单线程）。Arc 使用原子操作（稍慢但线程安全）。选哪个取决于是否跨线程。"
+      },
+      {
+        "id": "u1-ch14-q17",
+        "question": "为什么说 Rust 的内存安全是『零开销』的？",
+        "options": ["A. 因为不分配内存", "B. 因为所有检查在编译期完成，运行时没有额外的 GC/引用计数开销", "C. 因为使用了 LLVM 优化", "D. 因为 Rust 二进制更小"],
+        "answer": 1,
+        "explanation": "所有权和借用检查完全在编译期执行。生成的机器码没有 GC 循环、引用计数增减或运行时边界检查（除了数组下标）。"
+      },
+      {
+        "id": "u1-ch14-q18",
+        "question": "以下代码体现了什么设计模式？\nlet file = File::create(\"log.txt\")?;\nwriteln!(file, \"log\")?;\n// file 离开作用域 → 自动关闭",
+        "options": ["A. 观察者模式", "B. RAII — 资源获取即初始化", "C. 策略模式", "D. 代理模式"],
+        "answer": 1,
+        "explanation": "File 实现了 Drop，离开作用域时自动关闭文件句柄。这是经典的 RAII 模式。"
+      },
+      {
+        "id": "u1-ch14-q19",
+        "question": "Clone 的性能代价是什么？",
+        "options": ["A. 没有代价", "B. 深拷贝堆上数据（如 String 复制所有字符）", "C. 只复制指针", "D. 需要 GC 参与"],
+        "answer": 1,
+        "explanation": "clone 执行深拷贝：String::clone 会分配新的堆内存并复制所有字节。对大数据来说开销显著，应该有意识地使用。"
+      },
+      {
+        "id": "u1-ch14-q20",
+        "question": "在 Rust 中如何实现多个所有者共享数据？",
+        "options": ["A. 直接赋值给多个变量", "B. 使用 Rc<T> 或 Arc<T> 进行引用计数共享", "C. 使用全局变量", "D. 使用 unsafe 绕过检查"],
+        "answer": 1,
+        "explanation": "Rc/Arc 通过引用计数实现多个所有者。每次 clone Rc/Arc 只增加计数器，不复制数据。最后一个所有者 drop 时释放。"
+      },
+      {
+        "id": "u1-ch14-q21",
+        "question": "所有权系统对 API 设计的影响是什么？",
+        "options": ["A. API 不需要文档", "B. 函数签名本身就表达了所有权语义（谁拥有、谁借用、是否可变）", "C. 所有函数都要返回 Result", "D. 不能写泛型函数"],
+        "answer": 1,
+        "explanation": "Rust 的函数签名是自描述的：fn foo(s: String) 获取所有权，fn foo(s: &str) 借用，fn foo(s: &mut String) 可变借用。"
+      },
+      {
+        "id": "u1-ch14-q22",
+        "question": "以下哪个不是所有权系统的直接保证？",
+        "options": ["A. 没有 use-after-free", "B. 没有 double free", "C. 没有死锁", "D. 没有数据竞争"],
+        "answer": 2,
+        "explanation": "所有权系统防 use-after-free、double free 和数据竞争。死锁是更高层的并发问题，Rust 不在编译期防止。"
+      }
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit1_ownership"
+      style="--domain-color: var(--c-ownership);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 1 · 所有权系统</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
+  <!-- ── Topbar ── -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">OWNERSHIP</span>
+      <a href="../index.html" class="module-name">Unit 1 · 所有权系统</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.4 / 4</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 1 正式页面</li>
-            <li><a href="./ch1.1_ownership.html">1.1 Ownership</a></li>
-            <li><a href="./ch1.2_borrowing.html">1.2 Borrowing</a></li>
-            <li><a href="./ch1.3_lifetimes.html">1.3 Lifetimes</a></li>
-            <li><a href="./ch1.4_ownership_in_practice.html" class="active">1.4 所有权的实际影响</a></li>
+  <!-- ── TOC Sidebar ── -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 · 为什么没有双重释放</a></li>
+      <li><a href="#kp2">02 · 为什么没有数据竞争</a></li>
+      <li><a href="#kp3">03 · 与 C++ 智能指针的对比</a></li>
+      <li><a href="#kp4">04 · 所有权模式在实际项目中的体现</a></li>
+      <li><a href="#exercises">综合练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">API 设计</a></li>
-            <li><a href="#kp-2">集合与重分配</a></li>
-            <li><a href="#kp-3">迭代与遍历方式</a></li>
-            <li><a href="#kp-4">错误处理与返回值</a></li>
-            <li><a href="#kp-5">并发与重构取舍</a></li>
-            <li><a href="#summary">章节总结</a></li>
-        </ul>
-    </nav>
+  <!-- ── Main Content ── -->
+  <main class="main-content">
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 1 · 所有权系统</span>
-            <h1>Ch 1.4 所有权的实际影响</h1>
-            <p class="chapter-description">
-                所有权不只是“编译会不会报错”的基础规则，它会持续影响你怎样设计 API、怎样遍历集合、怎样组织错误处理，
-                以及为什么 Rust 的并发模型能把很多数据竞争问题提前拦住。本章把 Ownership 放回真实工程语境里看。
-            </p>
-        </header>
+    <header class="chapter-hero">
+      <span class="chapter-label">Chapter 1.4</span>
+      <h1>所有权的实际影响</h1>
+      <p class="chapter-intro">
+        前三章建立了所有权、借用、生命周期的理论基础。这一章拉回现实：这些规则在实际项目中消除了哪些经典 bug？
+        与 C++ 智能指针相比有何优势？在日常开发中应该使用什么模式？
+      </p>
+    </header>
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解所有权如何影响函数签名和 API 设计选择</li>
-                <li>掌握集合操作、重分配和迭代方式与借用规则的联系</li>
-                <li>理解错误处理里何时返回拥有权、何时借用上下文</li>
-                <li>建立并发基础直觉：<code>move</code>、线程边界与数据共享限制</li>
-                <li>遇到所有权摩擦时，能在 clone、借用、重排代码和重构数据结构之间做实际取舍</li>
-            </ul>
-        </section>
+    <!-- ═══════════════ KP 1 ═══════════════ -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>为什么没有双重释放</h2>
 
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>
-                建议你已经完成 Unit 1 前三章，能够读懂 move、借用冲突和生命周期签名。
-                本章默认你接受一个前提：所有权并不是语法惩罚，而是工程设计约束；因此讨论重点会落在接口选择和代码结构上。
-            </p>
-        </section>
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>Double free 是 C/C++ 中最臭名昭著的漏洞之一——释放同一块内存两次会导致堆损坏、security exploit 甚至 remote code execution。让我们精确理解 Rust 是如何在<strong>编译期</strong>消除这个问题的。</p>
+          </div>
+        </div>
 
-        <section class="knowledge-point" id="kp-1">
-            <h2>1.4.1 API 设计：签名就是 ownership 决策</h2>
-            <div class="think-box">
-                <div class="think-icon">🧩</div>
-                <p>同样是“打印用户名”，为什么有的函数收 <code>String</code>，有的收 <code>&amp;str</code>，有的还会收 <code>impl AsRef&lt;str&gt;</code>？</p>
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p><strong>Double free 的前提条件</strong>：两个变量/指针指向同一块内存，各自尝试释放一次。</p>
+            <p><strong>Rust 的解法</strong>：所有权唯一性（每个值只有一个所有者）+ move 语义（赋值后原变量失效）= 不可能有两个 "所有者" 各自释放同一块内存。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>逐步推演</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>no_double_free.rs</span></div>
+              <pre><code>fn main() {
+    let s1 = String::from("hello");  // s1 是所有者
+    let s2 = s1;                      // 所有权 move 到 s2；s1 失效
+
+    // 编译器在此处插入的 drop:
+    // drop(s2);  ← 只有 s2 被 drop（一次）
+    // s1 已经不是所有者，没有 drop
+
+    // 如果 s1 没被 move：
+    // drop(s1);  ← s1 是所有者，drop 一次
+    // 无论如何，每块内存恰好被 drop 一次
+}</code></pre>
             </div>
-            <p>
-                API 设计的第一个问题不是“类型能不能工作”，而是“我到底要不要接管数据”。
-                如果函数只是读取内容，优先借用；如果函数要保存、跨线程发送或重组所有权，按值接收可能更合适。
-                所有权模型逼你把这个选择提前写进签名，因此接口语义通常更清晰。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>api_design.rs</span></div>
-                <pre><code>fn greet(name: &str) {
-    println!("hello, {name}");
-}
 
-fn store_name(name: String) -> String {
-    name
+            <p><strong>对比 C++</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>C++</span><span>double_free_cpp.cpp</span></div>
+              <pre><code>void danger() {
+    auto p1 = new std::string("hello");
+    auto p2 = p1;   // C++ 不阻止：两个裸指针指向同一块内存
+    delete p1;        // 释放一次
+    delete p2;        // 💥 double free — 未定义行为
 }
+// C++11 的 unique_ptr 解决了一部分，但 p.get() 仍可产生裸指针
+
+// Rust 等价代码不可能编译通过：
+// let s1 = String::from("hello");
+// let s2 = s1;
+// drop(s1);  // ❌ 编译错误：s1 已 moved</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>现实中的影响</strong>：微软安全团队报告，约 70% 的 CVE 漏洞源于内存安全问题（use-after-free, double free, buffer overflow）。Rust 在编译期消除了其中的大部分。</p>
+            <p>这就是为什么 Linux 内核、Windows 驱动、Android 的部分核心组件开始用 Rust 重写。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>即使用了 drop() 也不会 double free</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>drop_safety.rs</span></div>
+              <pre><code>fn main() {
+    let s = String::from("hello");
+    drop(s);           // 手动释放
+    // println!("{}", s);  // ❌ 编译错误：s 已被 move 进 drop()
+    // 不可能再释放一次
+}</code></pre>
+              <div class="code-error"><strong>编译错误</strong><pre>error[E0382]: borrow of moved value: `s`
+ --> src/main.rs:4:20
+  |
+2 |     let s = String::from("hello");
+  |         - move occurs because `s` has type `String`
+3 |     drop(s);
+  |          - value moved here
+4 |     println!("{}", s);
+  |                    ^ value borrowed here after move</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">Rust 中 <code>let s2 = s1;</code> 之后，编译器在作用域结束时会 drop 几次？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 's1 已经失效（move 了），不会被 drop。只有 s2 会被 drop。')">A. 两次（s1 一次，s2 一次）</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！s1 move 后失效，只有 s2 是有效所有者。堆内存恰好释放一次。')">B. 一次（只 drop s2）</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, '一定会 drop s2。每个有效的owned值在离开作用域时都会 drop。')">C. 零次</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 2 ═══════════════ -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>为什么没有数据竞争</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>数据竞争（data race）是并发编程中最难调试的 bug——两个线程同时访问同一数据，至少一个在写。它导致不可预测的结果，且几乎不可复现。Rust 在<strong>编译期</strong>就消灭了数据竞争。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p><strong>数据竞争的三个必要条件</strong>（全部满足才会发生）：</p>
+            <ol>
+              <li>两个或更多线程同时访问同一内存</li>
+              <li>至少一个线程在写</li>
+              <li>没有同步机制</li>
+            </ol>
+            <p><strong>Rust 如何打破条件 1+2</strong>：借用规则（aliasing XOR mutability）在编译期保证——<em>如果有人在写，就不可能有人在读或写</em>。这在单线程中由编译器直接检查；在多线程中通过 <code>Send</code>/<code>Sync</code> trait 和类型系统保证。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>线程间共享数据需要 Arc + Mutex</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>thread_safe.rs</span></div>
+              <pre><code>use std::sync::{Arc, Mutex};
+use std::thread;
 
 fn main() {
-    let user = String::from("Ferris");
-    greet(&user);
-    let saved = store_name(user);
-    println!("saved = {saved}");
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>hello, Ferris
-saved = Ferris</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>经验法则：</strong>只读优先借用；要修改就借可变引用；确实要长期持有或转移给别的所有者时，再按值接收。</p>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="只读函数没有必要接管 String；&str 更灵活，也更容易复用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>如果函数只需要读取文本并打印，最合理的参数类型通常是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u14-q1" value="A"> A. <code>String</code></label>
-                    <label><input type="radio" name="u14-q1" value="B"> B. <code>&amp;str</code></label>
-                    <label><input type="radio" name="u14-q1" value="C"> C. <code>&amp;mut String</code></label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+    // Arc: 线程安全的引用计数（多个线程共享所有权）
+    // Mutex: 互斥锁（同一时刻只有一个线程能访问内部数据）
+    let counter = Arc::new(Mutex::new(0));
+    let mut handles = vec![];
 
-        <p class="transition-text">签名只是开始，集合操作会让所有权的工程感受变得更具体。</p>
-
-        <section class="knowledge-point" id="kp-2">
-            <h2>1.4.2 集合与重分配：为什么拿了元素引用后常常不能继续 push？</h2>
-            <div class="think-box">
-                <div class="think-icon">📚</div>
-                <p>为什么你只是从 <code>Vec</code> 里借了一个元素，编译器却不让你紧接着 <code>push</code> 新元素？</p>
-            </div>
-            <p>
-                因为集合操作可能触发底层缓冲区重分配。若你手里还拿着旧缓冲区上的引用，后续修改就可能让这些引用失效。
-                Rust 通过借用规则在编译期阻止这类“拿着旧地址继续写新数据”的风险。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>collections.rs</span></div>
-                <pre><code>fn main() {
-    let mut numbers = vec![10, 20, 30];
-    let first = &numbers[0];
-
-    println!("first = {first}");
-    numbers.push(40);
-    println!("len = {}", numbers.len());
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>first = 10
-len = 4</pre>
-                </div>
-            </div>
-            <p>这里能通过，是因为 <code>first</code> 在 <code>push</code> 之前已经完成最后一次使用；如果把打印放到后面，借用冲突就会出现。</p>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：遇到这类报错，先想什么？</button>
-                <div class="collapsible-content">
-                    先检查是否能把“读取元素”和“修改集合”分成两个不重叠阶段。很多时候不需要 clone，只需要重排语句顺序或改成先记录索引、后重新取引用。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="Vec 的 push 可能导致重分配，进而让旧引用失效，所以编译器会阻止重叠的借用与修改。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>借用 <code>Vec</code> 元素后再修改集合，最核心的风险是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u14-q2" value="A"> A. push 会把所有整数变成字符串</label>
-                    <label><input type="radio" name="u14-q2" value="B"> B. Vec 不允许存放可复制类型</label>
-                    <label><input type="radio" name="u14-q2" value="C"> C. 重分配可能让已有引用指向失效位置</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-3">
-            <h2>1.4.3 迭代方式会改变 ownership：<code>iter</code>、<code>iter_mut</code>、<code>into_iter</code></h2>
-            <div class="think-box">
-                <div class="think-icon">🔁</div>
-                <p>为什么只是换一个迭代方法，容器后面还能不能继续用就变了？</p>
-            </div>
-            <p>
-                因为三种迭代方式在语义上完全不同：<code>iter()</code> 借用只读元素，<code>iter_mut()</code> 借用可变元素，
-                <code>into_iter()</code> 则会接管容器，把元素所有权逐个交出来。理解这一点，比死记方法名更重要。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>iteration.rs</span></div>
-                <pre><code>fn main() {
-    let languages = vec![String::from("Rust"), String::from("Go")];
-
-    for lang in languages.iter() {
-        println!("view: {lang}");
+    for _ in 0..10 {
+        let counter = Arc::clone(&counter); // 增加引用计数
+        let handle = thread::spawn(move || {
+            let mut num = counter.lock().unwrap(); // 获取锁
+            *num += 1;
+            // MutexGuard drop → 自动释放锁
+        });
+        handles.push(handle);
     }
 
-    let consumed = languages.into_iter().map(|s| s.to_uppercase()).collect::<Vec<_>>();
-    println!("{:?}", consumed);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>view: Rust
-view: Go
-["RUST", "GO"]</pre>
-                </div>
-            </div>
-            <div class="note-box warning">
-                <p><strong>常见误区：</strong>看到 <code>for x in vec</code> 时，先问自己这是借用迭代还是消费迭代。若是消费迭代，循环后原容器通常已不可再用。</p>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="into_iter 会把容器所有权消费掉，元素被逐个移出，因此原容器通常不能再使用。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪种迭代方式最可能让原容器在遍历后不可再用？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u14-q3" value="A"> A. <code>into_iter()</code></label>
-                    <label><input type="radio" name="u14-q3" value="B"> B. <code>iter()</code></label>
-                    <label><input type="radio" name="u14-q3" value="C"> C. <code>iter().enumerate()</code></label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="knowledge-point" id="kp-4">
-            <h2>1.4.4 错误处理：返回值里的 ownership 要跟语义一致</h2>
-            <div class="think-box">
-                <div class="think-icon">🧯</div>
-                <p>设计 <code>Result</code> 时，错误信息应该借用输入文本，还是直接拥有一份消息？为什么很多错误类型更喜欢拥有数据？</p>
-            </div>
-            <p>
-                错误处理常常需要跨函数边界传播。若错误值里塞满短生命周期借用，签名会迅速变复杂。
-                因此很多场景宁可让错误类型拥有自己的上下文字符串，也不把生命周期压力继续往上传。
-                同理，成功分支若需要把数据交给调用方长期使用，也常常直接返回拥有权。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>error_handling.rs</span></div>
-                <pre><code>fn parse_port(text: &str) -> Result<u16, String> {
-    text.trim()
-        .parse::<u16>()
-        .map_err(|_| format!("invalid port: {text}"))
-}
-
-fn main() {
-    match parse_port("8080") {
-        Ok(port) => println!("port = {port}"),
-        Err(err) => println!("error: {err}"),
+    for handle in handles {
+        handle.join().unwrap();
     }
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>port = 8080</pre>
-                </div>
-            </div>
-            <div class="note-box tip">
-                <p><strong>实战判断：</strong>如果返回值需要离开当前上下文长期存在，拥有型返回值通常比带 lifetime 的借用型错误更容易维护。</p>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="错误值常常需要跨层传播，直接拥有上下文信息通常能避免把复杂的生命周期继续带到调用方。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>为什么很多错误类型更愿意拥有一份错误消息，而不是借用调用方字符串？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u14-q4" value="A"> A. 因为 String 比 &str 一定更快</label>
-                    <label><input type="radio" name="u14-q4" value="B"> B. 因为跨层传播时拥有型错误通常更容易管理</label>
-                    <label><input type="radio" name="u14-q4" value="C"> C. 因为 Result 不能保存引用</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
 
-        <section class="knowledge-point" id="kp-5">
-            <h2>1.4.5 并发基础与重构取舍：什么时候该 move，什么时候该改结构？</h2>
-            <div class="think-box">
-                <div class="think-icon">🧵</div>
-                <p>为什么 <code>thread::spawn</code> 经常要求你写 <code>move</code>？又为什么遇到 ownership 摩擦时，不一定该第一时间加 <code>clone()</code>？</p>
+    println!("结果: {}", *counter.lock().unwrap());
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>结果: 10</pre></div>
             </div>
-            <p>
-                线程可能在当前作用域结束后继续运行，所以传入线程闭包的数据必须有明确所有权；这就是 <code>move</code> 常出现的原因。
-                但在单线程代码里，ownership 摩擦更常见的修复手段其实是：重排借用范围、拆分函数职责、改成返回拥有权、或把共享状态放进合适的同步原语，而不是无脑复制。
-            </p>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>concurrency.rs</span></div>
-                <pre><code>use std::thread;
+
+            <p><strong>编译器拒绝不安全的共享</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>unsafe_share.rs</span></div>
+              <pre><code>use std::thread;
 
 fn main() {
-    let task = String::from("index files");
+    let mut data = vec![1, 2, 3];
 
+    // ❌ 编译器拒绝：闭包捕获了 &mut data，但线程可能比 data 活得更久
+    // thread::spawn(|| {
+    //     data.push(4);
+    // });
+
+    // ✅ 用 move 转移所有权
     let handle = thread::spawn(move || {
-        println!("worker: {task}");
+        data.push(4);
+        println!("{:?}", data);
     });
-
+    // data 已经 move，main 不能再用
     handle.join().unwrap();
 }</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>worker: index files</pre>
-                </div>
+              <div class="code-output"><strong>输出</strong><pre>[1, 2, 3, 4]</pre></div>
             </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：面对所有权摩擦时的优先级建议</button>
-                <div class="collapsible-content">
-                    一般先看能否借用；借用冲突时看能否缩短借用范围；再看是否应该把结果改成拥有型返回值；最后才考虑 clone。到了跨线程共享场景，再考虑 Arc、Mutex 等同步原语，而不是绕过所有权模型。
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="线程闭包可能比当前作用域活得更久，所以 move 用来把所需数据的所有权安全带进线程。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p><code>thread::spawn(move || ...)</code> 里的 <code>move</code> 最主要在保证什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u14-q5" value="A"> A. 保证线程一定并行执行</label>
-                    <label><input type="radio" name="u14-q5" value="B"> B. 保证闭包里的变量都实现 Copy</label>
-                    <label><input type="radio" name="u14-q5" value="C"> C. 保证线程拿到所需数据的所有权，不依赖外部短作用域</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
+          </div>
+        </div>
 
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>Send 和 Sync 的角色</strong>：</p>
             <ul>
-                <li>Ownership 会直接塑造 API：按值、借用、可变借用各自表达不同职责。</li>
-                <li>集合修改与元素借用的冲突，通常来自重分配和引用失效风险。</li>
-                <li>迭代方式不只是语法差异，而是在选择借用遍历还是消费所有权。</li>
-                <li>错误处理里，拥有型返回值常常能降低生命周期复杂度并提升边界清晰度。</li>
-                <li>并发与重构都离不开所有权：线程边界需要明确 owner，日常修复则应优先重排数据流，再考虑 clone。</li>
+              <li><code>Send</code>：类型可以安全地 move 到另一个线程（大部分类型 Send，<code>Rc&lt;T&gt;</code> 不 Send）</li>
+              <li><code>Sync</code>：<code>&T</code> 可以安全地在多个线程间共享（大部分类型 Sync，<code>Cell&lt;T&gt;</code> 不 Sync）</li>
+              <li>这两个 trait 是自动实现的（auto trait），编译器根据字段类型自动判断</li>
             </ul>
-        </section>
+            <p>如果你的类型不满足 <code>Send</code>/<code>Sync</code>，编译器不允许你跨线程传递——这就是 "无畏并发" 的核心机制。</p>
+          </div>
+        </div>
 
-        <section class="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li id="ex-1"><span class="exercise-level">⭐ 基础：</span> 给出三个函数场景：只读文本、修改字符串、保存用户名到结构体字段。分别选择 <code>&amp;str</code>、<code>&amp;mut String</code>、<code>String</code> 并解释原因。</li>
-                <li id="ex-2"><span class="exercise-level">⭐⭐ 进阶：</span> 写一个对 <code>Vec&lt;String&gt;</code> 做遍历与修改的小例子，分别尝试 <code>iter</code>、<code>iter_mut</code>、<code>into_iter</code>，观察原容器在后续还能否使用。</li>
-                <li id="ex-3"><span class="exercise-level">⭐⭐⭐ 挑战：</span> 设计一个解析配置项的函数，比较返回 <code>Result&lt;&amp;str, &amp;str&gt;</code> 与 <code>Result&lt;String, String&gt;</code> 的维护成本，并指出哪种更适合跨模块传播。</li>
-                <li id="ex-4"><span class="exercise-level">🏆 附加：</span> 把一个“到处加 clone 才能编译”的小程序重构为更合理的版本：优先通过缩短借用范围、调整签名和明确所有权流向来修复，并写出你拒绝使用 clone 的原因。</li>
-            </ol>
-        </section>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>Rc 不能跨线程</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>rc_not_send.rs</span></div>
+              <pre><code>use std::rc::Rc;
+use std::thread;
 
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
+fn main() {
+    let data = Rc::new(vec![1, 2, 3]);
+
+    // ❌ 编译错误：Rc<Vec<i32>> 不是 Send
+    // let data_clone = Rc::clone(&data);
+    // thread::spawn(move || {
+    //     println!("{:?}", data_clone);
+    // });
+
+    // ✅ 改用 Arc
+    use std::sync::Arc;
+    let data = Arc::new(vec![1, 2, 3]);
+    let data_clone = Arc::clone(&data);
+    thread::spawn(move || {
+        println!("{:?}", data_clone); // ✅ Arc 是 Send
+    }).join().unwrap();
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>[1, 2, 3]</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">为什么多线程共享数据需要 <code>Arc&lt;Mutex&lt;T&gt;&gt;</code> 而不是 <code>Rc&lt;T&gt;</code>？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '两者的功能确实不同，但核心原因是线程安全性。')">A. Rc 功能不够</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！Rc 的引用计数非原子（不安全），Mutex 保证同一时刻只有一个线程能写。Arc 提供原子引用计数。')">B. Rc 不是 Send（非原子计数），Mutex 保证独占访问</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '性能不是主要考虑，安全性才是。')">C. 为了性能优化</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 3 ═══════════════ -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>与 C++ 智能指针的对比</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>C++11 引入了 <code>unique_ptr</code>、<code>shared_ptr</code>、<code>weak_ptr</code> 来管理内存。Rust 的 <code>Box</code>、<code>Rc</code>/<code>Arc</code> 看起来类似——但 Rust 的编译器保证了 C++ 做不到的安全性。理解差异有助于 C++ 开发者迅速建立 Rust 心智模型。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <table class="comparison-table">
+              <thead><tr><th>C++</th><th>Rust</th><th>关键区别</th></tr></thead>
+              <tbody>
+                <tr><td>unique_ptr&lt;T&gt;</td><td>Box&lt;T&gt;</td><td>C++ 的 move 后 unique_ptr 变成 null（可以使用但是 UB）；Rust 的 Box move 后原变量不可用（编译错误）</td></tr>
+                <tr><td>shared_ptr&lt;T&gt;</td><td>Rc&lt;T&gt; / Arc&lt;T&gt;</td><td>C++ 不区分单/多线程版本；Rust 编译期强制区分</td></tr>
+                <tr><td>weak_ptr&lt;T&gt;</td><td>Weak&lt;T&gt;</td><td>功能类似，Rust 的 upgrade 返回 Option（无 null）</td></tr>
+                <tr><td>T*（裸指针）</td><td>*const T / *mut T</td><td>Rust 裸指针只能在 unsafe 中解引用</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>Box vs unique_ptr</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>box_demo.rs</span></div>
+              <pre><code>fn main() {
+    // Box: 唯一所有权的堆分配
+    let b1 = Box::new(42);
+    let b2 = b1;          // move! b1 失效
+    // println!("{}", b1); // ❌ 编译错误
+
+    println!("{}", b2);    // ✅
+    // b2 离开作用域 → 堆内存被释放
+}
+
+// C++ 对比：
+// auto p1 = std::make_unique<int>(42);
+// auto p2 = std::move(p1);
+// // p1 现在是 nullptr — 但编译器不阻止你用 *p1（UB！）</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>42</pre></div>
+            </div>
+
+            <p><strong>Rc vs shared_ptr</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>rc_demo.rs</span></div>
+              <pre><code>use std::rc::Rc;
+
+fn main() {
+    let a = Rc::new(String::from("shared data"));
+    println!("引用计数: {}", Rc::strong_count(&a)); // 1
+
+    let b = Rc::clone(&a);  // 增加引用计数，不复制数据
+    println!("引用计数: {}", Rc::strong_count(&a)); // 2
+
+    {
+        let c = Rc::clone(&a);
+        println!("引用计数: {}", Rc::strong_count(&a)); // 3
+    } // c drop → 计数 -1
+
+    println!("引用计数: {}", Rc::strong_count(&a)); // 2
+    println!("数据: {}", a);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>引用计数: 1
+引用计数: 2
+引用计数: 3
+引用计数: 2
+数据: shared data</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>选择指南</strong>：</p>
             <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch08-01-vectors.html">The Rust Programming Language · Storing Lists of Values with Vectors</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch09-00-error-handling.html">The Rust Programming Language · Error Handling</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch16-01-threads.html">The Rust Programming Language · Using Threads to Run Code Simultaneously</a></li>
+              <li><strong>Box&lt;T&gt;</strong>：单一所有者、堆分配。用于递归类型、大数据上栈、trait 对象（<code>Box&lt;dyn Trait&gt;</code>）</li>
+              <li><strong>Rc&lt;T&gt;</strong>：多个所有者、单线程。用于图结构、共享配置数据</li>
+              <li><strong>Arc&lt;T&gt;</strong>：多个所有者、多线程。通常搭配 <code>Mutex</code> 或 <code>RwLock</code></li>
+              <li><strong>直接值或引用</strong>：优先考虑。只有在所有权关系复杂时才用智能指针</li>
             </ul>
-        </section>
-    </main>
+          </div>
+        </div>
 
-    <script src="../assets/js/main.js"></script>
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>Rc 的循环引用问题（和 shared_ptr 一样）</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>rc_cycle.rs</span></div>
+              <pre><code>use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Debug)]
+struct Node {
+    next: Option<Rc<RefCell<Node>>>,
+}
+
+fn main() {
+    let a = Rc::new(RefCell::new(Node { next: None }));
+    let b = Rc::new(RefCell::new(Node { next: Some(Rc::clone(&a)) }));
+
+    // 创建循环引用：a → b → a
+    a.borrow_mut().next = Some(Rc::clone(&b));
+
+    // ⚠️ 内存泄漏！引用计数永远不会归零
+    // 解决方案：在适当的地方使用 Weak<T> 代替 Rc<T>
+
+    println!("a count: {}", Rc::strong_count(&a)); // 2
+    println!("b count: {}", Rc::strong_count(&b)); // 2
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>a count: 2
+b count: 2</pre></div>
+            </div>
+            <p><strong>注意</strong>：Rust 的所有权系统不能防止 Rc 循环引用导致的内存泄漏（和 C++ shared_ptr 一样）。解决方案是使用 <code>Weak&lt;T&gt;</code>。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">C++ 的 unique_ptr move 后可以编译使用（但是 UB），Rust 的 Box move 后会怎样？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'Rust 没有 null。Box move 后原变量直接不可用。')">A. 变成 null</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！Rust 编译器将 move 后的变量标记为不可用，任何使用都是编译错误——不存在 use-after-move 的 UB。')">B. 编译错误，原变量不可使用</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不需要运行时检查。这完全在编译期解决。')">C. 运行时 panic</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="kp-separator">
+
+    <!-- ═══════════════ KP 4 ═══════════════ -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>所有权模式在实际项目中的体现</h2>
+
+      <div class="mental-chain">
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-content">
+            <p>所有权不仅是内存管理工具，它塑造了 Rust 独特的 API 设计风格和编程模式。理解这些模式能帮你写出更地道、更安全的 Rust 代码。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-content">
+            <p>所有权影响的核心设计抉择：</p>
+            <ul>
+              <li><strong>函数接口</strong>：参数是 <code>T</code>、<code>&T</code> 还是 <code>&mut T</code>？</li>
+              <li><strong>数据结构</strong>：存 owned 数据还是引用？</li>
+              <li><strong>何时 clone</strong>：安全性 vs 性能的权衡</li>
+              <li><strong>设计模式</strong>：Builder、Typestate、RAII Guard</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-content">
+            <p><strong>模式 1: Builder 模式（所有权链式调用）</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>builder_pattern.rs</span></div>
+              <pre><code>struct RequestBuilder {
+    url: String,
+    method: String,
+    headers: Vec<(String, String)>,
+}
+
+impl RequestBuilder {
+    fn new(url: &str) -> Self {
+        RequestBuilder {
+            url: url.to_string(),
+            method: "GET".to_string(),
+            headers: vec![],
+        }
+    }
+
+    // self（不是 &self）→ 获取所有权 → 返回修改后的 self
+    fn method(mut self, m: &str) -> Self {
+        self.method = m.to_string();
+        self
+    }
+
+    fn header(mut self, key: &str, value: &str) -> Self {
+        self.headers.push((key.to_string(), value.to_string()));
+        self
+    }
+
+    fn build(self) -> String {
+        format!("{} {} {:?}", self.method, self.url, self.headers)
+    }
+}
+
+fn main() {
+    let request = RequestBuilder::new("https://api.example.com")
+        .method("POST")
+        .header("Content-Type", "application/json")
+        .header("Authorization", "Bearer token123")
+        .build();
+
+    println!("{}", request);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>POST https://api.example.com [("Content-Type", "application/json"), ("Authorization", "Bearer token123")]</pre></div>
+            </div>
+
+            <p><strong>模式 2: 类型状态模式（Typestate）</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>typestate.rs</span></div>
+              <pre><code>// 不同状态用不同类型表示——编译期保证状态机正确性
+struct Locked;
+struct Unlocked;
+
+struct Door<State> {
+    _state: std::marker::PhantomData<State>,
+}
+
+impl Door<Locked> {
+    fn unlock(self) -> Door<Unlocked> {
+        println!("🔓 Door unlocked");
+        Door { _state: std::marker::PhantomData }
+    }
+    // 不能 open Locked 门！方法根本不存在
+}
+
+impl Door<Unlocked> {
+    fn open(&self) {
+        println!("🚪 Door opened");
+    }
+
+    fn lock(self) -> Door<Locked> {
+        println!("🔒 Door locked");
+        Door { _state: std::marker::PhantomData }
+    }
+}
+
+fn main() {
+    let door: Door<Locked> = Door { _state: std::marker::PhantomData };
+    // door.open();        // ❌ 编译错误！Locked 状态没有 open 方法
+    let door = door.unlock(); // move: 旧的 Locked 门消失
+    door.open();              // ✅ Unlocked 状态有 open 方法
+    let _door = door.lock();  // move: 回到 Locked 状态
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>🔓 Door unlocked
+🚪 Door opened
+🔒 Door locked</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-content">
+            <p><strong>何时使用 clone</strong>：</p>
+            <ul>
+              <li>✅ 数据小（<code>i32</code>、小 struct）→ 直接 Copy/Clone</li>
+              <li>✅ 原型开发阶段 → 先 clone 让代码跑起来，后面再优化</li>
+              <li>✅ 生命周期关系过于复杂 → clone 比引入 <code>'a</code> 标注更清晰</li>
+              <li>⚠️ 大数据（长 String、大 Vec）→ 考虑引用、Rc/Arc 或 Cow</li>
+              <li>❌ 热循环中 clone 大数据 → 性能杀手，用引用代替</li>
+            </ul>
+
+            <p><strong>clippy 的帮助</strong>：<code>cargo clippy</code> 会标记不必要的 <code>.clone()</code>，帮你在代码稳定后优化。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-content">
+            <p><strong>RAII Guard 模式（实际项目中最常见）</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>raii_guard.rs</span></div>
+              <pre><code>use std::time::Instant;
+
+struct Timer {
+    label: String,
+    start: Instant,
+}
+
+impl Timer {
+    fn new(label: &str) -> Self {
+        println!("⏱️ [{}] started", label);
+        Timer {
+            label: label.to_string(),
+            start: Instant::now(),
+        }
+    }
+}
+
+impl Drop for Timer {
+    fn drop(&mut self) {
+        let elapsed = self.start.elapsed();
+        println!("⏱️ [{}] finished in {:?}", self.label, elapsed);
+    }
+}
+
+fn main() {
+    {
+        let _t = Timer::new("heavy computation");
+        // 模拟一些工作
+        let sum: u64 = (0..1_000_000).sum();
+        println!("sum = {}", sum);
+    } // _t drop → 自动打印耗时
+
+    println!("timer already cleaned up");
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>⏱️ [heavy computation] started
+sum = 499999500000
+⏱️ [heavy computation] finished in 1.23ms
+timer already cleaned up</pre></div>
+            </div>
+
+            <p><strong>函数签名就是文档</strong>：</p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>signature_as_doc.rs</span></div>
+              <pre><code>// 只需要读 → &str
+fn word_count(text: &str) -> usize {
+    text.split_whitespace().count()
+}
+
+// 需要修改 → &mut Vec<T>
+fn deduplicate(items: &mut Vec<String>) {
+    items.sort();
+    items.dedup();
+}
+
+// 需要拥有 → String（消耗输入）
+fn into_uppercase(s: String) -> String {
+    s.to_uppercase()
+}
+
+fn main() {
+    let text = String::from("hello world hello");
+    println!("words: {}", word_count(&text)); // text 仍然有效
+
+    let mut items = vec!["b".into(), "a".into(), "b".into()];
+    deduplicate(&mut items);
+    println!("deduped: {:?}", items);
+
+    let upper = into_uppercase(text); // text 被 move
+    // println!("{}", text);  // ❌ text 已被消耗
+    println!("{}", upper);
+}</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>words: 3
+deduped: ["a", "b"]
+HELLO WORLD HELLO</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下函数签名暗示了什么？ <code>fn process(data: String) -> Result&lt;Output, Error&gt;</code></div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '&String 才是借用。String 参数获取所有权。')">A. process 只是借用 data</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！参数类型是 String（不是 &str 或 &String），说明 process 获取 data 的所有权。调用后调用者不能再使用 data。')">B. process 获取了 data 的所有权，调用后 data 不可用</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, '签名不暗示 clone。调用者可以选择 clone 后传入，但签名本身表达的是所有权转移。')">C. process 会 clone data</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Exercises ═══════════════ -->
+    <section id="exercises" class="exercises-section">
+      <h2>综合练习</h2>
+      <div id="quiz-zone"></div>
+    </section>
+
+    <!-- ═══════════════ Chapter Nav ═══════════════ -->
+    <nav class="chapter-nav">
+      <a class="nav-prev" href="ch1.3_lifetimes.html">← Ch 1.3 生命周期</a>
+      <a class="nav-next" href="../unit2_syntax/ch2.1_basic_types_variables.html">Ch 2.1 基本类型与变量 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">Rust Learning · 2026</footer>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

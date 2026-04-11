@@ -1,243 +1,820 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ch 3.2 集合 - Rust Learning</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ch 3.2 集合类型 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script>
+    const QUESTIONS = [
+      {"id":"u3-ch32-q1","question":"Vec<T> 的数据存储在哪里？","options":["A. 全部在栈上","B. 元素在堆上，控制结构（ptr/len/cap）在栈上","C. 全部在堆上","D. 取决于 T 的大小"],"answer":1,"explanation":"Vec<T> 在栈上存储指针、长度和容量三元组，实际元素数据连续存储在堆上。"},
+      {"id":"u3-ch32-q2","question":"vec![1, 2, 3] 等价于以下哪种写法？","options":["A. Vec::new().push(1).push(2).push(3)","B. Vec::from([1, 2, 3])","C. Vec::with_capacity(3)","D. [1, 2, 3].to_vec()"],"answer":1,"explanation":"vec! 宏创建的 Vec 等价于从数组创建。Vec::from([1,2,3]) 和 [1,2,3].to_vec() 效果相同。B 和 D 都对，但 B 更直接。"},
+      {"id":"u3-ch32-q3","question":"v.push(x) 在容量不足时会发生什么？","options":["A. panic","B. 返回错误","C. 重新分配更大的堆内存并复制现有元素","D. 丢弃最旧的元素"],"answer":2,"explanation":"Vec 会自动扩容（通常翻倍），分配新的堆内存，将旧数据复制过去，然后释放旧内存。"},
+      {"id":"u3-ch32-q4","question":"如何安全地访问 Vec 的元素？","options":["A. v[i] 总是安全的","B. v.get(i) 返回 Option<&T>","C. v.at(i) 返回 Result","D. v.fetch(i)"],"answer":1,"explanation":"v.get(i) 返回 Option<&T>，越界时返回 None。v[i] 越界时会 panic。"},
+      {"id":"u3-ch32-q5","question":"HashMap::new() 创建的哈希表使用什么哈希算法？","options":["A. MD5","B. SHA-256","C. SipHash（默认抗 HashDoS）","D. FNV"],"answer":2,"explanation":"标准库的 HashMap 默认使用 SipHash 算法，能有效防御 HashDoS 攻击，但比 FNV 等算法稍慢。"},
+      {"id":"u3-ch32-q6","question":"向 HashMap 插入 String 作为 key 时，所有权会怎样？","options":["A. String 被借用","B. String 的所有权转移给 HashMap","C. String 被自动 clone","D. 编译错误"],"answer":1,"explanation":"HashMap::insert 接受 key: K，会移动 String 的所有权。插入后原变量不再可用。"},
+      {"id":"u3-ch32-q7","question":"entry API 的作用是什么？","options":["A. 枚举所有键值对","B. 高效处理「存在则更新，不存在则插入」的模式","C. 判断 HashMap 是否为空","D. 按顺序遍历"],"answer":1,"explanation":"entry() 返回一个 Entry 枚举，可以链式调用 or_insert/or_insert_with，避免两次查找。"},
+      {"id":"u3-ch32-q8","question":"以下代码的效果？ map.entry(key).or_insert(0)","options":["A. 总是插入 0","B. 如果 key 不存在则插入 0，返回值的可变引用","C. 如果 key 存在则替换为 0","D. 返回 Option"],"answer":1,"explanation":"or_insert 仅在该 key 不存在时插入默认值。无论哪种情况，都返回该值的 &mut V，方便后续修改。"},
+      {"id":"u3-ch32-q9","question":"HashSet<T> 本质上是什么？","options":["A. 有序数组","B. HashMap<T, ()> 的封装","C. 链表","D. 二叉树"],"answer":1,"explanation":"HashSet<T> 内部就是 HashMap<T, ()>，只存 key 不存 value，复用了 HashMap 的去重和查找能力。"},
+      {"id":"u3-ch32-q10","question":"HashSet 的 intersection 方法返回什么？","options":["A. 一个新的 HashSet","B. 一个迭代器","C. 一个 Vec","D. 一个布尔值"],"answer":1,"explanation":"intersection 返回 Intersection 迭代器，惰性生成交集元素。如需 HashSet 可 .collect()。"},
+      {"id":"u3-ch32-q11","question":"VecDeque 相比 Vec 的优势是？","options":["A. 更快的随机访问","B. 两端都能 O(1) 插入/删除","C. 更少的内存使用","D. 自动排序"],"answer":1,"explanation":"VecDeque 使用环形缓冲区实现，push_front/push_back/pop_front/pop_back 都是 O(1)。Vec 的 push_front 是 O(n)。"},
+      {"id":"u3-ch32-q12","question":"BTreeMap 和 HashMap 的核心区别是？","options":["A. BTreeMap 更快","B. BTreeMap 按 key 有序，HashMap 无序","C. HashMap 线程安全","D. BTreeMap 不需要 Hash trait"],"answer":1,"explanation":"BTreeMap 使用 B-Tree 实现，key 始终有序（要求 Ord trait）。HashMap 基于哈希表，无序但查找更快。"},
+      {"id":"u3-ch32-q13","question":"iter() 和 into_iter() 的区别？","options":["A. 没有区别","B. iter() 借用元素，into_iter() 消耗集合获取所有权","C. into_iter() 返回索引","D. iter() 只用于 Vec"],"answer":1,"explanation":"iter() 生成 &T 的迭代器（借用），into_iter() 消耗集合本身，生成 T 的迭代器（所有权转移）。"},
+      {"id":"u3-ch32-q14","question":"iter_mut() 的用途是？","options":["A. 创建一个不可变迭代器","B. 允许在遍历过程中修改每个元素","C. 排序集合","D. 过滤元素"],"answer":1,"explanation":"iter_mut() 生成 &mut T 的迭代器，可以在遍历时原地修改元素，而不需要重新收集。"},
+      {"id":"u3-ch32-q15","question":".collect::<Vec<_>>() 中的 _ 表示什么？","options":["A. 通配符，匹配任何类型","B. 让编译器自动推断元素类型","C. 空元素","D. 默认值"],"answer":1,"explanation":"_ 是类型占位符，编译器会根据上下文（迭代器的 Item 类型）自动推断。常用于 collect 的类型标注。"},
+      {"id":"u3-ch32-q16","question":"Vec<T> 的 drain(range) 方法的作用是？","options":["A. 清空整个 Vec","B. 移除指定范围的元素并返回迭代器","C. 过滤不满足条件的元素","D. 排序指定范围"],"answer":1,"explanation":"drain 移除并返回指定范围内的元素，原 Vec 被缩短。返回的迭代器拥有被移除元素的所有权。"},
+      {"id":"u3-ch32-q17","question":"HashMap 的 values() 方法返回什么？","options":["A. Vec<V>","B. 值的迭代器 Values<K, V>","C. &[V]","D. Option<&V>"],"answer":1,"explanation":"values() 返回一个遍历所有值引用的迭代器。类似地，keys() 返回所有键引用的迭代器。"},
+      {"id":"u3-ch32-q18","question":"以下哪种类型的 key 不能直接用在 HashMap 中？","options":["A. String","B. i32","C. f64","D. (i32, i32)"],"answer":2,"explanation":"f64 没有实现 Eq 和 Hash trait（因为 NaN != NaN），不能作为 HashMap 的 key。浮点数作 key 需要包装类型。"},
+      {"id":"u3-ch32-q19","question":"Vec::with_capacity(100) 和 Vec::new() 后 push 100 个元素，哪个更高效？","options":["A. 完全一样","B. with_capacity 更高效，避免多次重新分配","C. Vec::new 更高效，按需分配","D. 取决于元素大小"],"answer":1,"explanation":"with_capacity 一次性分配足够的内存。Vec::new 从 0 开始，push 过程中可能需要多次扩容和数据复制。"},
+      {"id":"u3-ch32-q20","question":"对 HashMap 调用 for (k, v) in &map 时，k 和 v 的类型是？","options":["A. K 和 V","B. &K 和 &V","C. &&K 和 &&V","D. (K, V)"],"answer":1,"explanation":"遍历 &HashMap<K,V> 时得到的是 (&K, &V) 元组，即 key 和 value 的不可变引用。"},
+      {"id":"u3-ch32-q21","question":"retain 方法的作用是？","options":["A. 增加容量","B. 保留满足条件的元素，移除其余元素","C. 排序并去重","D. 克隆集合"],"answer":1,"explanation":"retain(|x| predicate) 就地保留满足条件的元素，移除不满足的。Vec、HashMap、HashSet 都有这个方法。"},
+      {"id":"u3-ch32-q22","question":"以下代码的结果？ let v = vec![1,2,3]; let v2 = v; println!(\"{:?}\", v);","options":["A. 打印 [1,2,3]","B. 编译错误——v 的所有权已转移","C. 打印空 Vec","D. 运行时错误"],"answer":1,"explanation":"Vec<T> 不实现 Copy（因为堆分配），赋值时所有权移动。v 在赋值后不再有效，使用它会编译错误。"}
+    ];
+  </script>
+  <script src="../assets/js/storage.js"></script>
 </head>
-<body>
-    <button class="menu-toggle" aria-label="切换菜单">☰</button>
+<body class="chapter-page" data-module="unit3_std_projects" style="--domain-color: var(--c-stdlib);">
 
-    <nav class="sidebar">
-        <div class="sidebar-logo">rust_learning</div>
-        <div class="sidebar-subtitle">Unit 3 · 标准库与项目实战</div>
-        <ul class="sidebar-nav">
-            <li class="unit-title">入口</li>
-            <li><a href="../index.html">学习首页</a></li>
-            <li><a href="../unit2_syntax/ch2.6_traits.html">上一单元：Trait 系统</a></li>
+  <!-- ===== 顶部导航 ===== -->
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">STDLIB</span>
+      <a href="../index.html" class="module-name">Unit 3 · 标准库与项目实践</a>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">Ch.2 / 6</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
 
-            <li class="unit-title">Unit 3 正式页面</li>
-            <li><a href="./ch3.1_strings.html">3.1 字符串</a></li>
-            <li><a href="./ch3.2_collections.html" class="active">3.2 集合</a></li>
-            <li><a href="./ch3.3_iterators.html">3.3 迭代器</a></li>
-            <li><a href="./ch3.4_error_handling.html">3.4 错误处理</a></li>
-            <li><a href="./ch3.5_modules.html">3.5 模块系统</a></li>
-            <li><a href="./ch3.6_project_practice.html">3.6 实战项目</a></li>
+  <!-- ===== 侧边目录 ===== -->
+  <aside class="toc-sidebar">
+    <div class="toc-header">本章目录</div>
+    <ul class="toc-list">
+      <li><a href="#kp1">01 Vec&lt;T&gt;</a></li>
+      <li><a href="#kp2">02 HashMap&lt;K,V&gt;</a></li>
+      <li><a href="#kp3">03 HashSet&lt;T&gt;</a></li>
+      <li><a href="#kp4">04 VecDeque 与 BTreeMap</a></li>
+      <li><a href="#kp5">05 迭代器消费与收集</a></li>
+      <li class="toc-separator"></li>
+      <li><a href="#exercises">课后练习</a></li>
+    </ul>
+  </aside>
 
-            <li class="unit-title">本章导航</li>
-            <li><a href="#kp-1">Vec 的默认地位</a></li>
-            <li><a href="#kp-2">借用与重分配</a></li>
-            <li><a href="#kp-3">HashMap 与 entry</a></li>
-            <li><a href="#kp-4">常见集合模式</a></li>
-            <li><a href="#summary">章节总结</a></li>
-            <li><a href="#exercises">课后测试</a></li>
-        </ul>
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <header class="chapter-hero">
+      <p class="chapter-label">Unit 3 · 标准库与项目实践</p>
+      <h1>集合类型</h1>
+      <p class="chapter-intro">集合是程序管理多个值的核心工具。Rust 标准库提供了 Vec、HashMap、HashSet 等高效集合，它们与所有权系统深度集成，确保内存安全的同时保持零成本抽象。</p>
+    </header>
+
+    <!-- ==================== KP1 ==================== -->
+    <section id="kp1" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">01</span>Vec&lt;T&gt;</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>数组 <code>[T; N]</code> 大小固定，无法在运行时增长。当你需要一个可增长的同类型元素序列时，<code>Vec&lt;T&gt;</code> 是 Rust 中最基础、使用最频繁的集合类型。理解它的内存模型对写出高效代码至关重要。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>Vec&lt;T&gt;</code> 的内部结构和 <code>String</code> 几乎一致（String 就是 Vec&lt;u8&gt; 的包装）：</p>
+            <ul>
+              <li><strong>ptr</strong>：指向堆上连续内存的指针</li>
+              <li><strong>len</strong>：当前元素数量</li>
+              <li><strong>cap</strong>：已分配的容量（可容纳的元素数）</li>
+            </ul>
+            <p>扩容策略：当 <code>len == cap</code> 时 push 会触发重新分配。新容量通常为旧容量的 2 倍（实现细节可能随版本变化）。扩容涉及分配新内存 + 复制旧数据 + 释放旧内存，代价不可忽视。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>vec_basics.rs</span></div>
+              <pre><code>// === 创建 ===
+let v1: Vec&lt;i32&gt; = Vec::new();          // 空 Vec
+let v2 = vec![1, 2, 3];                  // 宏创建
+let v3 = vec![0; 10];                    // 10 个 0
+let v4 = Vec::with_capacity(100);        // 预分配
+
+// === 增 ===
+let mut v = vec![1, 2, 3];
+v.push(4);                               // 末尾添加
+v.insert(1, 10);                         // 在索引 1 处插入 → [1, 10, 2, 3, 4]
+v.extend([5, 6, 7]);                     // 批量追加
+
+// === 删 ===
+let last = v.pop();                      // 移除末尾 → Some(7)
+let removed = v.remove(1);              // 移除索引 1 → 10（后面元素前移）
+v.retain(|&x| x % 2 != 0);             // 保留奇数
+
+// === 查 ===
+let first = v[0];                        // 直接索引（越界 panic！）
+let maybe = v.get(99);                   // 安全访问 → None
+let has = v.contains(&3);               // 存在判断
+
+// === 改 ===
+v[0] = 100;                             // 直接修改
+if let Some(elem) = v.get_mut(1) {
+    *elem *= 2;                          // 通过可变引用修改
+}</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>vec_slice.rs</span></div>
+              <pre><code>let v = vec![10, 20, 30, 40, 50];
+
+// 切片：Vec 自动 Deref 为 &[T]
+let slice: &[i32] = &v;           // 整个 Vec 的切片
+let mid: &[i32] = &v[1..4];       // [20, 30, 40]
+
+// 函数参数推荐用 &[T] 而不是 &Vec&lt;T&gt;
+fn sum(nums: &[i32]) -> i32 {
+    nums.iter().sum()
+}
+
+let total = sum(&v);               // Vec 自动解引用为 &[i32]
+let partial = sum(&v[1..3]);       // 也可以传切片</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>预分配</strong>：已知大致元素数时用 <code>Vec::with_capacity(n)</code>，减少扩容次数</li>
+              <li><strong>参数类型</strong>：函数参数用 <code>&[T]</code> 而非 <code>&Vec&lt;T&gt;</code>，更通用</li>
+              <li><strong>批量操作</strong>：<code>extend</code> 优于多次 <code>push</code>，编译器可一次性计算所需容量</li>
+              <li><strong>注意 remove(i)</strong>：需要 O(n) 移动元素。如果不关心顺序，用 <code>swap_remove(i)</code>（O(1)）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>vec_borrow_trap.rs</span></div>
+              <pre><code>let mut v = vec![1, 2, 3, 4, 5];
+
+// ❌ 同时持有不可变引用和可变操作
+let first = &v[0];      // 不可变借用
+v.push(6);              // 可变借用——编译错误！
+// push 可能触发重分配，使 first 悬垂
+// println!("{}", first);
+
+// ✅ 确保不可变引用的作用域结束后再修改
+let first = v[0];       // 拷贝值（i32 实现了 Copy）
+v.push(6);              // OK
+println!("{}", first);   // OK，first 是独立的值</code></pre>
+            </div>
+            <p class="warning-text">⚠ Vec 的 push 可能触发重分配，使所有现存的引用失效。这就是为什么不能在持有 Vec 元素引用的同时修改 Vec。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp1">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">以下哪个操作的时间复杂度是 O(1)？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'insert 需要移动后续元素，O(n)。')">A. v.insert(0, x)</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'remove 需要移动后续元素，O(n)。')">B. v.remove(0)</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, true, '正确！swap_remove 把最后一个元素放到删除位置，O(1)。')">C. v.swap_remove(0)</button>
+          <button onclick="checkInlineQuiz('iq-kp1', this, false, 'contains 需要线性搜索，O(n)。')">D. v.contains(&x)</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP2 ==================== -->
+    <section id="kp2" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">02</span>HashMap&lt;K,V&gt;</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>当你需要通过"键"快速查找"值"时，HashMap 是首选。它提供平均 O(1) 的查找、插入和删除操作，是计数、缓存、映射等场景的核心数据结构。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p>HashMap 的两个关键约束：</p>
+            <ul>
+              <li><strong>Key 必须实现 <code>Eq + Hash</code></strong>：基本类型（i32, String, bool 等）默认满足；浮点数 f64 不行（NaN != NaN 违反 Eq）</li>
+              <li><strong>所有权转移</strong>：插入时，实现 Copy 的 key/value 会被拷贝；不实现 Copy 的（如 String）会被移动</li>
+            </ul>
+            <p>标准库使用 <strong>SipHash</strong> 作为默认哈希算法，牺牲了少量速度换取抗 HashDoS 攻击的安全性。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>hashmap_basics.rs</span></div>
+              <pre><code>use std::collections::HashMap;
+
+// === 创建 ===
+let mut scores: HashMap&lt;String, i32&gt; = HashMap::new();
+
+// === 插入 ===
+scores.insert(String::from("Alice"), 95);
+scores.insert(String::from("Bob"), 87);
+// 注意：String key 的所有权转移给了 HashMap
+
+// 重复插入会覆盖
+scores.insert(String::from("Alice"), 100);  // Alice → 100
+
+// === 查询 ===
+let alice_score = scores.get("Alice");       // Some(&100)
+let unknown = scores.get("Charlie");          // None
+
+// 用 if let 解包
+if let Some(score) = scores.get("Bob") {
+    println!("Bob 得了 {} 分", score);
+}
+
+// === 遍历 ===
+for (name, score) in &scores {
+    println!("{}: {}", name, score);         // 顺序不确定！
+}
+
+// === 删除 ===
+let removed = scores.remove("Bob");          // Some(87)
+
+// === 从迭代器构建 ===
+let names = vec!["Alice", "Bob"];
+let vals = vec![95, 87];
+let map: HashMap&lt;&str, i32&gt; = names.into_iter().zip(vals).collect();</code></pre>
+            </div>
+
+            <p><strong>entry API——避免重复查找：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>entry_api.rs</span></div>
+              <pre><code>use std::collections::HashMap;
+
+let text = "hello world hello rust hello";
+let mut word_count: HashMap&lt;&str, i32&gt; = HashMap::new();
+
+for word in text.split_whitespace() {
+    // 如果 key 不存在，插入 0；然后对值 +1
+    let count = word_count.entry(word).or_insert(0);
+    *count += 1;
+}
+// {"hello": 3, "world": 1, "rust": 1}
+
+// entry 的其他变体
+let mut cache: HashMap&lt;String, Vec&lt;u8&gt;&gt; = HashMap::new();
+
+// or_insert_with：用闭包延迟创建默认值
+cache.entry("key".to_string())
+     .or_insert_with(|| {
+         println!("计算默认值...");
+         vec![1, 2, 3]
+     });
+
+// or_default：使用 Default trait
+let mut counts: HashMap&lt;&str, Vec&lt;i32&gt;&gt; = HashMap::new();
+counts.entry("a").or_default().push(1);
+counts.entry("a").or_default().push(2);
+// {"a": [1, 2]}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>预分配</strong>：<code>HashMap::with_capacity(n)</code> 避免频繁 rehash</li>
+              <li><strong>借用查询</strong>：<code>.get("str")</code> 接受 <code>&str</code> 查询 <code>String</code> key（通过 Borrow trait）</li>
+              <li><strong>性能敏感</strong>：如需更快的哈希，可换用 <code>FxHashMap</code>（rustc-hash crate）</li>
+              <li><strong>复合 key</strong>：可用元组 <code>(i32, i32)</code> 作为 key，只要实现了 Eq + Hash</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>hashmap_ownership.rs</span></div>
+              <pre><code>use std::collections::HashMap;
+
+let key = String::from("name");
+let value = String::from("Alice");
+
+let mut map = HashMap::new();
+map.insert(key, value);
+
+// ❌ key 和 value 的所有权已转移
+// println!("{}", key);    // 编译错误
+// println!("{}", value);  // 编译错误
+
+// ✅ 如果需要保留原值，插入引用或 clone
+let key = String::from("name");
+let value = String::from("Alice");
+map.insert(key.clone(), value.clone());
+println!("{} = {}", key, value);  // OK
+
+// ✅ 或者用 &str 作为 key 类型
+let mut map2: HashMap&lt;&str, &str&gt; = HashMap::new();
+map2.insert("name", "Bob");   // &str 实现了 Copy</code></pre>
+            </div>
+            <p class="warning-text">⚠ HashMap 的遍历顺序是不确定的（每次运行可能不同）。如果需要有序遍历，使用 BTreeMap。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp2">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">entry("key").or_insert(default) 在 key 已存在时会怎样？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不会覆盖已有值。')">A. 用 default 覆盖旧值</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, true, '正确！key 存在时直接返回已有值的 &mut V，不插入。')">B. 什么都不插入，返回已有值的可变引用</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不返回 Option，而是 &mut V。')">C. 返回 None</button>
+          <button onclick="checkInlineQuiz('iq-kp2', this, false, '不会 panic。')">D. panic</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP3 ==================== -->
+    <section id="kp3" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">03</span>HashSet&lt;T&gt;</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>当你需要快速判断"某个值是否出现过"，或者对两组数据做交集、并集运算时，HashSet 是最合适的工具。它保证元素唯一，查找是 O(1)。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <p><code>HashSet&lt;T&gt;</code> 就是 <code>HashMap&lt;T, ()&gt;</code> 的封装——只存 key，不存 value。它具备 HashMap 对 key 的所有约束（<code>Eq + Hash</code>）和 O(1) 查找性能。</p>
+            <p>核心能力：<strong>去重</strong>和<strong>集合运算</strong>（交集、并集、差集、对称差）。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>hashset_basics.rs</span></div>
+              <pre><code>use std::collections::HashSet;
+
+// 创建
+let mut fruits: HashSet&lt;&str&gt; = HashSet::new();
+fruits.insert("apple");
+fruits.insert("banana");
+fruits.insert("apple");     // 重复插入无效
+println!("{}", fruits.len()); // 2
+
+// 从迭代器创建（自动去重）
+let nums: HashSet&lt;i32&gt; = vec![1, 2, 2, 3, 3, 3].into_iter().collect();
+// {1, 2, 3}
+
+// 查询
+let has_apple = fruits.contains("apple");  // true
+let has_grape = fruits.contains("grape");  // false
+
+// 删除
+fruits.remove("banana");  // true（删除成功）</code></pre>
+            </div>
+
+            <p><strong>集合运算：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>set_operations.rs</span></div>
+              <pre><code>use std::collections::HashSet;
+
+let a: HashSet&lt;i32&gt; = [1, 2, 3, 4].iter().cloned().collect();
+let b: HashSet&lt;i32&gt; = [3, 4, 5, 6].iter().cloned().collect();
+
+// 交集：两个集合都有的元素
+let inter: HashSet&lt;&i32&gt; = a.intersection(&b).collect();
+// {3, 4}
+
+// 并集：两个集合所有的元素
+let union: HashSet&lt;&i32&gt; = a.union(&b).collect();
+// {1, 2, 3, 4, 5, 6}
+
+// 差集：在 a 中但不在 b 中
+let diff: HashSet&lt;&i32&gt; = a.difference(&b).collect();
+// {1, 2}
+
+// 对称差：只在其中一个集合中
+let sym: HashSet&lt;&i32&gt; = a.symmetric_difference(&b).collect();
+// {1, 2, 5, 6}
+
+// 子集判断
+let c: HashSet&lt;i32&gt; = [1, 2].iter().cloned().collect();
+println!("{}", c.is_subset(&a));  // true</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>去重</strong>：<code>vec.into_iter().collect::&lt;HashSet&lt;_&gt;&gt;()</code> 是最简洁的去重方式</li>
+              <li><strong>快速查找</strong>：当 <code>Vec::contains</code> 成为性能瓶颈时，换用 HashSet</li>
+              <li><strong>位运算替代</strong>：对少量已知元素，可用 <code>&</code>/<code>|</code> 运算符代替 intersection/union</li>
+              <li><strong>有序集合</strong>：需要排序时用 <code>BTreeSet</code>（基于 B 树，key 要求 <code>Ord</code>）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>dedup_example.rs</span></div>
+              <pre><code>use std::collections::HashSet;
+
+// 实际场景：找出两个列表的共同用户
+let list_a = vec!["alice", "bob", "charlie", "dave"];
+let list_b = vec!["charlie", "dave", "eve", "frank"];
+
+let set_a: HashSet&lt;&str&gt; = list_a.into_iter().collect();
+let set_b: HashSet&lt;&str&gt; = list_b.into_iter().collect();
+
+let common: Vec&lt;&&str&gt; = set_a.intersection(&set_b).collect();
+println!("共同用户: {:?}", common);
+// 共同用户: ["charlie", "dave"]  （顺序不确定）
+
+// 保持去重后的顺序？HashSet 做不到
+// 方案：用 Vec + seen HashSet
+fn dedup_ordered&lt;T: Eq + std::hash::Hash + Clone&gt;(input: Vec&lt;T&gt;) -> Vec&lt;T&gt; {
+    let mut seen = HashSet::new();
+    input.into_iter()
+         .filter(|x| seen.insert(x.clone()))
+         .collect()
+}
+
+let data = vec![3, 1, 4, 1, 5, 9, 2, 6, 5, 3];
+let unique = dedup_ordered(data);
+// [3, 1, 4, 5, 9, 2, 6]  —— 保持首次出现顺序</code></pre>
+            </div>
+            <p class="warning-text">⚠ HashSet 不保证遍历顺序。如果需要"去重但保持插入顺序"，可用 <code>indexmap</code> crate 的 <code>IndexSet</code>。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp3">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">HashSet 的 insert 方法返回什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, 'insert 返回 bool。')">A. ()</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, true, '正确！返回 true 表示该值是新插入的，false 表示已存在。')">B. bool——true 表示新插入，false 表示已存在</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '返回的是 bool 不是 Option。')">C. Option&lt;T&gt;</button>
+          <button onclick="checkInlineQuiz('iq-kp3', this, false, '不会失败。')">D. Result</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP4 ==================== -->
+    <section id="kp4" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">04</span>VecDeque 与 BTreeMap</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Vec 和 HashMap 覆盖了大部分场景，但并非万能。当你需要高效的双端队列操作或有序的键值映射时，标准库还提供了 VecDeque 和 BTreeMap。了解何时选用它们，可以避免性能陷阱。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>类型</th><th>底层结构</th><th>核心优势</th><th>key 约束</th></tr></thead>
+              <tbody>
+                <tr><td><code>VecDeque&lt;T&gt;</code></td><td>环形缓冲区</td><td>两端 O(1) push/pop</td><td>无</td></tr>
+                <tr><td><code>BTreeMap&lt;K,V&gt;</code></td><td>B-Tree</td><td>key 有序，范围查询</td><td>Ord</td></tr>
+                <tr><td><code>BTreeSet&lt;T&gt;</code></td><td>B-Tree</td><td>有序集合</td><td>Ord</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>vecdeque.rs</span></div>
+              <pre><code>use std::collections::VecDeque;
+
+let mut dq: VecDeque&lt;i32&gt; = VecDeque::new();
+
+// 两端操作都是 O(1)
+dq.push_back(1);    // [1]
+dq.push_back(2);    // [1, 2]
+dq.push_front(0);   // [0, 1, 2]
+
+let front = dq.pop_front();  // Some(0) → [1, 2]
+let back = dq.pop_back();    // Some(2) → [1]
+
+// 典型应用：BFS 队列
+// while let Some(node) = queue.pop_front() {
+//     for neighbor in node.neighbors() {
+//         queue.push_back(neighbor);
+//     }
+// }</code></pre>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>btreemap.rs</span></div>
+              <pre><code>use std::collections::BTreeMap;
+
+let mut scores = BTreeMap::new();
+scores.insert("Charlie", 78);
+scores.insert("Alice", 95);
+scores.insert("Bob", 87);
+
+// 遍历时按 key 的自然顺序！
+for (name, score) in &scores {
+    println!("{}: {}", name, score);
+}
+// Alice: 95
+// Bob: 87
+// Charlie: 78
+
+// 范围查询
+for (name, score) in scores.range("A".."C") {
+    println!("{}: {}", name, score);
+}
+// Alice: 95
+// Bob: 87</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>Alice: 95
+Bob: 87
+Charlie: 78</pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <p><strong>集合类型选择速查：</strong></p>
+            <table class="info-table">
+              <thead><tr><th>需求</th><th>推荐类型</th></tr></thead>
+              <tbody>
+                <tr><td>可增长列表</td><td>Vec&lt;T&gt;</td></tr>
+                <tr><td>FIFO 队列 / 双端操作</td><td>VecDeque&lt;T&gt;</td></tr>
+                <tr><td>快速 key-value 查找</td><td>HashMap&lt;K,V&gt;</td></tr>
+                <tr><td>有序 key-value + 范围查询</td><td>BTreeMap&lt;K,V&gt;</td></tr>
+                <tr><td>唯一值集合</td><td>HashSet&lt;T&gt;</td></tr>
+                <tr><td>有序唯一值集合</td><td>BTreeSet&lt;T&gt;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>choice.rs</span></div>
+              <pre><code>// ❌ 用 Vec 做队列是低效的
+let mut queue = vec![1, 2, 3];
+let first = queue.remove(0);  // O(n)！所有元素前移
+
+// ✅ 用 VecDeque 做队列
+use std::collections::VecDeque;
+let mut queue = VecDeque::from([1, 2, 3]);
+let first = queue.pop_front();  // O(1)
+
+// ❌ 用 HashMap 然后排序 key
+use std::collections::HashMap;
+let mut map = HashMap::new();
+map.insert(3, "c");
+map.insert(1, "a");
+let mut pairs: Vec&lt;_&gt; = map.into_iter().collect();
+pairs.sort_by_key(|&(k, _)| k);  // 额外排序
+
+// ✅ 直接用 BTreeMap
+use std::collections::BTreeMap;
+let mut map = BTreeMap::new();
+map.insert(3, "c");
+map.insert(1, "a");
+// 遍历自动有序，无需排序</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp4">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">BTreeMap 的 key 需要满足什么 trait 约束？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Hash 是 HashMap 的要求。')">A. Hash</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, true, '正确！BTreeMap 基于比较排序，key 需要全序关系。')">B. Ord</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Display 只是格式化输出。')">C. Display</button>
+          <button onclick="checkInlineQuiz('iq-kp4', this, false, 'Clone 不是必需的。')">D. Clone</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== KP5 ==================== -->
+    <section id="kp5" class="kp-section">
+      <h2 class="kp-title"><span class="kp-number">05</span>迭代器消费与收集</h2>
+      <div class="mental-chain">
+
+        <div class="step-card step-motivation">
+          <div class="step-label">🎯 为什么需要了解这个</div>
+          <div class="step-body">
+            <p>Rust 的集合与迭代器是一体两面的。几乎所有集合操作（过滤、映射、累加）都通过迭代器链来表达。<code>iter()</code>、<code>into_iter()</code>、<code>iter_mut()</code> 三兄弟的区别是 Rust 新手最常困惑的点之一。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-abstraction">
+          <div class="step-label">🔍 核心思路</div>
+          <div class="step-body">
+            <table class="info-table">
+              <thead><tr><th>方法</th><th>消耗集合？</th><th>产生的元素类型</th><th>典型场景</th></tr></thead>
+              <tbody>
+                <tr><td><code>iter()</code></td><td>否（不可变借用）</td><td><code>&T</code></td><td>只读遍历</td></tr>
+                <tr><td><code>iter_mut()</code></td><td>否（可变借用）</td><td><code>&mut T</code></td><td>原地修改元素</td></tr>
+                <tr><td><code>into_iter()</code></td><td>是（获取所有权）</td><td><code>T</code></td><td>消耗集合</td></tr>
+              </tbody>
+            </table>
+            <p><code>collect()</code> 是迭代器的"汇合点"——把迭代器的元素收集成任意实现了 <code>FromIterator</code> 的类型（Vec、HashMap、String 等）。</p>
+          </div>
+        </div>
+
+        <div class="step-card step-derivation">
+          <div class="step-label">📐 规则与语法</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>three_iters.rs</span></div>
+              <pre><code>let mut v = vec![1, 2, 3, 4, 5];
+
+// iter() —— 借用，遍历后 v 还能用
+let sum: i32 = v.iter().sum();
+println!("sum = {}, v = {:?}", sum, v);  // v 还在
+
+// iter_mut() —— 可变借用，原地修改
+for x in v.iter_mut() {
+    *x *= 2;
+}
+println!("{:?}", v);  // [2, 4, 6, 8, 10]
+
+// into_iter() —— 消耗 v
+let doubled: Vec&lt;i32&gt; = v.into_iter().map(|x| x + 1).collect();
+println!("{:?}", doubled);  // [3, 5, 7, 9, 11]
+// println!("{:?}", v);     // ❌ v 已被消耗</code></pre>
+              <div class="code-output"><strong>输出</strong><pre>sum = 15, v = [1, 2, 3, 4, 5]
+[2, 4, 6, 8, 10]
+[3, 5, 7, 9, 11]</pre></div>
+            </div>
+
+            <p><strong>collect 的多种目标类型：</strong></p>
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>collect_targets.rs</span></div>
+              <pre><code>use std::collections::{HashMap, HashSet};
+
+let data = vec![1, 2, 3, 2, 1];
+
+// 收集为 Vec
+let v: Vec&lt;i32&gt; = data.iter().cloned().collect();
+
+// 收集为 HashSet（自动去重）
+let s: HashSet&lt;i32&gt; = data.iter().cloned().collect();
+// {1, 2, 3}
+
+// 收集为 HashMap
+let map: HashMap&lt;i32, i32&gt; = (0..5).map(|i| (i, i * i)).collect();
+// {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}
+
+// 收集为 String
+let chars = vec!['h', 'e', 'l', 'l', 'o'];
+let s: String = chars.into_iter().collect();
+// "hello"
+
+// 收集 Result 迭代器 → Result&lt;Vec, E&gt;
+let results: Vec&lt;Result&lt;i32, &str&gt;&gt; = vec![Ok(1), Ok(2), Ok(3)];
+let all: Result&lt;Vec&lt;i32&gt;, &str&gt; = results.into_iter().collect();
+// Ok([1, 2, 3])  — 遇到第一个 Err 就短路</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card step-application">
+          <div class="step-label">🌐 工程实践</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>for 循环的隐式调用</strong>：<code>for x in &v</code> 等价于 <code>for x in v.iter()</code>；<code>for x in v</code> 等价于 <code>for x in v.into_iter()</code></li>
+              <li><strong>惰性求值</strong>：<code>map</code>、<code>filter</code> 等只是构建链，不真正执行。需要 <code>collect</code>、<code>sum</code>、<code>for_each</code> 等消费者驱动执行</li>
+              <li><strong>turbofish 语法</strong>：<code>.collect::&lt;Vec&lt;_&gt;&gt;()</code> 用于编译器无法自动推断目标类型时</li>
+              <li><strong>链式 vs 循环</strong>：简单逻辑用迭代器链更惯用，复杂逻辑用 for 更清晰</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step-card step-example">
+          <div class="step-label">✏️ 示例分析与易错点</div>
+          <div class="step-body">
+            <div class="code-block">
+              <div class="code-header"><span>RUST</span><span>iter_chain.rs</span></div>
+              <pre><code>let words = vec!["hello", "world", "rust", "is", "great"];
+
+// 实际场景：过滤 + 转换 + 收集
+let long_words: Vec&lt;String&gt; = words.iter()
+    .filter(|w| w.len() > 3)         // 保留长度 > 3 的
+    .map(|w| w.to_uppercase())        // 转大写
+    .collect();
+// ["HELLO", "WORLD", "RUST", "GREAT"]
+
+// 注意 iter() 产生 &&str
+// filter 的闭包参数是 &&&str（双重引用），需要 **w 或模式匹配
+let count = words.iter()
+    .filter(|&&w| w.starts_with('r'))  // 模式匹配解引用
+    .count();
+// ❌ 新手常忘记处理多层引用
+
+// ✅ 更清晰的写法
+let count = words.iter()
+    .filter(|w| w.starts_with('r'))    // &&str 可以直接调 str 的方法
+    .count();</code></pre>
+            </div>
+            <p class="warning-text">⚠ <code>iter()</code> 对 <code>Vec&lt;T&gt;</code> 产生 <code>&T</code>。如果 T 本身是引用（如 <code>Vec&lt;&str&gt;</code>），则 <code>iter()</code> 产生 <code>&&str</code>。注意多层引用的处理。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inline-quiz" id="iq-kp5">
+        <div class="iq-header">⚡ 快速检测</div>
+        <div class="iq-prompt">for x in v 和 for x in &amp;v 的核心区别是什么？</div>
+        <div class="iq-options">
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '顺序没有区别。')">A. 遍历顺序不同</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, true, '正确！for x in v 消耗 v（into_iter），for x in &v 只借用（iter）。')">B. for x in v 消耗集合所有权，for x in &amp;v 只借用</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '性能差异不大。')">C. &amp;v 版本更快</button>
+          <button onclick="checkInlineQuiz('iq-kp5', this, false, '两者都遍历同样的数据。')">D. for x in v 只遍历一半</button>
+        </div>
+      </div>
+    </section>
+    <hr class="kp-separator">
+
+    <!-- ==================== 练习区 ==================== -->
+    <section id="exercises" class="exercises-section">
+      <h2 class="exercises-title">📝 课后练习</h2>
+      <p class="exercises-intro">共 22 道题，覆盖 Vec、HashMap、HashSet、BTreeMap 和迭代器三兄弟。</p>
+      <div id="quiz-container"></div>
+      <div class="quiz-controls">
+        <button class="btn" onclick="checkAnswers()">提交答案</button>
+        <button class="btn btn-outline" onclick="resetQuiz()">重置</button>
+      </div>
+      <div id="quiz-result"></div>
+    </section>
+
+    <!-- ==================== 章节导航 ==================== -->
+    <nav class="chapter-nav">
+      <a href="ch3.1_strings.html" class="prev-chapter">
+        <span class="nav-arrow">←</span>
+        <span class="nav-info">
+          <span class="nav-label">上一章</span>
+          <span class="nav-title">字符串</span>
+        </span>
+      </a>
+      <a href="ch3.3_error_handling.html" class="next-chapter">
+        <span class="nav-info">
+          <span class="nav-label">下一章</span>
+          <span class="nav-title">错误处理</span>
+        </span>
+        <span class="nav-arrow">→</span>
+      </a>
     </nav>
 
-    <main class="content">
-        <header class="chapter-header">
-            <span class="unit-label">Unit 3 · 标准库与项目实战</span>
-            <h1>Ch 3.2 集合</h1>
-            <p class="chapter-description">这一章把 Unit 3 的“数据容器”心智模型补齐：什么时候先用 Vec，什么时候换成 HashMap，集合为什么会和借用检查强相关，以及项目里最常见的收集、计数、排序、去重模式应该怎么表达。</p>
-        </header>
+    <footer class="site-footer">Rust Learning · 2026</footer>
+  </main>
 
-        <section class="learning-objectives">
-            <h2>🎯 学习目标</h2>
-            <ul>
-                <li>理解 `Vec<T>` 与 `HashMap<K, V>` 分别适合什么访问模式</li>
-                <li>掌握集合增长、借用和重分配之间的关键关系</li>
-                <li>学会用 `entry`、排序、去重等常见集合模式组织数据</li>
-                <li>避免“拿着元素引用还继续修改容器”这类常见错误</li>
-            </ul>
-        </section>
-
-        <section class="prerequisites">
-            <h3>📋 前置知识</h3>
-            <p>建议先理解所有权、借用和字符串基础。很多集合报错本质上不是“容器 API 难”，而是集合内部元素地址与借用关系会受修改操作影响。</p>
-        </section>
-
-        <section class="knowledge-point" id="kp-1">
-            <h2>3.2.1 `Vec&lt;T&gt;`：默认的可增长顺序集合</h2>
-            <div class="think-box">
-                <div class="think-icon">📦</div>
-                <p>为什么 Rust 教程一讲集合，几乎都会先讲 `Vec`？</p>
-            </div>
-            <p>`Vec&lt;T&gt;` 以连续内存存放同类型元素，支持按顺序追加、索引和遍历，是绝大多数“先收集一批同类数据再处理”的默认选择。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong><code>Vec&lt;T&gt;</code> 拥有其中所有元素，长度可变；<code>push</code> 可能触发重新分配，因此集合增长与借用规则紧密相关。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>vec_basics.rs</span></div>
-                <pre><code>fn main() {
-    let mut scores = vec![10, 20];
-    scores.push(30);
-
-    println!(&quot;len = {}&quot;, scores.len());
-    println!(&quot;last = {}&quot;, scores[scores.len() - 1]);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>len = 3
-last = 30</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="Vec 适合“同类型、可增长、按顺序处理”的数据。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>哪种场景最适合先使用 `Vec<T>`？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-2-q1" value="A"> A. 不断追加请求日志并按顺序遍历分析</label>
-                    <label><input type="radio" name="u3-2-q1" value="B"> B. 需要用字符串键直接查值</label>
-                    <label><input type="radio" name="u3-2-q1" value="C"> C. 需要表达一组互斥状态</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-2">
-            <h2>3.2.2 借用与重分配：为什么拿着元素引用时不能继续 `push`？</h2>
-            <div class="think-box">
-                <div class="think-icon">⚠️</div>
-                <p>如果 `Vec` 扩容后搬家了，之前指向旧地址的引用还安全吗？</p>
-            </div>
-            <p>`Vec` 的元素存储在堆上，扩容时可能整体搬迁到新内存。因此 Rust 不允许你在持有元素引用时继续做可能重分配的修改操作。</p>
-            <div class="note-box warning">
-                <p><strong>正式规则：</strong>当对集合元素的借用仍然有效时，不能执行会与该借用冲突的可变操作；这能阻止悬垂引用。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>vec_borrow.rs</span></div>
-                <pre><code>fn main() {
-    let mut values = vec![1, 2, 3];
-    let first = values.first().copied().unwrap();
-
-    values.push(4);
-    println!(&quot;first = {first}, len = {}&quot;, values.len());
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>first = 1, len = 4</pre>
-                </div>
-            </div>
-            <div class="collapsible">
-                <button class="collapsible-trigger">💡 点击展开：为什么上例先复制值，而不是保留 `&amp;i32`？</button>
-                <div class="collapsible-content">因为 `i32` 实现了 Copy，把第一个元素复制出来后，就不再持有对 Vec 内部存储的借用，后续 push 不会与旧引用冲突。</div>
-            </div>
-            <div class="quick-quiz" data-answer="C" data-explanation="push 可能导致 Vec 重新分配；如果还保留旧元素引用，就可能悬空。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>持有 `Vec` 中元素的引用时，为什么要小心继续修改容器？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-2-q2" value="A"> A. 因为 Vec 永远不能修改</label>
-                    <label><input type="radio" name="u3-2-q2" value="B"> B. 因为 Rust 不允许任何容器存在引用</label>
-                    <label><input type="radio" name="u3-2-q2" value="C"> C. 因为修改可能触发重分配，导致原引用失效</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-3">
-            <h2>3.2.3 `HashMap&lt;K, V&gt;`：键值查找与所有权进入表中</h2>
-            <div class="think-box">
-                <div class="think-icon">🗂️</div>
-                <p>当你需要“通过键查值”时，为什么 Vec 再怎么遍历也不如 HashMap 合适？</p>
-            </div>
-            <p>`HashMap` 适合根据键快速定位值。把拥有型键值插入表时，所有权会移动进 map；若只借用外部数据，就要明确使用引用型键值并保证生命周期。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong><code>insert</code> 对拥有型键值通常会接管所有权；更新已有键时，<code>entry</code> API 比“先查再插”更自然。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>hashmap_entry.rs</span></div>
-                <pre><code>use std::collections::HashMap;
-
-fn main() {
-    let text = &quot;rust makes rust safer&quot;;
-    let mut counts = HashMap::new();
-
-    for word in text.split_whitespace() {
-        *counts.entry(word).or_insert(0) += 1;
-    }
-
-    println!(&quot;rust =&gt; {}&quot;, counts[&quot;rust&quot;]);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>rust =&gt; 2</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="B" data-explanation="entry().or_insert() 把“如果不存在就插入默认值，再返回可变引用”串成一步，很适合计数。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>统计单词频次时，为什么 `entry` 模式常见？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-2-q3" value="A"> A. 因为 HashMap 不能用普通 insert</label>
-                    <label><input type="radio" name="u3-2-q3" value="B"> B. 因为它把查找、插入默认值和更新合成一个安全流程</label>
-                    <label><input type="radio" name="u3-2-q3" value="C"> C. 因为它能绕过所有权规则</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-        <section class="knowledge-point" id="kp-4">
-            <h2>3.2.4 常见集合模式：收集、去重、计数与分组</h2>
-            <div class="think-box">
-                <div class="think-icon">🧭</div>
-                <p>面对业务数据时，集合往往不是孤立使用，而是作为“中间状态容器”。哪些模式最常见？</p>
-            </div>
-            <p>日常项目里常见的模式包括：先把输入收集到 `Vec` 中排序处理、用 `HashMap` 计数或索引、用 `retain` / `dedup` 过滤重复项、以及配合迭代器把集合当作数据管道的承接层。</p>
-            <div class="note-box tip">
-                <p><strong>正式规则：</strong>先根据访问模式选集合：顺序遍历优先 `Vec`，键值查询优先 `HashMap`，之后再考虑是否需要排序、去重或额外索引。</p>
-            </div>
-            <div class="code-playground">
-                <div class="code-header"><span>Rust</span><span>collection_pattern.rs</span></div>
-                <pre><code>fn main() {
-    let mut ids = vec![3, 1, 3, 2, 2];
-    ids.sort();
-    ids.dedup();
-
-    println!(&quot;unique ids = {:?}&quot;, ids);
-}</code></pre>
-                <div class="code-output">
-                    <strong>输出</strong>
-                    <pre>unique ids = [1, 2, 3]</pre>
-                </div>
-            </div>
-            <div class="quick-quiz" data-answer="A" data-explanation="先排序再 dedup 是 Vec 上很常见的去重模式。">
-                <span class="quiz-badge">⚡ 快速测试</span>
-                <p>如果你已经把整数放进 `Vec<i32>`，并希望得到有序不重复结果，常见做法是什么？</p>
-                <div class="quiz-options">
-                    <label><input type="radio" name="u3-2-q4" value="A"> A. 先 sort，再 dedup</label>
-                    <label><input type="radio" name="u3-2-q4" value="B"> B. 直接随机删除一半元素</label>
-                    <label><input type="radio" name="u3-2-q4" value="C"> C. 把每个元素先转成 String</label>
-                </div>
-                <div class="quiz-feedback"></div>
-            </div>
-        </section>
-
-        <section class="chapter-summary" id="summary">
-            <h2>📌 章节总结</h2>
-            <ul>
-                <li>`Vec<T>` 适合顺序收集与遍历，`HashMap<K, V>` 适合通过键查值。</li>
-                <li>集合修改可能影响内部存储位置，因此借用规则不能和容器操作分开理解。</li>
-                <li>`entry` 模式能优雅表达“查找或初始化再更新”的逻辑。</li>
-                <li>排序、去重、计数和索引是项目中最常见的集合组织方式。</li>
-            </ul>
-        </section>
-
-        <section class="exercises" id="exercises">
-            <h2>🧪 课后测试</h2>
-            <ol>
-                <li><span class="exercise-level">⭐ 基础：</span> 比较 `Vec<T>` 和 `HashMap<K, V>` 在访问模式上的差异。</li>
-                <li><span class="exercise-level">⭐⭐ 进阶：</span> 写出一个单词频次统计函数，并解释为什么 `entry` 比“先 get 再 insert”更顺手。</li>
-                <li><span class="exercise-level">⭐⭐⭐ 挑战：</span> 说明为什么持有 `Vec` 元素引用时继续 `push` 往往会被借用检查器拒绝。</li>
-                <li><span class="exercise-level">🏆 附加：</span> 设计一个配置加载流程：先读取多行文本，再去重、排序并构建按名称索引的 `HashMap`。说明每一步为什么选对应集合。</li>
-            </ol>
-        </section>
-
-        <section class="further-reading">
-            <h2>📚 延伸阅读</h2>
-            <ul>
-                <li><a href="https://doc.rust-lang.org/book/ch08-01-vectors.html">The Rust Programming Language · Vectors</a></li>
-                <li><a href="https://doc.rust-lang.org/book/ch08-03-hash-maps.html">The Rust Programming Language · Hash Maps</a></li>
-                <li><a href="https://doc.rust-lang.org/std/collections/index.html">std::collections 模块文档</a></li>
-            </ul>
-        </section>
-    </main>
-
-    <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/components.js"></script>
 </body>
 </html>

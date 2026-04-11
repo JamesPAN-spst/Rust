@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit 4 · 并发与异步 — Rust Learning</title>
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <link rel="stylesheet" href="../assets/css/layout.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <script src="../assets/js/storage.js"></script>
+</head>
+<body class="overview-page" data-module="unit4_concurrency_async" style="--domain-color: var(--c-concurrency);">
+
+  <nav class="topbar">
+    <a href="../index.html" class="topbar-brand">Rust Learning</a>
+    <div class="topbar-module">
+      <span class="module-domain">CONCURRENCY</span>
+      <span class="module-name" style="cursor:default">Unit 4 · 并发与异步</span>
+    </div>
+    <div class="topbar-right">
+      <span class="chapter-indicator">3 chapters</span>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon" title="切换主题">🌙</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="overview-hero">
+      <div class="domain-tag">CONCURRENCY</div>
+      <h1>Unit 4 · 并发与异步</h1>
+      <p class="intro">线程并发、async/await、tokio 生态——Rust 的并发安全是其最独特的竞争力之一。</p>
+    </div>
+
+    <div class="chapter-grid">
+      <a class="chapter-card" href="ch4.1_threads.html">
+        <div class="ch-number">CHAPTER 01</div>
+        <div class="ch-title">线程并发</div>
+        <div class="ch-kps">
+          <span class="kp-tag">std::thread 与 spawn</span>
+          <span class="kp-tag">move 语义与线程</span>
+          <span class="kp-tag">channel 消息传递</span>
+          <span class="kp-tag">Arc 与 Mutex 共享状态</span>
+          <span class="kp-tag">Send 与 Sync</span>
+        </div>
+        <div class="ch-meta">
+          <span>5 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch4.2_async_programming.html">
+        <div class="ch-number">CHAPTER 02</div>
+        <div class="ch-title">异步编程</div>
+        <div class="ch-kps">
+          <span class="kp-tag">async/await 心智模型</span>
+          <span class="kp-tag">Future 与 poll</span>
+          <span class="kp-tag">Executor 运行时</span>
+          <span class="kp-tag">为什么不能阻塞</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+      <a class="chapter-card" href="ch4.3_async_ecosystem.html">
+        <div class="ch-number">CHAPTER 03</div>
+        <div class="ch-title">异步生态</div>
+        <div class="ch-kps">
+          <span class="kp-tag">Tokio 生态分层</span>
+          <span class="kp-tag">async trait 挑战</span>
+          <span class="kp-tag">取消、超时与背压</span>
+          <span class="kp-tag">同步 vs 异步选型</span>
+        </div>
+        <div class="ch-meta">
+          <span>4 知识点</span><span>20 练习</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="chapter-nav" style="max-width:900px;margin:0 auto;padding:24px 40px;">
+      <a href="../unit3_std_projects/index.html">← Unit 3 · 标准库与项目</a>
+      <a href="../index.html" class="nav-overview">目录</a>
+      <a href="../unit5_advanced/index.html">Unit 5 · 高级特性 →</a>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <span>Rust Learning · 2026</span>
+  </footer>
+</body>
+</html>
