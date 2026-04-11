@@ -13,7 +13,7 @@
       {"id":"u5-ch54-q2","question":"unsafe 块中借用检查器还工作吗？","options":["A. 完全关闭","B. 仍然工作，只是多了额外能力","C. 部分关闭","D. 只对指针关闭"],"answer":1,"explanation":"unsafe 不关闭任何安全检查！借用检查、类型检查全部正常。unsafe 只是解锁了 5 种额外操作。"},
       {"id":"u5-ch54-q3","question":"*const T 和 *mut T 统称什么？","options":["A. 智能指针","B. 裸指针（raw pointer）","C. 引用","D. 生命周期指针"],"answer":1,"explanation":"*const T（共享裸指针）和 *mut T（可变裸指针）统称裸指针。它们没有借用规则的保护。"},
       {"id":"u5-ch54-q4","question":"创建裸指针需要 unsafe 吗？","options":["A. 需要","B. 不需要，解引用才需要","C. 只有 *mut 需要","D. 都不需要"],"answer":1,"explanation":"创建裸指针本身是 safe 的（只是拿到地址），解引用（实际访问内存）才需要 unsafe。"},
-      {"id":"u5-ch54-q5","question":"unsafe fn 的含义是？","options":["A. 函数内部有 unsafe 代码","B. 调用者必须保证前置条件成立","C. 函数不会被编译优化","D. 函数返回裸指针"],"answer":1,"explanation":"unsafe fn 是函数和调用者之间的契约——函数说"我的安全性依赖于调用者满足特定前置条件"。"},
+      {"id":"u5-ch54-q5","question":"unsafe fn 的含义是？","options":["A. 函数内部有 unsafe 代码","B. 调用者必须保证前置条件成立","C. 函数不会被编译优化","D. 函数返回裸指针"],"answer":1,"explanation":"unsafe fn 是函数和调用者之间的契约——函数说'我的安全性依赖于调用者满足特定前置条件'。"},
       {"id":"u5-ch54-q6","question":"unsafe trait 的含义是？","options":["A. 实现了它的类型不安全","B. 实现者必须手动保证类型满足 trait 的安全不变量","C. 只能在 unsafe 块中使用","D. trait 方法都是 unsafe 的"],"answer":1,"explanation":"unsafe trait 表示正确实现它需要维护某些安全不变量（如 Send/Sync）。编译器无法自动验证，需要实现者保证。"},
       {"id":"u5-ch54-q7","question":"安全抽象（safe abstraction）的核心思路是？","options":["A. 完全避免 unsafe","B. 在内部用 unsafe 实现，对外暴露安全的 API","C. 所有函数都标注 unsafe","D. 只用标准库"],"answer":1,"explanation":"安全抽象：模块内部的 unsafe 代码确保不变量成立，对外提供完全 safe 的 API。使用者不需要知道内部有 unsafe。"},
       {"id":"u5-ch54-q8","question":"std::slice::from_raw_parts 为什么是 unsafe 的？","options":["A. 因为它返回切片","B. 因为调用者必须保证指针有效、长度正确、生命周期正确","C. 因为它使用了泛型","D. 因为它在标准库中"],"answer":1,"explanation":"编译器无法验证裸指针指向有效内存、长度不越界、数据存活期间不被修改。这些前置条件由调用者保证。"},
@@ -25,9 +25,9 @@
       {"id":"u5-ch54-q14","question":"Miri 是什么工具？","options":["A. 代码格式化器","B. Rust MIR 解释器，检测 UB（未定义行为）","C. 包管理器","D. IDE 插件"],"answer":1,"explanation":"Miri 是 Rust 的 MIR 解释器，可以在运行时检测 unsafe 代码中的未定义行为（越界访问、悬垂指针等）。"},
       {"id":"u5-ch54-q15","question":"#[no_mangle] 的作用？","options":["A. 优化函数性能","B. 防止编译器修改函数名，保持导出名不变","C. 禁用 unsafe 检查","D. 导入 C 函数"],"answer":1,"explanation":"Rust 编译器默认会修改（mangle）函数名。#[no_mangle] 保持原始名称，C 代码才能按名字找到它。"},
       {"id":"u5-ch54-q16","question":"安全抽象 split_at_mut 的原理是？","options":["A. 直接用 safe 代码实现","B. 内部用 unsafe 创建两个不重叠的可变切片，验证不越界后暴露 safe API","C. 复制数据","D. 用 Rc 包装"],"answer":1,"explanation":"标准库的 split_at_mut 内部用裸指针创建两个不重叠的 &mut [T]，先验证索引合法。对外是安全函数。"},
-      {"id":"u5-ch54-q17","question":"什么是 UB（Undefined Behavior）？","options":["A. 未定义的变量","B. 违反语言规范的行为，编译器可做任何假设","C. 语法错误","D. 运行时 panic"],"answer":1,"explanation":"UB 意味着你的代码违反了编译器的假设。编译器可以优化掉"不可能发生"的分支、生成意外的代码。后果不可预测。"},
+      {"id":"u5-ch54-q17","question":"什么是 UB（Undefined Behavior）？","options":["A. 未定义的变量","B. 违反语言规范的行为，编译器可做任何假设","C. 语法错误","D. 运行时 panic"],"answer":1,"explanation":"UB 意味着你的代码违反了编译器的假设。编译器可以优化掉'不可能发生'的分支、生成意外的代码。后果不可预测。"},
       {"id":"u5-ch54-q18","question":"unsafe impl Send for MyType {} 表示什么？","options":["A. MyType 可以序列化","B. 程序员保证 MyType 跨线程传递是安全的","C. MyType 可以克隆","D. MyType 可以打印"],"answer":1,"explanation":"Send 是 unsafe trait。手动 impl 意味着程序员向编译器保证：这个类型在线程间传递不会导致数据竞争。"},
-      {"id":"u5-ch54-q19","question":"裸指针相比引用的主要"放松"是？","options":["A. 可以指向无效内存、可以有多个 *mut、没有生命周期跟踪","B. 自动解引用","C. 自动借用检查","D. 支持泛型"],"answer":0,"explanation":"裸指针没有借用规则：可以同时存在 *const 和 *mut、可以指向已释放内存、没有生命周期。这就是为什么解引用需要 unsafe。"},
+      {"id":"u5-ch54-q19","question":"裸指针相比引用的主要'放松'是？","options":["A. 可以指向无效内存、可以有多个 *mut、没有生命周期跟踪","B. 自动解引用","C. 自动借用检查","D. 支持泛型"],"answer":0,"explanation":"裸指针没有借用规则：可以同时存在 *const 和 *mut、可以指向已释放内存、没有生命周期。这就是为什么解引用需要 unsafe。"},
       {"id":"u5-ch54-q20","question":"以下代码有什么问题？\nlet mut x = 5;\nlet p = &mut x as *mut i32;\nunsafe { *p = 10; }\nprintln!(\"{x}\");","options":["A. UB，因为裸指针","B. 没有问题，会输出 10","C. 编译错误","D. 运行时 panic"],"answer":1,"explanation":"这段代码是合法的：创建裸指针 safe，通过 unsafe 写入 safe（原始变量仍然有效），最后 println! 读取更新后的值。"}
     ];
   </script>

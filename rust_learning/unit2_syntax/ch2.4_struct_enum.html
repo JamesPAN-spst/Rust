@@ -21,7 +21,7 @@
         "question": "以下代码能编译吗？\nstruct User { name: String, age: u32 }\nlet u = User { name: \"Alice\".into(), age: 30 };\nu.age = 31;",
         "options": ["A. 可以", "B. 不行，u 不可变", "C. 可以，struct 字段默认可变", "D. 不行，age 类型错误"],
         "answer": 1,
-        "explanation": "u 是不可变绑定，不能修改任何字段。需要 let mut u = ... 才能修改。Rust 的可变性是"全有或全无"——不能只让一个字段可变。"
+        "explanation": "u 是不可变绑定，不能修改任何字段。需要 let mut u = ... 才能修改。Rust 的可变性是‘全有或全无’——不能只让一个字段可变。"
       },
       {
         "id": "u2-ch24-q3",
@@ -35,7 +35,7 @@
         "question": "没有 self 参数的方法叫什么？",
         "options": ["A. 静态方法", "B. 关联函数（associated function）", "C. 类方法", "D. 构造器"],
         "answer": 1,
-        "explanation": "impl 块中不以 self 作参数的函数叫"关联函数"，用 Type::func() 调用。String::new()、Vec::with_capacity(10) 都是例子。"
+        "explanation": "impl 块中不以 self 作参数的函数叫‘关联函数’，用 Type::func() 调用。String::new()、Vec::with_capacity(10) 都是例子。"
       },
       {
         "id": "u2-ch24-q5",
@@ -154,7 +154,7 @@
         "question": "为什么 Rust 用 Option 而不是 null？",
         "options": ["A. 性能原因", "B. 编译器强制你处理 None 的情况，避免空指针异常", "C. 历史原因", "D. 语法更简洁"],
         "answer": 1,
-        "explanation": "Option<T> 让"可能为空"成为类型系统的一部分。编译器强制你用 match/if let 处理 None，消除了空指针异常的可能。"
+        "explanation": "Option<T> 让‘可能为空’成为类型系统的一部分。编译器强制你用 match/if let 处理 None，消除了空指针异常的可能。"
       }
     ];
   </script>

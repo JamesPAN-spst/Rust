@@ -28,7 +28,7 @@
       {"id":"u6-chC-q17","question":"写 CLI 工具时推荐的日志方案？","options":["A. println!","B. tracing + tracing-subscriber（结构化日志/追踪）","C. 不需要日志","D. 写文件"],"answer":1,"explanation":"tracing 提供结构化日志和 span 追踪，性能优于 log crate，被 tokio 生态广泛采用。"},
       {"id":"u6-chC-q18","question":"Rust 做 daemon/服务程序时需要注意什么？","options":["A. 不需要特别注意","B. 信号处理、pid 文件、日志轮转、graceful shutdown","C. 只需要 main 函数","D. 用 sleep 做循环"],"answer":1,"explanation":"生产级 daemon 需要处理 SIGTERM（优雅关闭）、写 pid 文件防止重复启动、日志不能写 stdout（用文件或 syslog）。"},
       {"id":"u6-chC-q19","question":"cross crate 的作用？","options":["A. 交叉编译——在当前平台编译其他平台的二进制","B. 跨语言调用","C. 交叉测试","D. 交叉引用"],"answer":0,"explanation":"cross 用 Docker 容器提供目标平台的链接器和 sysroot，简化交叉编译。如在 macOS 上编译 Linux ARM 二进制。"},
-      {"id":"u6-chC-q20","question":"系统编程中 Rust 对比 Go 的取舍？","options":["A. Go 更底层","B. Rust 更底层（no_std/FFI），Go 更简单（GC/goroutine），选择取决于场景","C. 完全一样","D. Rust 有 GC"],"answer":1,"explanation":"Rust 适合极致性能和底层控制（内核、嵌入式、FFI）。Go 适合快速开发网络服务。系统编程的"底层"部分 Rust 更合适。"}
+      {"id":"u6-chC-q20","question":"系统编程中 Rust 对比 Go 的取舍？","options":["A. Go 更底层","B. Rust 更底层（no_std/FFI），Go 更简单（GC/goroutine），选择取决于场景","C. 完全一样","D. Rust 有 GC"],"answer":1,"explanation":"Rust 适合极致性能和底层控制（内核、嵌入式、FFI）。Go 适合快速开发网络服务。系统编程的‘底层’部分 Rust 更合适。"}
     ];
   </script>
   <script src="../assets/js/storage.js"></script>

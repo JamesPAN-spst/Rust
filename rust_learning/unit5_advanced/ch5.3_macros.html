@@ -11,9 +11,9 @@
     const QUESTIONS = [
       {"id":"u5-ch53-q1","question":"macro_rules! 属于哪种宏？","options":["A. 过程宏","B. 声明式宏（macros by example）","C. 编译器插件","D. 运行时宏"],"answer":1,"explanation":"macro_rules! 是声明式宏，用模式匹配和展开规则在编译期生成代码。"},
       {"id":"u5-ch53-q2","question":"macro_rules! 的 $($x:expr),* 中 * 表示什么？","options":["A. 恰好一个","B. 至少一个","C. 零个或多个重复","D. 通配符"],"answer":2,"explanation":"* 表示零个或多个重复。类似正则表达式的 *。+ 表示至少一个。"},
-      {"id":"u5-ch53-q3","question":"宏的卫生性（hygiene）是什么概念？","options":["A. 自动清理内存","B. 宏内部变量不会与外部同名变量冲突","C. 自动格式化代码","D. 宏只能在 main 中使用"],"answer":1,"explanation":"Rust 的声明式宏是"部分卫生"的——宏内创建的变量名自动处理，不会污染调用处的作用域。"},
-      {"id":"u5-ch53-q4","question":"为什么说"能用函数就不要用宏"？","options":["A. 宏更慢","B. 宏更难调试、阅读和维护","C. 宏不能接受参数","D. 宏不支持泛型"],"answer":1,"explanation":"宏展开后的错误信息不直观，IDE 支持差，阅读代码时需要理解宏规则。函数更简单直接。"},
-      {"id":"u5-ch53-q5","question":"macro_rules! 中的 $e:expr 匹配什么？","options":["A. 一个语句","B. 一个类型","C. 一个表达式","D. 一个标识符"],"answer":2,"explanation":"expr 是"片段说明符"，匹配任何合法的 Rust 表达式。其他常见说明符：ident、ty、stmt、block。"},
+      {"id":"u5-ch53-q3","question":"宏的卫生性（hygiene）是什么概念？","options":["A. 自动清理内存","B. 宏内部变量不会与外部同名变量冲突","C. 自动格式化代码","D. 宏只能在 main 中使用"],"answer":1,"explanation":"Rust 的声明式宏是'部分卫生'的——宏内创建的变量名自动处理，不会污染调用处的作用域。"},
+      {"id":"u5-ch53-q4","question":"为什么说'能用函数就不要用宏'？","options":["A. 宏更慢","B. 宏更难调试、阅读和维护","C. 宏不能接受参数","D. 宏不支持泛型"],"answer":1,"explanation":"宏展开后的错误信息不直观，IDE 支持差，阅读代码时需要理解宏规则。函数更简单直接。"},
+      {"id":"u5-ch53-q5","question":"macro_rules! 中的 $e:expr 匹配什么？","options":["A. 一个语句","B. 一个类型","C. 一个表达式","D. 一个标识符"],"answer":2,"explanation":"expr 是'片段说明符'，匹配任何合法的 Rust 表达式。其他常见说明符：ident、ty、stmt、block。"},
       {"id":"u5-ch53-q6","question":"macro_rules! 中 $(...)+ 和 $(...)*  的区别是？","options":["A. 没有区别","B. + 要求至少一个匹配，* 允许零个","C. + 更快","D. * 要求至少一个"],"answer":1,"explanation":"和正则一样：+ 表示一个或多个，* 表示零个或多个。"},
       {"id":"u5-ch53-q7","question":"vec![1, 2, 3] 是怎么工作的？","options":["A. 编译器内置语法","B. 标准库定义的 macro_rules! 宏展开成 push 调用","C. 运行时解释","D. 特殊的数组字面量"],"answer":1,"explanation":"vec! 是标准库中用 macro_rules! 定义的宏，展开后大致是创建 Vec、调用 push。"},
       {"id":"u5-ch53-q8","question":"过程宏和 macro_rules! 的主要区别？","options":["A. 过程宏更简单","B. 过程宏操作 TokenStream，可以做任意代码转换","C. macro_rules! 更强大","D. 没有区别"],"answer":1,"explanation":"过程宏用 Rust 写代码来操作 token 流，功能远比模式匹配的 macro_rules! 强大，但也更复杂。"},
@@ -27,7 +27,7 @@
       {"id":"u5-ch53-q16","question":"哪个片段说明符匹配类型？","options":["A. $t:expr","B. $t:ty","C. $t:ident","D. $t:stmt"],"answer":1,"explanation":"ty 匹配类型表达式。expr 匹配值表达式，ident 匹配标识符，stmt 匹配语句。"},
       {"id":"u5-ch53-q17","question":"为什么宏不能像函数一样被 IDE 跳转到定义？","options":["A. IDE bug","B. 宏在编译期展开为不同代码，IDE 难以在展开前完整解析","C. 宏没有定义","D. 宏是运行时的"],"answer":1,"explanation":"宏展开后的代码取决于调用参数，IDE 在展开前难以确定完整的代码结构，支持度有限。"},
       {"id":"u5-ch53-q18","question":"#[macro_export] 的作用是？","options":["A. 优化宏性能","B. 让宏对 crate 外部可见","C. 让宏支持泛型","D. 启用卫生性"],"answer":1,"explanation":"#[macro_export] 把 macro_rules! 宏提升到 crate 根级别导出，外部 crate 可以通过 use crate_name::macro_name 使用。"},
-      {"id":"u5-ch53-q19","question":"syn + quote 这两个 crate 在过程宏中的角色？","options":["A. syn 发送网络请求，quote 解析 JSON","B. syn 解析 TokenStream 为 AST，quote 把 AST 转回 TokenStream","C. syn 编译代码，quote 链接代码","D. syn 和 quote 是同义词"],"answer":1,"explanation":"syn 把 token 流解析成可操作的 AST，quote! 宏把 Rust 代码模板转回 token 流。两者配合完成过程宏的"解析→变换→输出"。"},
+      {"id":"u5-ch53-q19","question":"syn + quote 这两个 crate 在过程宏中的角色？","options":["A. syn 发送网络请求，quote 解析 JSON","B. syn 解析 TokenStream 为 AST，quote 把 AST 转回 TokenStream","C. syn 编译代码，quote 链接代码","D. syn 和 quote 是同义词"],"answer":1,"explanation":"syn 把 token 流解析成可操作的 AST，quote! 宏把 Rust 代码模板转回 token 流。两者配合完成过程宏的'解析→变换→输出'。"},
       {"id":"u5-ch53-q20","question":"cargo expand 的作用？","options":["A. 压缩代码","B. 展开所有宏，显示编译器实际看到的代码","C. 编译并运行","D. 检测内存泄漏"],"answer":1,"explanation":"cargo expand（需安装 cargo-expand）把代码中的所有宏展开，输出编译器实际编译的完整代码。调试宏的必备工具。"}
     ];
   </script>
